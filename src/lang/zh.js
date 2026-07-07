@@ -1,0 +1,20 @@
+export default {
+  dashboard: '工作台',
+  login: '登录',
+  logout: '退出登录',
+  username: '用户名',
+  password: '密码',
+  submit: '提交',
+  reset: '重置',
+  search: '搜索',
+  add: '新增',
+  edit: '编辑',
+  delete: '删除',
+  view: '查看',
+  cancel: '取消',
+  confirm: '确定',
+  operation: '操作',
+  tip: '提示',
+  welcome: '欢迎使用',
+  info: '个人信息'
+}

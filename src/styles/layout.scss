@@ -1,0 +1,58 @@
+// 布局样式
+.avue-contail {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.avue-header {
+  height: $header-height;
+  flex-shrink: 0;
+  z-index: 100;
+  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
+}
+
+.avue-layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.avue-left {
+  width: $sidebar-width;
+  flex-shrink: 0;
+  background-color: #001529;
+  transition: width 0.3s;
+  overflow: hidden;
+}
+
+.avue--collapse {
+  .avue-left {
+    width: $sidebar-collapse-width;
+  }
+}
+
+.avue-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #f0f2f5;
+}
+
+.avue-tags {
+  height: $tags-height;
+  flex-shrink: 0;
+  background-color: #fff;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.avue-view {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}

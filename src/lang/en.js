@@ -1,0 +1,20 @@
+export default {
+  dashboard: 'Dashboard',
+  login: 'Login',
+  logout: 'Logout',
+  username: 'Username',
+  password: 'Password',
+  submit: 'Submit',
+  reset: 'Reset',
+  search: 'Search',
+  add: 'Add',
+  edit: 'Edit',
+  delete: 'Delete',
+  view: 'View',
+  cancel: 'Cancel',
+  confirm: 'Confirm',
+  operation: 'Operation',
+  tip: 'Tip',
+  welcome: 'Welcome',
+  info: 'Profile'
+}
