@@ -1,61 +1,297 @@
 // ============================================================
-// 登录页样式
-// 设计：品牌色径向渐变背景 + 居中白色卡片 + 精致阴影
+// 登录页样式（分屏布局）
+// 左侧：品牌色渐变展示区（Logo + 标语 + 特性亮点）
+// 右侧：白色登录表单区
 // ============================================================
 
 .login-container {
   display: flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
   height: 100vh;
-  // 品牌色径向渐变：中心亮、边缘深，比纯色更有层次
-  // 品牌色 #1A56DB = rgb(26, 86, 219)
-  background:
-    radial-gradient(circle at 30% 20%, rgba(26, 86, 219, 0.15), transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.12), transparent 50%),
-    linear-gradient(135deg, #{$primary-color-lighter} 0%, #{$gray-100} 100%);
+  overflow: hidden;
 
-  .login-box {
-    width: 400px;
-    max-width: calc(100vw - 32px);
-    padding: $spacing-2xl $spacing-2xl $spacing-xl;
-    background: $bg-card;
-    border-radius: $radius-xl;
-    box-shadow: $shadow-lg;
-    border: 1px solid $border-light;
+  // ============ 左侧：品牌展示区 ============
+  .login-brand {
+    position: relative;
+    flex: 0 0 480px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: $spacing-2xl * 2;
+    color: #fff;
+    // 品牌蓝渐变背景 + 装饰光斑（与侧边栏一致，色阶调浅一档）
+    background:
+      radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.14) 0%, transparent 40%),
+      radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.18) 0%, transparent 40%),
+      linear-gradient(135deg, #2563eb 0%, #3b6fd8 60%, #6366f1 100%);
+    overflow: hidden;
 
-    .login-title {
-      text-align: center;
-      margin-bottom: $spacing-xl;
-      font-size: $font-size-2xl;
-      font-weight: 600;
-      color: $text-primary;
-      // 标题下方加品牌色装饰短线
+    // 背景装饰：两个半透明大圆，增加层次感
+    &::before,
+    &::after {
+      content: '';
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    &::before {
+      width: 320px;
+      height: 320px;
+      top: -80px;
+      right: -100px;
+      background: rgba(255, 255, 255, 0.06);
+    }
+    &::after {
+      width: 240px;
+      height: 240px;
+      bottom: -60px;
+      left: -80px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    // 顶部 Logo + 产品名
+    .brand-header {
       position: relative;
-      padding-bottom: $spacing-md;
-      &::after {
-        content: '';
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 40px;
-        height: 3px;
-        background: $primary-color;
-        border-radius: $radius-round;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: $spacing-md;
+
+      .brand-logo {
+        width: 44px;
+        height: 44px;
+        border-radius: $radius-md;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        font-size: $font-size-xl;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .brand-name {
+        font-size: $font-size-lg;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    // 中部：主标语 + 特性亮点
+    .brand-body {
+      position: relative;
+      z-index: 1;
+
+      .brand-title {
+        margin: 0 0 $spacing-md;
+        font-size: 36px;
+        font-weight: 800;
+        line-height: 1.3;
+        letter-spacing: -0.5px;
+      }
+
+      .brand-subtitle {
+        margin: 0 0 $spacing-2xl;
+        font-size: $font-size-sm;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.9);
+        max-width: 360px;
+      }
+
+      .brand-features {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-md;
+
+        li {
+          display: flex;
+          align-items: flex-start;
+          gap: $spacing-md;
+        }
+
+        .feature-icon {
+          flex-shrink: 0;
+          width: 40px;
+          height: 40px;
+          border-radius: $radius-md;
+          background: rgba(255, 255, 255, 0.15);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          font-size: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .feature-text {
+          .feature-title {
+            font-size: $font-size-base;
+            font-weight: 600;
+            margin-bottom: 2px;
+          }
+
+          .feature-desc {
+            font-size: $font-size-xs;
+            color: rgba(255, 255, 255, 0.85);
+          }
+        }
+      }
+    }
+
+    // 底部版权
+    .brand-footer {
+      position: relative;
+      z-index: 1;
+      font-size: $font-size-xs;
+      color: rgba(255, 255, 255, 0.75);
+    }
+  }
+
+  // ============ 右侧：登录表单区 ============
+  .login-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: $bg-page;
+
+    .login-box {
+      width: 380px;
+      max-width: calc(100vw - 64px);
+    }
+
+    // 表单标题区
+    .login-head {
+      margin-bottom: $spacing-xl;
+
+      h2 {
+        margin: 0 0 $spacing-xs;
+        font-size: $font-size-2xl;
+        font-weight: 700;
+        color: $gray-900;
+      }
+
+      p {
+        margin: 0;
+        font-size: $font-size-sm;
+        color: $text-secondary;
       }
     }
 
     .login-form {
+      // 记住我 + 忘记密码
+      .login-options {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: $spacing-lg;
+
+        .forget-link {
+          font-size: $font-size-sm;
+          color: $primary-color;
+          cursor: pointer;
+
+          &:hover {
+            color: $primary-color-hover;
+            text-decoration: underline;
+          }
+        }
+      }
+
       .login-btn {
         width: 100%;
-        margin-top: $spacing-sm;
       }
 
       // 让 large 尺寸输入框更贴合整体风格
       :deep(.el-input__wrapper) {
         border-radius: $radius-md;
+      }
+
+      // 前缀图标：品牌色浅底圆角方块，视觉更精致
+      :deep(.el-input__prefix) {
+        .el-icon {
+          width: 32px;
+          height: 32px;
+          margin-left: 4px;
+          border-radius: $radius-md;
+          background: $primary-color-light;
+          color: $primary-color;
+          font-size: 16px;
+          // 居中图标
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+    }
+
+    // 体验账号提示条
+    .login-tip {
+      margin-top: $spacing-lg;
+      padding: $spacing-sm $spacing-md;
+      background: $primary-color-light;
+      border-radius: $radius-md;
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+      font-size: $font-size-xs;
+      color: $text-regular;
+
+      .el-icon {
+        color: $primary-color;
+        font-size: 16px;
+      }
+
+      b {
+        color: $primary-color;
+        font-weight: 600;
+      }
+
+      // 注册页底部"已有账号？立即登录"居中链接条
+      &--center {
+        justify-content: center;
+        background: transparent;
+        padding: 0;
+
+        .link {
+          color: $primary-color;
+          cursor: pointer;
+          font-weight: 500;
+
+          &:hover {
+            color: $primary-color-hover;
+            text-decoration: underline;
+          }
+        }
+      }
+    }
+
+    // 用户协议链接
+    .agree-link {
+      color: $primary-color;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
+// ============ 响应式：窄屏隐藏左侧品牌区 ============
+@media (max-width: 768px) {
+  .login-container {
+    .login-brand {
+      display: none;
+    }
+    .login-main {
+      .login-box {
+        width: 100%;
+        max-width: 360px;
       }
     }
   }

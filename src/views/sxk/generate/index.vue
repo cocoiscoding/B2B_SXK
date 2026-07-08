@@ -153,10 +153,10 @@
       </template>
       <template #aside>
         <template v-if="currentGeneration">
-          <el-tag size="small" effect="plain" type="success">
+          <el-tag v-if="currentGeneration.product?.name" size="small" effect="plain" type="success">
             {{ currentGeneration.product.name }}
           </el-tag>
-          <el-tag size="small" effect="plain" style="margin-left: 8px">
+          <el-tag v-if="sceneName(currentGeneration.scene_code)" size="small" effect="plain" style="margin-left: 8px">
             {{ sceneName(currentGeneration.scene_code) }}
           </el-tag>
           <el-button
@@ -952,11 +952,45 @@ function resetAll() {
   color: $text-primary;
 }
 
-// 场景单选按钮组：允许换行
+// 场景单选按钮组：卡片式选择器（每个场景独立圆角胶囊，可自由换行）
 .sxk-generate__scene {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
+
+  // 重置 el-radio-button 默认连体按钮组样式，改为独立圆角卡片
+  :deep(.el-radio-button) {
+    // 关键：让每个按钮独立，不再依赖相邻按钮的 border-radius/-webkit-border-image
+    margin: 0;
+  }
+
+  :deep(.el-radio-button__inner) {
+    // 去掉 Element Plus 连体按钮组的首尾圆角假设
+    border: 1px solid $border-base !important;
+    border-radius: $radius-md !important;
+    // 去掉左边邻接阴影（el-radio-button 默认 box-shadow: -1px 0 0 0 ...）
+    box-shadow: none !important;
+    background: $bg-card;
+    color: $text-regular;
+    font-weight: 500;
+    padding: 8px 18px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: $primary-color;
+      color: $primary-color;
+      background: $primary-color-light;
+    }
+  }
+
+  // 选中态
+  :deep(.el-radio-button.is-active .el-radio-button__inner) {
+    border-color: $primary-color !important;
+    background: $primary-color !important;
+    color: #fff !important;
+    box-shadow: 0 2px 8px rgba(26, 86, 219, 0.25) !important;
+  }
 }
 
 // 动态参数小标题：左侧品牌色竖线（与 dashboard页/toolbar 风格一致）
