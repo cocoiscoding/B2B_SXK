@@ -5,10 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --mode dev",
-    "dev:local": "vite --mode local",
-    "dev:gdccs": "vite --mode gdccs",
     "build": "vite build",
-    "build:gdccs": "vite build --mode gdccs",
     "build:prod": "vite build --mode prod",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"

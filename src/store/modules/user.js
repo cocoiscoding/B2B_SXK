@@ -62,6 +62,64 @@ export const useUserStore = defineStore('user', {
     // 根据用户名登录
     loginByUsername(userInfo) {
       return new Promise((resolve, reject) => {
+        // Phase 4：后端未启 → 走本地 Mock 登录
+        // 校验规则：用户名非空 + 密码非空 + 验证码（若开启）与本地缓存一致
+        if (import.meta.env.VITE_APP_USE_MOCK_AUTH === 'true') {
+          const username = (userInfo.username || '').trim()
+          const password = (userInfo.password || '').trim()
+          if (!username || !password) {
+            ElMessage({ message: '请输入用户名与密码', type: 'error' })
+            return reject(new Error('用户名/密码为空'))
+          }
+          if (userInfo.captchaMode) {
+            const expected = sessionStorage.getItem('sxk-captcha-text') || ''
+            if (!userInfo.code || userInfo.code.trim().toLowerCase() !== expected.toLowerCase()) {
+              ElMessage({ message: '验证码错误', type: 'error' })
+              return reject(new Error('验证码错误'))
+            }
+          }
+          // 构造 BladeX OAuth2 兼容的响应壳
+          // Mock 阶段补充完整用户资料字段，供"个人信息"页展示
+          const nowStr = new Date().toISOString()
+          const fakeTokenResp = {
+            data: {
+              access_token: `mock-access-${Date.now()}`,
+              refresh_token: `mock-refresh-${Date.now()}`,
+              tenant_id: userInfo.tenantId || website.tenantId,
+              user_id: 'u_mock',
+              user_name: username,
+              token_type: 'bearer',
+              expires_in: 3600,
+              // —— 个人信息展示字段 ——
+              nick_name: username === 'admin' ? '系统管理员' : '产品运营',
+              real_name: username === 'admin' ? 'Admin' : '李知微',
+              avatar: '',
+              email: `${username}@sxk.example.com`,
+              phone: '138****8888',
+              dept_id: 'd_001',
+              dept_name: '产品营销中心',
+              role_id: username === 'admin' ? 'r_admin' : 'r_operator',
+              role_name: username === 'admin' ? '系统管理员' : '内容运营',
+              created_at: '2025-03-12 09:30:00',
+              last_login_at: nowStr
+            }
+          }
+          const data = fakeTokenResp.data
+          this.setToken(data.access_token)
+          this.setRefreshToken(data.refresh_token)
+          this.setTenantId(data.tenant_id)
+          this.setUserInfo(data)
+          // Mock 阶段同步填充 roles，供"个人信息"页与权限判断使用
+          this.roles = [
+            { role_id: data.role_id, role_name: data.role_name, role_alias: data.role_name }
+          ]
+          this.initSxkMenu() // 神行库：登录后初始化 5 个一级导航菜单（mock 阶段跳过 /blade-system/menu/routes）
+          this.delAllTag()
+          this.clearLock()
+          return resolve()
+        }
+
+        // 原真实链路：调 BladeX /api/blade-auth/oauth/token
         loginByUsername(
           userInfo.tenantId,
           userInfo.deptId,
@@ -83,6 +141,7 @@ export const useUserStore = defineStore('user', {
               this.setRefreshToken(data.refresh_token)
               this.setTenantId(data.tenant_id)
               this.setUserInfo(data)
+              this.initSxkMenu() // 神行库：登录后初始化 5 个一级导航菜单（mock 阶段跳过 /blade-system/menu/routes）
               this.delAllTag()
               this.clearLock()
             }
@@ -258,10 +317,67 @@ export const useUserStore = defineStore('user', {
       setStore({ name: 'permission', content: this.permission })
     },
     delAllTag() {
-      // 委托给 tags store（在 permission.js 中调用）
+      // 跨 store 委托：tags（动态 import 避免循环依赖）
+      return import('@/store/modules/tags').then(({ useTagsStore }) => {
+        useTagsStore().delAllTag()
+      })
     },
     clearLock() {
-      // 清除锁屏状态（委托给 common store）
+      // 跨 store 委托：common（动态 import 避免循环依赖）
+      return import('@/store/modules/common').then(({ useCommonStore }) => {
+        useCommonStore().clearLock()
+      })
+    },
+    /**
+     * 神行库前端菜单初始化
+     *
+     * 说明：后端菜单接口 /blade-system/menu/routes 未联调前，
+     *      前端直接写入 5 个一级导航（与《神行库_产品需求文档》4.2 一级导航一致）。
+     *      后续真实菜单接口接入时，可在 loginByUsername 中改为 await this.getMenu()，
+     *      此方法保留可作为"登录无菜单接口时的兜底"。
+     *
+     * 字段说明（参考 src/config/website.js 的 menu.props）：
+     *   name   -> label
+     *   path   -> path
+     *   source -> icon
+     *   children
+     */
+    initSxkMenu() {
+      const sxkMenu = [
+        {
+          path: '/dashboard/index',
+          name: '首页',
+          source: 'HomeFilled', // Element Plus icon 组件名
+          children: []
+        },
+        {
+          path: '/knowledge/index',
+          name: '产品知识库',
+          source: 'Goods',
+          children: []
+        },
+        {
+          path: '/generate/index',
+          name: '内容生成',
+          source: 'MagicStick',
+          children: []
+        },
+        {
+          path: '/history/index',
+          name: '生成历史',
+          source: 'Clock',
+          children: []
+        },
+        {
+          path: '/templates/index',
+          name: '模板管理',
+          source: 'Files',
+          children: []
+        }
+      ]
+      this.menuAll = sxkMenu
+      this.menu = sxkMenu
+      setStore({ name: 'menu', content: sxkMenu })
     }
   }
 })

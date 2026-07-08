@@ -1,21 +1,112 @@
-// SCSS 变量定义（通过 vite additionalData 全局注入）
-// 颜色
-$primary-color: #409eff;
-$success-color: #67c23a;
-$warning-color: #e6a23c;
-$danger-color: #f56c6c;
-$info-color: #909399;
+// ============================================================
+// 神行库 · 全局设计 Token
+// 通过 vite additionalData 全局注入，所有 .scss / .vue <style> 可直接引用
+// 设计基准：严格对齐原型 SXK.html（Tailwind 蓝色主题）
+//   - 品牌主色 #1A56DB（原型 bg-[#1A56DB]）
+//   - 页面底色 #F3F4F6（原型 bg-[#F3F4F6] / Tailwind gray-100）
+//   - 侧边栏：品牌蓝底 + 白色半透明 active + 白色左边框
+//   - 顶栏：64px 白底 + 底分隔线
+// ============================================================
 
-// 布局
-$header-height: 60px;
-$sidebar-width: 220px;
-$sidebar-collapse-width: 64px;
-$tags-height: 40px;
+// ---------- 品牌主色（原型 bg-[#1A56DB]，对应 hover:bg-blue-700） ----------
+// 与 Element Plus 默认 #409eff 区分，采用原型的神行库品牌蓝
+$primary-color: #1A56DB;
+$primary-color-hover: #1d4ed8;       // Tailwind blue-700
+$primary-color-light: #eff6ff;       // Tailwind blue-50
+$primary-color-lighter: #dbeafe;     // Tailwind blue-100
 
-// 字体
+// ---------- 功能色（对齐原型 Toast 色：success #22c55e / error #ef4444 / warning #f59e0b / info #3b82f6） ----------
+$success-color: #16a34a;             // Tailwind green-600
+$warning-color: #f59e0b;             // 原型 toast-warning
+$danger-color: #ef4444;              // 原型 toast-error
+$info-color: #3b82f6;                // 原型 toast-info
+
+// 场景色（对齐原型模板卡片：blue-50/blue-600、orange、green、purple、indigo）
+$scene-product: #2563eb;     // 产品介绍 - Tailwind blue-600
+$scene-competitor: #ea580c;  // 竞品对比 - Tailwind orange-600
+$scene-channel: #16a34a;     // 渠道适配 - Tailwind green-600
+$scene-email: #9333ea;       // 邮件营销 - Tailwind purple-600
+$scene-event: #dc2626;       // 活动宣传
+$scene-other: #475569;       // 其他
+
+// ---------- 灰阶（统一为 10 级 Tailwind-like 体系） ----------
+$gray-50: #f9fafb;
+$gray-100: #f3f4f6;
+$gray-200: #e5e7eb;
+$gray-300: #d1d5db;
+$gray-400: #9ca3af;
+$gray-500: #6b7280;
+$gray-600: #4b5563;
+$gray-700: #374151;
+$gray-800: #1f2937;
+$gray-900: #111827;
+
+// 文字色（基于灰阶派生）
+$text-primary: $gray-800;      // 主要文字
+$text-regular: $gray-600;      // 常规文字
+$text-secondary: $gray-500;    // 次要文字
+$text-placeholder: $gray-400;  // 占位/禁用
+
+// 边框色（基于灰阶派生）
+$border-light: $gray-100;      // 最浅分隔线
+$border-base: $gray-200;       // 常规边框
+$border-dark: $gray-300;       // 深边框（hover）
+
+// ---------- 背景色 ----------
+$bg-page: #F3F4F6;             // 页面底色（原型 bg-[#F3F4F6] / Tailwind gray-100）
+$bg-card: #ffffff;             // 卡片背景
+$bg-hover: $gray-50;           // 悬浮背景
+$bg-emphasis: $primary-color-light; // 强调背景（浅蓝）
+
+// ---------- 圆角（对齐 Tailwind：rounded-md 6px / rounded-lg 8px / rounded-xl 12px） ----------
+$radius-sm: 4px;
+$radius-md: 6px;
+$radius-lg: 8px;
+$radius-xl: 12px;
+$radius-round: 9999px;
+
+// ---------- 阴影（对齐 Tailwind shadow-sm / shadow-md，低饱和） ----------
+$shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);                 // Tailwind shadow-sm
+$shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);               // Tailwind shadow-md
+$shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);             // Tailwind shadow-lg
+$shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.1);            // 卡片 hover（对齐 hover:shadow-md）
+
+// ---------- 间距（统一 6 级） ----------
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+$spacing-2xl: 32px;
+
+// ---------- 字体 ----------
+$font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+  'PingFang SC', 'Microsoft YaHei', sans-serif;
+$font-family-mono: 'Menlo', 'Monaco', 'Consolas', monospace;
+
+$font-size-xs: 12px;
+$font-size-sm: 13px;
 $font-size-base: 14px;
-$font-size-small: 12px;
-$font-size-large: 16px;
+$font-size-lg: 16px;
+$font-size-xl: 18px;
+$font-size-2xl: 22px;
+$font-size-3xl: 26px;
 
-// 过渡
-$transition-default: all 0.3s ease;
+// ---------- 布局 ----------
+$header-height: 64px;           // 顶栏高度（原型 h-16 = 64px）
+$sidebar-width: 220px;          // 原型 w-[220px]
+$sidebar-collapse-width: 64px;
+$tags-height: 38px;
+
+// 侧边栏配色（严格对齐原型：bg-[#1A56DB] + 白色半透明 active + 白色左边框）
+$sidebar-bg: #1A56DB;                          // 品牌蓝底（原型 aside bg-[#1A56DB]）
+$sidebar-bg-hover: rgba(255, 255, 255, 0.1);   // 白色 10% 半透明（原型 hover:bg-white/10）
+$sidebar-text: rgba(255, 255, 255, 0.65);      // 未激活项文字（原型 text-white/60 附近）
+$sidebar-text-active: #ffffff;                 // 激活项文字
+$sidebar-active-bg: rgba(255, 255, 255, 0.1);  // 激活项背景（原型 .sidebar-active）
+$sidebar-active-border: #ffffff;               // 激活项左边框（原型 border-left: 4px solid #fff）
+
+// ---------- 过渡 ----------
+$transition-base: all 0.2s ease;
+$transition-fast: all 0.15s ease;
+$transition-slow: all 0.3s ease;

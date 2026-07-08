@@ -1,18 +1,16 @@
 <template>
   <div class="avue-contail" :class="{ 'avue--collapse': commonStore.isCollapse }">
-    <!-- 顶部导航栏 -->
-    <div class="avue-header">
-      <Top ref="topRef" />
-    </div>
     <div class="avue-layout">
-      <!-- 左侧导航栏 -->
+      <!-- 左侧导航栏（全高，对齐原型 aside：logo 在侧边栏顶部） -->
       <div class="avue-left">
         <Sidebar />
       </div>
       <div class="avue-main">
-        <!-- 顶部标签卡 -->
-        <Tags />
-        <!-- 主体视图层 -->
+        <!-- 顶部导航栏（只跨主内容区，对齐原型 header） -->
+        <div class="avue-header">
+          <Top ref="topRef" />
+        </div>
+        <!-- 主体视图层（原型 SXK.html 无标签栏，顶栏下方直接是 main 内容区） -->
         <div class="avue-view">
           <router-view v-slot="{ Component, route }">
             <keep-alive>
@@ -32,7 +30,6 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import Top from './top/index.vue'
 import Sidebar from './sidebar/index.vue'
-import Tags from './tags.vue'
 import { useCommonStore } from '@/store/modules/common'
 import { getScreenSize } from '@/util/admin'
 

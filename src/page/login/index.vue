@@ -30,7 +30,8 @@
             </el-col>
             <el-col :span="10">
               <div class="captcha-img" @click="refreshCaptcha">
-                <img v-if="captchaUrl" :src="captchaUrl" alt="验证码" />
+                <!-- Phase 4：使用本地 SVG 验证码（v-html 注入），后端就绪后可改回 <img :src="captchaUrl"> -->
+                <div v-if="captchaSvg" class="captcha-img__svg" v-html="captchaSvg" />
                 <span v-else>点击获取</span>
               </div>
             </el-col>
@@ -59,7 +60,6 @@ import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
 import { getCaptcha } from '@/api/user'
 import website from '@/config/website'
-import { baseUrl } from '@/config/env'
 import { randomString } from '@/util/util'
 
 const router = useRouter()
@@ -67,7 +67,8 @@ const userStore = useUserStore()
 
 const loginFormRef = ref(null)
 const loading = ref(false)
-const captchaUrl = ref('')
+// Phase 4：本地 SVG 验证码串；后端就绪后改回 captchaUrl
+const captchaSvg = ref('')
 
 const loginForm = reactive({
   tenantId: website.tenantId,
@@ -85,9 +86,25 @@ const loginRules = {
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 }
 
-const refreshCaptcha = () => {
+/**
+ * 刷新本地 SVG 验证码
+ * Phase 4：后端未启，本地生成 SVG；后端就绪后可改回 await getCaptcha() 拉真实图片
+ */
+const refreshCaptcha = async () => {
   loginForm.key = randomString()
-  captchaUrl.value = `${baseUrl}/api/blade-auth/oauth/captcha?key=${loginForm.key}`
+  try {
+    const resp = await getCaptcha()
+    const payload = resp.data || resp || {}
+    loginForm.key = payload.key || loginForm.key
+    captchaSvg.value = payload.svg || ''
+    // 把当前验证码正确答案暂存到 sessionStorage（仅前端演示用），便于登录时校验
+    // 注意：真实环境必须由后端校验，前端任何"客户端比对"都属安全隐患
+    if (payload.text) {
+      sessionStorage.setItem('sxk-captcha-text', payload.text)
+    }
+  } catch (e) {
+    captchaSvg.value = ''
+  }
 }
 
 const handleLogin = async () => {
@@ -117,18 +134,37 @@ onMounted(() => {
 <style lang="scss" scoped>
 .captcha-img {
   height: 40px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border: 1px solid $border-base;
+  border-radius: $radius-md;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  background: $bg-card;
+  transition: $transition-fast;
+  &:hover {
+    border-color: $primary-color;
+  }
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+  }
+
+  // Phase 4：本地 SVG 验证码容器
+  &__svg {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    :deep(svg) {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
   }
 }
 </style>

@@ -54,8 +54,9 @@ export default [
   },
   {
     path: '/',
-    name: '首页',
-    redirect: '/workbenches/index'
+    name: 'Root',
+    // 神行库默认跳转 Dashboard；保留旧路径 /workbenches/index 在 router/views 中仍然可用
+    redirect: '/dashboard'
   },
   {
     path: '/myiframe',

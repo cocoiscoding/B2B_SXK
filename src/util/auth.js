@@ -1,7 +1,8 @@
 import Cookies from 'js-cookie'
 
-const TokenKey = 'saber-access-token'
-const RefreshTokenKey = 'saber-refresh-token'
+// 神行库 token 在 cookie 中的 key，独立于其他同源项目
+const TokenKey = 'sxk-access-token'
+const RefreshTokenKey = 'sxk-refresh-token'
 
 export function getToken() {
   return Cookies.get(TokenKey)

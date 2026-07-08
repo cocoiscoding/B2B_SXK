@@ -20,6 +20,11 @@ import './styles/login.scss'
 // 路由权限
 import './permission'
 
+// 全局基础组件：必须在 app.component 之前显式 import，
+// 因 unplugin-vue-components 已关闭 src/components 扫描。
+import basicContainer from '@/components/basic-container/main.vue'
+import basicBlock from '@/components/basic-block/main.vue'
+
 const app = createApp(App)
 
 // 注册插件

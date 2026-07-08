@@ -50,29 +50,31 @@ const closeTag = (tag) => {
 .avue-tags {
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 $spacing-sm;
 
   .tags-wrapper {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: $spacing-xs;
     white-space: nowrap;
   }
 
   .tag-item {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 12px;
-    border-radius: 3px;
+    gap: $spacing-xs;
+    padding: $spacing-xs $spacing-md;
+    border-radius: $radius-sm;
     cursor: pointer;
-    font-size: 13px;
-    border: 1px solid #e4e7ed;
-    background: #fff;
-    transition: all 0.2s;
+    font-size: $font-size-sm;
+    border: 1px solid $border-base;
+    background: $bg-card;
+    color: $text-regular;
+    transition: $transition-base;
 
     &:hover {
       color: $primary-color;
+      border-color: $primary-color;
     }
 
     &.active {
@@ -82,8 +84,8 @@ const closeTag = (tag) => {
     }
 
     .close-icon {
-      font-size: 12px;
-      border-radius: 50%;
+      font-size: $font-size-xs;
+      border-radius: $radius-round;
       &:hover {
         background-color: rgba(255, 255, 255, 0.3);
       }
