@@ -4,11 +4,11 @@
   - 用于：产品知识库的目标客户/竞品/卖点，自定义模板的标签等
 -->
 <template>
-  <div class="tag-input" :class="{ 'is-focused': focused }">
+  <div class="tag-input" :class="{ 'is-focused': focused, 'is-disabled': disabled }">
     <el-tag
       v-for="(tag, idx) in modelValue"
       :key="tag + '-' + idx"
-      closable
+      :closable="!disabled"
       type="info"
       effect="plain"
       @close="remove(idx)"
@@ -16,6 +16,7 @@
       {{ tag }}
     </el-tag>
     <input
+      v-if="!disabled"
       v-model="input"
       class="tag-input__native"
       :placeholder="modelValue.length === 0 ? placeholder : ''"
@@ -32,7 +33,8 @@ import { ref } from 'vue'
 
 const props = defineProps({
   modelValue: { type: Array, default: () => [] },
-  placeholder: { type: String, default: '回车添加' }
+  placeholder: { type: String, default: '回车添加' },
+  disabled: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -92,6 +94,13 @@ const onBackspace = () => {
   &.is-focused {
     border-color: $primary-color;
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+  }
+  &.is-disabled {
+    cursor: default;
+    background: $gray-50;
+    &:hover {
+      border-color: $border-base;
+    }
   }
 
   &__native {

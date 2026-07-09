@@ -1,14 +1,16 @@
 /**
- * 神行库业务接口调用层（Mock 模式）
+ * 神行库业务接口调用层
  *
  * 设计要点：
  * 1. 命名与《神行库_接口设计文档 v1.1》保持一致（资源复数 / 动作子资源）。
- * 2. 每个方法返回 Promise<AxiosResponse> 形态的 { code, msg, data, trace_id }，
+ * 2. 每个方法返回 Promise，resolve 值统一为 { code, msg, data, trace_id } 形态，
  *    兼容现有 axios 拦截器的 status === 200 判定（见 src/router/axios.js）。
- * 3. 当后端就绪后，只需把实现替换成 `request({...})`，
- *    业务页面 import 路径保持不变，最大化复用。
+ * 3. 双轨开关：USE_MOCK_BIZ=true（默认）走本地 Mock 数据；
+ *    后端就绪后在 .env.dev 改为 false，所有方法自动切换到真实 request() 链路，
+ *    业务页面 import 路径与调用方式完全不变。
  */
 
+import request from '@/router/axios'
 import {
   ok,
   mockCurrentUser,
@@ -24,6 +26,13 @@ import {
   mockProductStats,
   mockSceneNameMap
 } from './data'
+
+// 业务域 Mock 开关：由 .env.dev 中 VITE_APP_USE_MOCK_BIZ 控制
+const USE_MOCK_BIZ = import.meta.env.VITE_APP_USE_MOCK_BIZ !== 'false'
+
+// 真实链路统一封装：request() 返回 axios response { status, data: {code,msg,data} }，
+// 此处提取 res.data，使其与 Mock 的 ok() 返回形态完全一致，调用方无感知切换。
+const real = (config) => request(config).then((res) => res.data)
 
 // ----------------- 工具：模拟延迟 -----------------
 const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -75,12 +84,33 @@ export const sxkApi = {
   // ----------------- 产品域（4.3） -----------------
 
   /**
-   * 4.3.1 产品列表 GET /products
+   * 4.3.1 产品列表 GET /api/sxk/products
+   * @param {number} page            页码（从 1 起）
+   * @param {number} size            每页条数
+   * @param {string} keyword         搜索关键词（可选）
+   * @param {string} category        分类筛选（可选）
+   * @param {string} sort            排序字段，默认 -updated_at（可选）
+   * @param {boolean} include_deleted 是否包含已删除产品（可选）
    */
-  listProducts: ({ page = 1, size = 20, keyword = '', category = '' } = {}) => {
+  listProducts: ({
+    page = 1,
+    size = 20,
+    keyword = '',
+    category = '',
+    sort = '-updated_at',
+    include_deleted = false
+  } = {}) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/products',
+        method: 'get',
+        params: { page, size, keyword, category, sort, include_deleted }
+      })
+    }
     return delay().then(() => {
       const kw = String(keyword || '').trim().toLowerCase()
-      const filtered = mockProducts.filter((p) => {
+      let filtered = mockProducts.filter((p) => {
+        if (!include_deleted && p.is_deleted) return false
         if (category && p.category !== category) return false
         if (!kw) return true
         const haystack = [p.name, p.category, p.description, ...(p.selling_points || [])]
@@ -88,14 +118,30 @@ export const sxkApi = {
           .toLowerCase()
         return haystack.includes(kw)
       })
+      // 排序
+      const desc = sort.startsWith('-')
+      const field = desc ? sort.slice(1) : sort
+      filtered = filtered.slice().sort((a, b) => {
+        const va = a[field] || ''
+        const vb = b[field] || ''
+        if (va < vb) return desc ? 1 : -1
+        if (va > vb) return desc ? -1 : 1
+        return 0
+      })
       return ok(paginate(filtered, page, size))
     })
   },
 
   /**
-   * 4.3.2 产品详情 GET /products/{id}
+   * 4.3.2 产品详情 GET /api/sxk/products/{productId}
    */
   getProduct: (productId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/products/${productId}`,
+        method: 'get'
+      })
+    }
     return delay().then(() => {
       const found = mockProducts.find((p) => p.product_id === productId)
       if (!found) {
@@ -106,19 +152,26 @@ export const sxkApi = {
   },
 
   /**
-   * 4.3.3 新增产品 POST /products
+   * 4.3.3 新增产品 POST /api/sxk/products
    */
   createProduct: (payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/products',
+        method: 'post',
+        data: payload
+      })
+    }
     return delay().then(() => {
       // BR-K-03 业务校验：必填字段
       if (!payload.name || !payload.category) {
         return { code: 4001, msg: '产品名称与分类为必填项', data: null }
       }
-      // BR-K-03：至少 1 项功能特性
+      // BR-K-04：至少 1 项功能特性
       if (!payload.features || payload.features.length === 0) {
-        return { code: 4006, msg: '请至少添加一个内容块', data: null }
+        return { code: 4006, msg: '请至少添加一个功能特性', data: null }
       }
-      // 重名校验
+      // BR-K-03：同名校验（排除已删除）
       if (mockProducts.some((p) => p.name === payload.name && !p.is_deleted)) {
         return { code: 4091, msg: '产品名称已存在', data: null }
       }
@@ -133,6 +186,7 @@ export const sxkApi = {
         target_customers: payload.target_customers || [],
         competitors: payload.competitors || [],
         selling_points: payload.selling_points || [],
+        attachments: payload.attachments || { images: [], docs: [] },
         created_by: mockCurrentUser.user_id,
         created_at: now,
         updated_at: now,
@@ -144,15 +198,35 @@ export const sxkApi = {
   },
 
   /**
-   * 4.3.4 修改产品 PUT /products/{id}
+   * 4.3.4 修改产品 PUT /api/sxk/products/{productId}
    */
   updateProduct: (productId, payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/products/${productId}`,
+        method: 'put',
+        data: payload
+      })
+    }
     return delay().then(() => {
       const idx = mockProducts.findIndex((p) => p.product_id === productId)
       if (idx === -1) return { code: 4041, msg: '产品不存在', data: null }
+      // BR-K-05：必填字段校验
+      if (!payload.name || !payload.category) {
+        return { code: 4001, msg: '产品名称与分类为必填项', data: null }
+      }
+      // BR-K-05：同名校验（排除自身）
+      if (
+        mockProducts.some(
+          (p) => p.product_id !== productId && p.name === payload.name && !p.is_deleted
+        )
+      ) {
+        return { code: 4091, msg: '产品名称已存在', data: null }
+      }
       mockProducts[idx] = {
         ...mockProducts[idx],
         ...payload,
+        attachments: payload.attachments || mockProducts[idx].attachments,
         updated_at: new Date().toISOString()
       }
       return ok(null)
@@ -160,9 +234,15 @@ export const sxkApi = {
   },
 
   /**
-   * 4.3.5 删除产品 DELETE /products/{id}（软删）
+   * 4.3.5 删除产品 DELETE /api/sxk/products/{productId}（软删）
    */
   removeProduct: (productId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/products/${productId}`,
+        method: 'delete'
+      })
+    }
     return delay().then(() => {
       const p = mockProducts.find((x) => x.product_id === productId)
       if (!p) return { code: 4041, msg: '产品不存在', data: null }
@@ -173,9 +253,15 @@ export const sxkApi = {
   },
 
   /**
-   * 4.3.9 产品统计 GET /products/stats
+   * 4.3.6 产品统计 GET /api/sxk/products/stats
    */
   getProductStats: () => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/products/stats',
+        method: 'get'
+      })
+    }
     return delay(150).then(() => ok(mockProductStats))
   },
 
@@ -191,6 +277,13 @@ export const sxkApi = {
     keyword = '',
     is_custom = null
   } = {}) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/templates',
+        method: 'get',
+        params: { page, size, scene_code, keyword, is_custom }
+      })
+    }
     return delay().then(() => {
       const kw = String(keyword || '').trim().toLowerCase()
       const filtered = mockTemplates.filter((t) => {
@@ -205,23 +298,48 @@ export const sxkApi = {
 
   /**
    * 4.5.2 模板详情 GET /templates/{id}
+   * 返回模板本身 + 同场景下所有模板列表（templates 数组）
    */
   getTemplate: (templateId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/templates/${templateId}`,
+        method: 'get'
+      })
+    }
     return delay().then(() => {
       const t = mockTemplates.find((x) => x.template_id === templateId)
       if (!t) return { code: 4041, msg: '模板不存在', data: null }
-      return ok(t)
+      // 附带同场景下的所有模板（用于详情弹窗"已有模板"区块）
+      const siblings = mockTemplates
+        .filter((x) => x.scene_code === t.scene_code)
+        .map((x) => ({
+          template_id: x.template_id,
+          name: x.name,
+          output_format: x.output_format,
+          description: x.description,
+          use_count_30d: x.use_count_30d,
+          updated_at: x.updated_at
+        }))
+      return ok({ ...t, templates: siblings })
     })
   },
 
   /**
-   * 4.5.3 创建自定义模板 POST /templates
+   * 4.5.3 创建子模板 POST /templates
    */
   createTemplate: (payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/templates',
+        method: 'post',
+        data: payload
+      })
+    }
     return delay().then(() => {
-      // BR-T-05：至少 1 个章节
-      if (!payload.sections || payload.sections.length === 0) {
-        return { code: 4006, msg: '请至少添加一个内容块', data: null }
+      // BR-T-05：sections 可选，如提供则至少 1 个
+      if (payload.sections && payload.sections.length === 0) {
+        return { code: 4006, msg: '内容结构至少需要 1 个章节', data: null }
       }
       // BR-T-04：场景下重名校验
       if (
@@ -237,11 +355,11 @@ export const sxkApi = {
         name: payload.name,
         scene_code: payload.scene_code,
         output_format: payload.output_format || 'long_text',
+        style: payload.style || '',
         description: payload.description || '',
         prompt: payload.prompt || '',
         is_custom: true,
         use_count_30d: 0,
-        tags: payload.tags || [],
         sections: payload.sections || [],
         updated_at: now
       }
@@ -251,9 +369,71 @@ export const sxkApi = {
   },
 
   /**
-   * 4.5.6 模板使用次数 +1（mock：仅自增 use_count_30d）
+   * 4.5.4 更新子模板 PUT /templates/{id}
+   */
+  updateTemplate: (templateId, payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/templates/${templateId}`,
+        method: 'put',
+        data: payload
+      })
+    }
+    return delay().then(() => {
+      const idx = mockTemplates.findIndex((x) => x.template_id === templateId)
+      if (idx === -1) return { code: 4041, msg: '模板不存在', data: null }
+      // BR-T-04：场景下重名校验（排除自身）
+      if (
+        mockTemplates.some(
+          (t) =>
+            t.template_id !== templateId &&
+            t.scene_code === mockTemplates[idx].scene_code &&
+            t.name === payload.name
+        )
+      ) {
+        return { code: 4092, msg: '当前场景下已存在同名模板', data: null }
+      }
+      mockTemplates[idx] = {
+        ...mockTemplates[idx],
+        ...payload,
+        updated_at: new Date().toISOString()
+      }
+      return ok(null)
+    })
+  },
+
+  /**
+   * 4.5.5 删除子模板 DELETE /templates/{id}
+   */
+  deleteTemplate: (templateId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/templates/${templateId}`,
+        method: 'delete'
+      })
+    }
+    return delay().then(() => {
+      const idx = mockTemplates.findIndex((x) => x.template_id === templateId)
+      if (idx === -1) return { code: 4041, msg: '模板不存在', data: null }
+      // BR-T-06：预置模板不可删除
+      if (!mockTemplates[idx].is_custom) {
+        return { code: 4030, msg: '预置模板不可删除', data: null }
+      }
+      mockTemplates.splice(idx, 1)
+      return ok(null)
+    })
+  },
+
+  /**
+   * 4.5.6 模板使用次数 +1 POST /templates/{id}/use
    */
   useTemplate: (templateId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/templates/${templateId}/use`,
+        method: 'post'
+      })
+    }
     return delay(80).then(() => {
       const t = mockTemplates.find((x) => x.template_id === templateId)
       if (t) t.use_count_30d += 1
@@ -265,6 +445,12 @@ export const sxkApi = {
    * 4.5.7 模板场景与标签元数据 GET /templates/meta
    */
   getTemplateMeta: () => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/templates/meta',
+        method: 'get'
+      })
+    }
     return delay(80).then(() =>
       ok({
         scene_codes: [
@@ -279,10 +465,111 @@ export const sxkApi = {
           { code: 'long_text', name: '长文案' },
           { code: 'short_text', name: '短文案' },
           { code: 'table', name: '表格' },
-          { code: 'outline', name: '大纲' }
+          { code: 'outline', name: '大纲' },
+          { code: 'email', name: '邮件' }
         ]
       })
     )
+  },
+
+  // ----------------- 场景域（4.5.8~10） -----------------
+
+  /**
+   * 4.5.8 场景列表 GET /scenes
+   */
+  getSceneSchemas: () => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/scenes',
+        method: 'get'
+      })
+    }
+    return delay(100).then(() => ok({ scenes: mockSceneSchemas }))
+  },
+
+  /**
+   * 4.5.9 新增场景 POST /scenes
+   */
+  createScene: (payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/sxk/scenes',
+        method: 'post',
+        data: payload
+      })
+    }
+    return delay().then(() => {
+      // BR-T-01：场景名称不可重复
+      if (mockSceneSchemas.some((s) => s.name === payload.name)) {
+        return { code: 4092, msg: '场景名称已存在', data: null }
+      }
+      // 将 { 参数名: 参数值 } 对象转为 params 数组
+      const params = Object.entries(payload.params || {}).map(([label, desc]) => {
+        if (typeof desc === 'string' && desc.includes(' / ')) {
+          return { key: label, type: 'enum', label, options: desc.split(' / ').map((s) => s.trim()), required: true, default: desc.split(' / ')[0].trim() }
+        }
+        return { key: label, type: 'text', label, required: true, default: desc }
+      })
+      const scene_code = `custom_${Date.now()}`
+      const scene = {
+        scene_code,
+        name: payload.name,
+        description: payload.description || '',
+        color: payload.color || 'blue',
+        icon: payload.icon || 'document',
+        params
+      }
+      mockSceneSchemas.push(scene)
+      return ok({ scene_code })
+    })
+  },
+
+  /**
+   * 4.5.10 更新场景 PUT /scenes/{scene_code}
+   */
+  updateScene: (sceneCode, payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/sxk/scenes/${sceneCode}`,
+        method: 'put',
+        data: payload
+      })
+    }
+    return delay().then(() => {
+      const idx = mockSceneSchemas.findIndex((s) => s.scene_code === sceneCode)
+      if (idx === -1) return { code: 4041, msg: '场景不存在', data: null }
+      // BR-T-01：场景名称不可与其他场景重复
+      if (
+        mockSceneSchemas.some(
+          (s) => s.scene_code !== sceneCode && s.name === payload.name
+        )
+      ) {
+        return { code: 4092, msg: '场景名称已存在', data: null }
+      }
+      // 将 { 参数名: 参数值 } 对象转回 params 数组
+      const params = Object.entries(payload.params || {}).map(([label, desc]) => {
+        // 尝试匹配原有参数以保留 key/type 等字段
+        const orig = mockSceneSchemas[idx].params.find(
+          (p) => p.label === label || p.key === label
+        )
+        if (orig) {
+          if (typeof desc === 'string' && desc.includes(' / ')) {
+            return { ...orig, label, options: desc.split(' / ').map((s) => s.trim()) }
+          }
+          return { ...orig, label, default: desc }
+        }
+        return { key: label, type: 'text', label, required: false, default: desc }
+      })
+      mockSceneSchemas[idx] = {
+        ...mockSceneSchemas[idx],
+        name: payload.name,
+        description: payload.description,
+        color: payload.color,
+        icon: payload.icon,
+        params
+      }
+      return ok(null)
+    })
   },
 
   // ----------------- 生成域（4.6） -----------------
@@ -416,13 +703,6 @@ export const sxkApi = {
       const list = mockValidationIssues[`${generationId}:${versionKey}`] || []
       return ok({ issues: list })
     })
-  },
-
-  /**
-   * 4.6.11 场景参数 schema 元数据 GET /generations/schemas
-   */
-  getSceneSchemas: () => {
-    return delay(100).then(() => ok({ scenes: mockSceneSchemas }))
   },
 
   // ----------------- 历史域（4.7） -----------------

@@ -33,30 +33,84 @@ export const getCaptcha = () => {
   })
 }
 
-export const loginByUsername = (tenantId, deptId, roleId, username, password, type, key, code, switchMode, captchaMode) => {
+/**
+ * 神行库登录
+ * POST /api/sxk/auth/login
+ *
+ * 请求体：{ tenantId, username, password, key, code, grant_type, scope, type }
+ * 响应体：{ code: 0, data: { access_token, expires_in, token_type, user: { user_id, username, role, ... } } }
+ *
+ * @param {string} username  用户名（或邮箱）
+ * @param {string} password  明文密码（传输层建议 HTTPS）
+ * @param {string} key       验证码 key（captchaMode 时必填）
+ * @param {string} code      用户输入的验证码（captchaMode 时必填）
+ */
+export const loginByUsername = (username, password, key, code) => {
   if (MOCK_AUTH) {
     // 真实鉴权链路已在 store/modules/user.js loginByUsername 入口短路，
     // 此处仅保留函数签名兼容，避免调用方走到 request() 时 ECONNREFUSED。
     return ok({ access_token: 'mock', refresh_token: 'mock' })
   }
   return request({
-    url: '/api/blade-auth/oauth/token',
+    url: '/api/sxk/auth/login',
     method: 'post',
-    headers: {
-      'Tenant-Id': tenantId,
-      'Dept-Id': switchMode ? deptId : '',
-      'Role-Id': switchMode ? roleId : '',
-      'Captcha-Key': key,
-      'Captcha-Code': code
-    },
+    meta: { isToken: false },
     data: {
-      tenantId,
+      tenantId: website.tenantId,
       username,
       password,
-      grant_type: captchaMode ? 'captcha' : 'password',
+      key,
+      code,
+      grant_type: website.captchaMode ? 'captcha' : 'password',
       scope: 'all',
-      type
+      type: 'account'
     }
+  })
+}
+
+/**
+ * 神行库注册
+ * POST /api/sxk/auth/register
+ *
+ * 请求体：{ username, email, password, key, code }
+ * 响应体：{ code: 0, data: { user_id, username, ... }, msg }
+ *
+ * @param {string} username  用户名
+ * @param {string} email     邮箱
+ * @param {string} password  明文密码（传输层建议 HTTPS）
+ * @param {string} key       验证码 key
+ * @param {string} code      用户输入的验证码
+ */
+export const registerByInfo = (username, email, password, key, code) => {
+  if (MOCK_AUTH) {
+    return ok({ username })
+  }
+  return request({
+    url: '/api/sxk/auth/register',
+    method: 'post',
+    meta: { isToken: false },
+    data: { username, email, password, key, code }
+  })
+}
+
+/**
+ * 用户名查重
+ * GET /api/sxk/auth/check-username
+ *
+ * @param {string} username  待检查的用户名
+ * @returns { available: boolean, username: string }
+ */
+export const checkUsername = (username) => {
+  if (MOCK_AUTH) {
+    // mock：保留 3 个已占用用户名
+    const taken = ['admin', 'test', 'demo']
+    return ok({ available: !taken.includes((username || '').toLowerCase()), username })
+  }
+  return request({
+    url: '/api/sxk/auth/check-username',
+    method: 'get',
+    meta: { isToken: false },
+    params: { username }
   })
 }
 
@@ -88,19 +142,10 @@ export const refreshToken = (refresh_token, tenantId, deptId, roleId, switchMode
     })
   }
   return request({
-    url: '/api/blade-auth/oauth/token',
+    url: '/api/sxk/auth/refresh',
     method: 'post',
-    headers: {
-      'Tenant-Id': tenantId,
-      'Dept-Id': switchMode ? deptId : '',
-      'Role-Id': switchMode ? roleId : ''
-    },
-    data: {
-      tenantId,
-      refresh_token,
-      grant_type: 'refresh_token',
-      scope: 'all'
-    }
+    meta: { isToken: false },
+    data: {}
   })
 }
 
@@ -115,9 +160,10 @@ export const getButtons = () => {
 export const logout = () => {
   if (MOCK_AUTH) return ok(null)
   return request({
-    url: '/api/blade-auth/oauth/logout',
-    method: 'get',
-    meta: { isToken: false }
+    url: '/api/sxk/auth/logout',
+    method: 'post',
+    meta: { isToken: false },
+    data: {}
   })
 }
 

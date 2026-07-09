@@ -69,7 +69,10 @@ let isTokenRefreshing = false
 axios.interceptors.response.use(
   (res) => {
     NProgress.done()
-    const status = res.data.code || res.status
+    // SXK 约定 code === 0 表示成功；BladeX 约定 HTTP 状态码（200/401/...）
+    // 当响应体含 code 字段时优先使用，否则回退到 HTTP status
+    const code = res.data.code
+    const status = code !== undefined ? code : res.status
     const statusWhiteList = website.statusWhiteList || []
     const message = res.data.msg || res.data.error_description || '未知错误'
 
@@ -98,8 +101,8 @@ axios.interceptors.response.use(
             })
         })
       }
-    } else if (status !== 200) {
-      // 非200统一处理
+    } else if (status !== 200 && status !== 0) {
+      // 非 200（BladeX）或非 0（SXK）统一处理
       ElMessage({ message: message, type: 'error' })
       return Promise.reject(new Error(message))
     }

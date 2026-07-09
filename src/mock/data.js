@@ -44,6 +44,7 @@ export const mockProducts = [
     target_customers: ['制造业', '金融业', '消费品'],
     competitors: ['产品Y'],
     selling_points: ['部署快', '成本低', '易上手'],
+    attachments: { images: [], docs: [{ name: '产品白皮书.pdf', size: 2097152, type: 'application/pdf', ext: 'pdf' }] },
     created_by: 'u_8f1d2c4a6e9b4f7d8a3c5e7b9d2f1a4c',
     created_at: '2026-04-12T10:30:11+08:00',
     updated_at: '2026-07-05T16:08:42+08:00',
@@ -63,6 +64,7 @@ export const mockProducts = [
     target_customers: ['消费品'],
     competitors: ['销售易'],
     selling_points: ['销售预测准确率高', '部署快'],
+    attachments: { images: [], docs: [{ name: 'CRM功能清单.pdf', size: 1048576, type: 'application/pdf', ext: 'pdf' }] },
     created_by: 'u_2a7b9c4d1e8f6a5b3c2d7e9f1a4b6c8d',
     created_at: '2026-05-04T09:18:30+08:00',
     updated_at: '2026-07-06T11:42:18+08:00',
@@ -119,6 +121,7 @@ export const mockProducts = [
     target_customers: ['金融业'],
     competitors: ['产品Y'],
     selling_points: ['行业模板多'],
+    attachments: { images: [], docs: [{ name: 'OCR技术规格.pdf', size: 524288, type: 'application/pdf', ext: 'pdf' }] },
     created_by: 'u_2a7b9c4d1e8f6a5b3c2d7e9f1a4b6c8d',
     created_at: '2026-06-02T14:46:08+08:00',
     updated_at: '2026-07-01T09:12:37+08:00',
@@ -304,6 +307,9 @@ export const mockSceneSchemas = [
   {
     scene_code: 'competitor',
     name: '竞品对比报告',
+    description: '客观中立的竞品功能与差异化对比',
+    color: 'orange',
+    icon: 'chart',
     params: [
       { key: 'competitor', type: 'text', label: '对比竞品', required: true, default: '传统 BI 厂商' },
       { key: 'dimensions', type: 'text', label: '对比维度', required: true, default: '功能、性能、价格' },

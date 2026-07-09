@@ -13,8 +13,6 @@ import {
   getButtons
 } from '@/api/user'
 import { getTopMenu, getRoutes } from '@/api/system/menu'
-import md5 from 'js-md5'
-import aesUtil from '@/util/crypto'
 import { ElMessage } from 'element-plus'
 
 function addPath(ele, first) {
@@ -119,32 +117,47 @@ export const useUserStore = defineStore('user', {
           return resolve()
         }
 
-        // 原真实链路：调 BladeX /api/blade-auth/oauth/token
+        // 真实链路：POST /api/sxk/auth/login
         loginByUsername(
-          userInfo.tenantId,
-          userInfo.deptId,
-          userInfo.roleId,
           userInfo.username,
-          aesUtil.encrypt(md5(userInfo.password)),
-          userInfo.type,
+          userInfo.password,
           userInfo.key,
-          userInfo.code,
-          userInfo.switchMode,
-          userInfo.captchaMode
+          userInfo.code
         )
           .then((res) => {
-            const data = res.data
-            if (data.error_description) {
-              ElMessage({ message: data.error_description, type: 'error' })
-            } else {
-              this.setToken(data.access_token)
-              this.setRefreshToken(data.refresh_token)
-              this.setTenantId(data.tenant_id)
-              this.setUserInfo(data)
-              this.initSxkMenu() // 神行库：登录后初始化 5 个一级导航菜单（mock 阶段跳过 /blade-system/menu/routes）
-              this.delAllTag()
-              this.clearLock()
+            // SXK 响应格式：{ code: 0, data: { access_token, expires_in, token_type, user: { user_id, username, role, ... } } }
+            const payload = res.data || {}
+            if (payload.code !== 0) {
+              ElMessage({ message: payload.msg || '登录失败', type: 'error' })
+              return resolve()
             }
+            const tokenData = payload.data || {}
+            const user = tokenData.user || {}
+
+            this.setToken(tokenData.access_token)
+            // refresh_token 可选（部分后端不返回）
+            if (tokenData.refresh_token) {
+              this.setRefreshToken(tokenData.refresh_token)
+            }
+            // tenant_id 可选
+            if (tokenData.tenant_id) {
+              this.setTenantId(tokenData.tenant_id)
+            }
+            // 扁平化用户信息：将 user 对象展开 + 保留 token 元数据
+            this.setUserInfo({
+              ...user,
+              access_token: tokenData.access_token,
+              expires_in: tokenData.expires_in,
+              token_type: tokenData.token_type
+            })
+            // roles 适配：供权限判断与"个人信息"页使用
+            this.roles = user.role
+              ? [{ role_id: user.role, role_name: user.role_name || user.role, role_alias: user.role }]
+              : []
+
+            this.initSxkMenu()
+            this.delAllTag()
+            this.clearLock()
             resolve()
           })
           .catch((error) => {
@@ -196,10 +209,14 @@ export const useUserStore = defineStore('user', {
           userInfo?.switchMode
         )
           .then((res) => {
-            const data = res.data
-            this.setToken(data.access_token)
-            this.setRefreshToken(data.refresh_token)
-            this.setUserInfo(data)
+            // SXK 响应格式：{ code: 0, data: { access_token, token_type, expires_in } }
+            // refresh_token 由后端通过 Set-Cookie (HttpOnly) 管理，不在 JSON body 中
+            const payload = res.data || {}
+            if (payload.code !== 0) {
+              return reject(new Error(payload.msg || '刷新 token 失败'))
+            }
+            const tokenData = payload.data || {}
+            this.setToken(tokenData.access_token)
             resolve()
           })
           .catch((error) => {
@@ -230,11 +247,15 @@ export const useUserStore = defineStore('user', {
     // 清除认证信息
     clearAuth() {
       this.token = ''
+      this.tenantId = ''
+      this.userInfo = {}
       this.menu = []
       this.menuAll = []
       this.roles = []
       removeToken()
       removeRefreshToken()
+      setStore({ name: 'tenantId', content: '' })
+      setStore({ name: 'userInfo', content: {} })
       setStore({ name: 'menu', content: [] })
       setStore({ name: 'menuAll', content: [] })
     },

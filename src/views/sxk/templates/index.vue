@@ -15,10 +15,16 @@
           <h2>营销场景模板</h2>
           <p>管理预置模板与自定义模板，支撑多 Agent 内容生成</p>
         </div>
-        <el-button type="primary" @click="onCreate">
-          <el-icon><Plus /></el-icon>
-          <span>创建自定义模板</span>
-        </el-button>
+        <div class="page-header__actions">
+          <el-button type="primary" @click="onAddScene">
+            <el-icon><Plus /></el-icon>
+            <span>新增场景</span>
+          </el-button>
+          <!-- <el-button type="primary" @click="onCreate">
+            <el-icon><Plus /></el-icon>
+            <span>创建自定义模板</span>
+          </el-button> -->
+        </div>
       </div>
     </basic-block>
 
@@ -117,6 +123,12 @@
       :meta="meta"
       @created="loadList"
     />
+
+    <!-- 新增场景弹窗 -->
+    <scene-create-modal
+      v-model="sceneCreateVisible"
+      @saved="onSceneSaved"
+    />
   </div>
 </template>
 
@@ -136,6 +148,7 @@ import {
 import sxkApi from '@/mock/sxkApi'
 import TemplateDetailModal from './components/template-detail-modal.vue'
 import TemplateCreateModal from './components/template-create-modal.vue'
+import SceneCreateModal from './components/scene-create-modal.vue'
 
 const router = useRouter()
 
@@ -149,6 +162,7 @@ const meta = ref({ scene_codes: [], output_formats: [] })
 const detailVisible = ref(false)
 const detailTargetId = ref(null)
 const createVisible = ref(false)
+const sceneCreateVisible = ref(false)
 
 // ========== 工具 ==========
 const formatDate = (iso) => {
@@ -218,11 +232,25 @@ const loadMeta = async () => {
 const onCreate = () => {
   createVisible.value = true
 }
+const onAddScene = () => {
+  sceneCreateVisible.value = true
+}
+const onSceneSaved = async (scene) => {
+  const res = await sxkApi.createScene(scene)
+  if (res.code === 0) {
+    ElMessage.success(`场景「${scene.name}」已保存`)
+    loadMeta()
+  } else {
+    ElMessage.error(res.msg || '保存失败')
+  }
+}
 const onDetail = (tpl) => {
   detailTargetId.value = tpl.template_id
   detailVisible.value = true
 }
-const onUse = (tpl) => {
+const onUse = async (tpl) => {
+  // 4.5.6：调用使用次数 +1 接口
+  await sxkApi.useTemplate(tpl.template_id)
   // 5.5.3：使用此场景生成 → 跳转内容生成并预设场景
   detailVisible.value = false
   ElMessage.success(`已使用「${tpl.name}」预设场景`)
@@ -258,6 +286,12 @@ onMounted(() => {
     margin: 0;
     font-size: $font-size-sm;
     color: $text-regular;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
   }
 }
 

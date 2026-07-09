@@ -126,7 +126,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Message, Picture, MagicStick, DataAnalysis, Promotion } from '@element-plus/icons-vue'
-import { getCaptcha } from '@/api/user'
+import { getCaptcha, registerByInfo, checkUsername } from '@/api/user'
 import website from '@/config/website'
 import { randomString } from '@/util/util'
 
@@ -179,10 +179,28 @@ const validateCode = (rule, value, callback) => {
   }
 }
 
+// BR-A-25：用户名异步查重
+const validateUsername = async (rule, value, callback) => {
+  if (!value || value.length < 3) return callback()
+  try {
+    const resp = await checkUsername(value)
+    const payload = resp.data || {}
+    const data = payload.data || {}
+    if (data.available === false) {
+      callback(new Error('该用户名已被占用'))
+    } else {
+      callback()
+    }
+  } catch {
+    callback()
+  }
+}
+
 const regRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度 3-20 个字符', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度 3-20 个字符', trigger: 'blur' },
+    { validator: validateUsername, trigger: 'blur' }
   ],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },
@@ -231,12 +249,21 @@ const handleRegister = async () => {
   try {
     await regFormRef.value.validate()
     loading.value = true
-    // Mock 阶段：不真实提交，仅提示成功并引导去登录
-    await new Promise((resolve) => setTimeout(resolve, 600))
+    // 真实链路：POST /api/sxk/auth/register
+    // 请求体：{ username, email, password, key, code }
+    // code !== 0 时由 axios 拦截器统一提示并 reject，进入下方 catch
+    await registerByInfo(
+      regForm.username,
+      regForm.email,
+      regForm.password,
+      regForm.key,
+      regForm.code
+    )
     ElMessage.success('注册成功，请使用新账号登录')
     router.push('/login')
   } catch (error) {
-    // 校验失败或验证码错误：刷新验证码
+    // 表单校验失败 / 注册失败（如验证码错误、用户名已存在）
+    // 拦截器已提示具体错误，这里刷新验证码
     refreshCaptcha()
   } finally {
     loading.value = false

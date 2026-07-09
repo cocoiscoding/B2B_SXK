@@ -200,178 +200,20 @@
       />
     </basic-block>
 
-    <!-- ========== 弹窗：添加/编辑产品 ========== -->
+    <!-- ========== 弹窗：产品查看/添加/编辑（合二为一） ========== -->
     <product-edit-modal
       v-model="editVisible"
       :product-id="editTargetId"
+      :readonly="editReadonly"
       @saved="loadList"
     />
-
-    <!-- ========== 弹窗：产品详情 ========== -->
-    <el-dialog
-      v-model="detailVisible"
-      width="720px"
-      top="6vh"
-      destroy-on-close
-      class="sxk-detail-dialog"
-    >
-      <template #header>
-        <div class="detail-dialog__title">
-          <el-icon class="title-icon"><Box /></el-icon>
-          <span class="title-text">{{ detailTarget?.name || '产品详情' }}</span>
-        </div>
-      </template>
-
-      <div v-if="detailTarget" class="product-detail">
-        <!-- 顶部摘要条：分类 + 价格 + 更新时间 -->
-        <div class="detail-summary">
-          <div class="summary-item">
-            <el-tag
-              :type="categoryTagType(detailTarget.category)"
-              effect="light"
-              size="small"
-            >{{ detailTarget.category || '未分类' }}</el-tag>
-          </div>
-          <div class="summary-item">
-            <el-icon><Wallet /></el-icon>
-            <span class="summary-label">价格</span>
-            <span class="summary-value">{{ detailTarget.pricing || '—' }}</span>
-          </div>
-          <div class="summary-item">
-            <el-icon><Clock /></el-icon>
-            <span class="summary-label">更新</span>
-            <span class="summary-value">{{ formatDate(detailTarget.updated_at) }}</span>
-          </div>
-        </div>
-
-        <!-- 产品描述 -->
-        <section class="detail-section">
-          <div class="section-title">
-            <el-icon><Document /></el-icon>
-            <span>产品描述</span>
-          </div>
-          <p class="section-text">{{ detailTarget.description || '暂无描述' }}</p>
-        </section>
-
-        <!-- 功能特性（卡片式） -->
-        <section class="detail-section" v-if="detailTarget.features?.length">
-          <div class="section-title">
-            <el-icon><Operation /></el-icon>
-            <span>功能特性</span>
-            <span class="section-count">{{ detailTarget.features.length }} 项</span>
-          </div>
-          <div class="feature-grid">
-            <div
-              v-for="(f, idx) in detailTarget.features"
-              :key="f.name"
-              class="feature-card"
-            >
-              <div class="feature-card__index">{{ idx + 1 }}</div>
-              <div class="feature-card__body">
-                <div class="feature-card__name">{{ f.name }}</div>
-                <div class="feature-card__desc">{{ f.description || '—' }}</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 目标客户 & 竞品（两列） -->
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <section class="detail-section">
-              <div class="section-title">
-                <el-icon><User /></el-icon>
-                <span>目标客户</span>
-              </div>
-              <div v-if="detailTarget.target_customers?.length" class="tag-group">
-                <el-tag
-                  v-for="t in detailTarget.target_customers"
-                  :key="t"
-                  type="info"
-                  effect="plain"
-                >{{ t }}</el-tag>
-              </div>
-              <span v-else class="empty-text">暂无</span>
-            </section>
-          </el-col>
-          <el-col :span="12">
-            <section class="detail-section">
-              <div class="section-title">
-                <el-icon><Aim /></el-icon>
-                <span>竞品</span>
-              </div>
-              <div v-if="detailTarget.competitors?.length" class="tag-group">
-                <el-tag
-                  v-for="c in detailTarget.competitors"
-                  :key="c"
-                  type="warning"
-                  effect="plain"
-                >{{ c }}</el-tag>
-              </div>
-              <span v-else class="empty-text">暂无</span>
-            </section>
-          </el-col>
-        </el-row>
-
-        <!-- 核心卖点 -->
-        <section class="detail-section" v-if="detailTarget.selling_points?.length">
-          <div class="section-title">
-            <el-icon><Star /></el-icon>
-            <span>核心卖点</span>
-          </div>
-          <div class="tag-group">
-            <el-tag
-              v-for="s in detailTarget.selling_points"
-              :key="s"
-              type="success"
-              effect="light"
-            >{{ s }}</el-tag>
-          </div>
-        </section>
-
-        <!-- 元信息 -->
-        <section class="detail-section detail-section--meta">
-          <div class="section-title">
-            <el-icon><InfoFilled /></el-icon>
-            <span>元信息</span>
-          </div>
-          <div class="meta-grid">
-            <div class="meta-item">
-              <span class="meta-label">产品ID</span>
-              <span class="meta-value">{{ detailTarget.product_id }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">创建时间</span>
-              <span class="meta-value">{{ formatDate(detailTarget.created_at) }}</span>
-            </div>
-            <div class="meta-item">
-              <span class="meta-label">状态</span>
-              <span class="meta-value">
-                <el-tag :type="detailTarget.is_deleted ? 'danger' : 'success'" size="small" effect="plain">
-                  {{ detailTarget.is_deleted ? '已下线' : '在售' }}
-                </el-tag>
-              </span>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <template #footer>
-        <el-button @click="detailVisible = false">关闭</el-button>
-        <el-button
-          type="primary"
-          :disabled="detailTarget?.is_deleted"
-          @click="onDetailEdit"
-        >编辑此产品</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { computed, markRaw, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Plus, Upload, Search, Loading, Box, Wallet, Clock, Document, Operation, User, Aim, Star, InfoFilled, TrendCharts, Connection, Promotion, MoreFilled } from '@element-plus/icons-vue'
+import { Plus, Upload, Search, Loading, Box, TrendCharts, Connection, Promotion, MoreFilled } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
 import ProductEditModal from './components/product-edit-modal.vue'
 
@@ -385,8 +227,7 @@ const stats = ref(null)
 
 const editVisible = ref(false)
 const editTargetId = ref(null)
-const detailVisible = ref(false)
-const detailTarget = ref(null)
+const editReadonly = ref(false)
 
 // ========== 分类 → 图标 / 配色映射 ==========
 // 每个分类对应独特图标和主题色，让统计卡片有视觉区分度
@@ -471,32 +312,22 @@ const resetSearch = () => {
 // ========== 操作回调 ==========
 const onAdd = () => {
   editTargetId.value = null
+  editReadonly.value = false
   editVisible.value = true
 }
 
 const onEdit = (item) => {
   // F1-2 / US003：编辑现有产品
   editTargetId.value = item.product_id
+  editReadonly.value = false
   editVisible.value = true
 }
 
-// 从详情弹窗直接跳到编辑（关闭详情，打开编辑）
-const onDetailEdit = () => {
-  if (!detailTarget.value) return
-  editTargetId.value = detailTarget.value.product_id
-  detailVisible.value = false
+// 查看产品：以只读模式打开编辑弹窗，用户可在弹窗内点"编辑"切换
+const onDetail = (item) => {
+  editTargetId.value = item.product_id
+  editReadonly.value = true
   editVisible.value = true
-}
-
-const onDetail = async (item) => {
-  // F1-5 / US006：只读详情
-  const res = await sxkApi.getProduct(item.product_id)
-  if (res.data) {
-    detailTarget.value = res.data
-    detailVisible.value = true
-  } else {
-    ElMessage.error(res.msg || '加载详情失败')
-  }
 }
 
 const onDelete = async (item) => {
@@ -751,191 +582,6 @@ onMounted(() => {
 
 // ========== 详情弹窗 ==========
 // 自定义标题栏（图标 + 产品名）
-.sxk-detail-dialog {
-  :deep(.detail-dialog__title) {
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
-
-    .title-icon {
-      font-size: 20px;
-      color: $primary-color;
-    }
-
-    .title-text {
-      font-size: $font-size-lg;
-      font-weight: 700;
-      color: $gray-900;
-    }
-  }
-}
-
-.product-detail {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
-
-  // 顶部摘要条：分类 / 价格 / 更新时间
-  .detail-summary {
-    display: flex;
-    align-items: center;
-    gap: $spacing-xl;
-    padding: $spacing-md $spacing-lg;
-    background: $bg-page;
-    border-radius: $radius-md;
-
-    .summary-item {
-      display: flex;
-      align-items: center;
-      gap: $spacing-xs;
-      font-size: $font-size-sm;
-
-      .el-icon {
-        color: $text-secondary;
-      }
-
-      .summary-label {
-        color: $text-secondary;
-      }
-
-      .summary-value {
-        color: $text-primary;
-        font-weight: 500;
-      }
-    }
-  }
-
-  // 区块通用
-  .detail-section {
-    display: flex;
-    flex-direction: column;
-    gap: $spacing-sm;
-
-    .section-title {
-      display: flex;
-      align-items: center;
-      gap: $spacing-xs;
-      font-size: $font-size-base;
-      font-weight: 600;
-      color: $gray-900;
-
-      .el-icon {
-        color: $primary-color;
-        font-size: 16px;
-      }
-
-      .section-count {
-        margin-left: $spacing-xs;
-        font-size: $font-size-xs;
-        font-weight: 400;
-        color: $text-secondary;
-      }
-    }
-
-    .section-text {
-      margin: 0;
-      font-size: $font-size-sm;
-      color: $text-regular;
-      line-height: 1.6;
-    }
-  }
-
-  // 功能特性卡片网格
-  .feature-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: $spacing-sm;
-  }
-
-  .feature-card {
-    display: flex;
-    align-items: flex-start;
-    gap: $spacing-sm;
-    padding: $spacing-md;
-    border: 1px solid $border-base;
-    border-radius: $radius-md;
-    background: $bg-card;
-    transition: $transition-base;
-
-    &:hover {
-      border-color: $primary-color;
-      box-shadow: 0 2px 8px rgba(26, 86, 219, 0.08);
-    }
-
-    &__index {
-      flex-shrink: 0;
-      width: 24px;
-      height: 24px;
-      border-radius: $radius-round;
-      background: $primary-color-light;
-      color: $primary-color;
-      font-size: $font-size-xs;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    &__body {
-      flex: 1;
-      min-width: 0;
-    }
-
-    &__name {
-      font-size: $font-size-sm;
-      font-weight: 600;
-      color: $text-primary;
-      margin-bottom: 2px;
-    }
-
-    &__desc {
-      font-size: $font-size-xs;
-      color: $text-secondary;
-      line-height: 1.5;
-    }
-  }
-
-  .tag-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: $spacing-xs;
-  }
-
-  .empty-text {
-    font-size: $font-size-sm;
-    color: $text-placeholder;
-  }
-
-  // 元信息
-  &--meta {
-    padding-top: $spacing-md;
-    border-top: 1px dashed $border-base;
-
-    .meta-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: $spacing-md;
-    }
-
-    .meta-item {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-
-      .meta-label {
-        font-size: $font-size-xs;
-        color: $text-secondary;
-      }
-
-      .meta-value {
-        font-size: $font-size-sm;
-        color: $text-primary;
-        word-break: break-all;
-      }
-    }
-  }
-}
-
 // 关键词高亮统一由 common.scss 的全局 mark 选择器控制（yellow-200 / yellow-900），
 // 此处不再重复定义，避免与全局色值冲突。
 </style>
