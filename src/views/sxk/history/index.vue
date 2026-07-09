@@ -289,12 +289,16 @@ const goEdit = (generationId) => {
 }
 
 const onDelete = async (row) => {
-  const res = await sxkApi.removeHistory(row.generation_id)
-  if (res.code === 0) {
-    ElMessage.success('已删除')
-    load()
-  } else {
-    ElMessage.error(res.msg || '删除失败')
+  try {
+    const res = await sxkApi.removeHistory(row.generation_id)
+    if (res.code === 0) {
+      ElMessage.success('已删除')
+      load()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
+    }
+  } catch {
+    // axios 拦截器已提示错误
   }
 }
 

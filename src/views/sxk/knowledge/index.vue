@@ -332,13 +332,17 @@ const onDetail = (item) => {
 
 const onDelete = async (item) => {
   // F1-2 / US004 / BR-K-06：软删除
-  const res = await sxkApi.removeProduct(item.product_id)
-  if (res.code === 0) {
-    ElMessage.success('已删除')
-    loadList()
-    loadStats()
-  } else {
-    ElMessage.error(res.msg || '删除失败')
+  try {
+    const res = await sxkApi.removeProduct(item.product_id)
+    if (res.code === 0) {
+      ElMessage.success('已删除')
+      loadList()
+      loadStats()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
+    }
+  } catch {
+    // axios 拦截器已提示错误
   }
 }
 

@@ -293,7 +293,8 @@ watch(() => props.templateId, () => {
 
 // ========== 操作 ==========
 const pickTemplate = (tpl) => {
-  data.value = tpl
+  // 保留 scene_code 和 templates，避免场景参数区域塌缩和列表丢失
+  data.value = { ...tpl, scene_code: data.value.scene_code, templates: data.value.templates }
 }
 
 const onEditSub = async (tpl) => {

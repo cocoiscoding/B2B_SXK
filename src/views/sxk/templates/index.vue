@@ -127,6 +127,7 @@
     <!-- 新增场景弹窗 -->
     <scene-create-modal
       v-model="sceneCreateVisible"
+      :loading="sceneSaving"
       @saved="onSceneSaved"
     />
   </div>
@@ -163,6 +164,7 @@ const detailVisible = ref(false)
 const detailTargetId = ref(null)
 const createVisible = ref(false)
 const sceneCreateVisible = ref(false)
+const sceneSaving = ref(false)
 
 // ========== 工具 ==========
 const formatDate = (iso) => {
@@ -236,12 +238,20 @@ const onAddScene = () => {
   sceneCreateVisible.value = true
 }
 const onSceneSaved = async (scene) => {
-  const res = await sxkApi.createScene(scene)
-  if (res.code === 0) {
-    ElMessage.success(`场景「${scene.name}」已保存`)
-    loadMeta()
-  } else {
-    ElMessage.error(res.msg || '保存失败')
+  sceneSaving.value = true
+  try {
+    const res = await sxkApi.createScene(scene)
+    if (res.code === 0) {
+      ElMessage.success(`场景「${scene.name}」已保存`)
+      sceneCreateVisible.value = false
+      loadMeta()
+    } else {
+      ElMessage.error(res.msg || '保存失败')
+    }
+  } catch {
+    // axios 拦截器已提示错误
+  } finally {
+    sceneSaving.value = false
   }
 }
 const onDetail = (tpl) => {
@@ -249,12 +259,20 @@ const onDetail = (tpl) => {
   detailVisible.value = true
 }
 const onUse = async (tpl) => {
-  // 4.5.6：调用使用次数 +1 接口
-  await sxkApi.useTemplate(tpl.template_id)
-  // 5.5.3：使用此场景生成 → 跳转内容生成并预设场景
-  detailVisible.value = false
-  ElMessage.success(`已使用「${tpl.name}」预设场景`)
-  router.push({ path: '/generate/index', query: { scene: tpl.scene_code, template: tpl.template_id } })
+  try {
+    // 4.5.6：调用使用次数 +1 接口
+    const res = await sxkApi.useTemplate(tpl.template_id)
+    if (res.code !== 0) {
+      ElMessage.error(res.msg || '操作失败')
+      return
+    }
+    // 5.5.3：使用此场景生成 → 跳转内容生成并预设场景
+    detailVisible.value = false
+    ElMessage.success(`已使用「${tpl.name}」预设场景`)
+    router.push({ path: '/generate/index', query: { scene: tpl.scene_code, template: tpl.template_id } })
+  } catch {
+    // axios 拦截器已提示错误
+  }
 }
 
 onMounted(() => {

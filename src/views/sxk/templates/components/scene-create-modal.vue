@@ -135,7 +135,7 @@
         <div class="se-footer__left" />
         <div class="se-footer__right">
           <el-button @click="cancel">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
+          <el-button type="primary" :loading="loading" @click="submit">保存</el-button>
         </div>
       </div>
     </template>
@@ -150,11 +150,12 @@ import { Grid, Close, Checked, Plus, Delete } from '@element-plus/icons-vue'
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   // 编辑模式：传入 { name, description, params } 则为编辑；不传则为新增
-  sceneData: { type: Object, default: null }
+  sceneData: { type: Object, default: null },
+  // 父组件 API 进行中状态，用于禁用按钮防重复提交
+  loading: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue', 'saved'])
 
-const saving = ref(false)
 const isEdit = computed(() => !!props.sceneData)
 
 const blankForm = () => ({
@@ -195,34 +196,28 @@ const cancel = () => {
   emit('update:modelValue', false)
 }
 
-const submit = async () => {
+const submit = () => {
   if (!form.name.trim()) {
     ElMessage.warning('请输入场景名称')
     return
   }
-  saving.value = true
-  try {
-    // 参数清洗：过滤掉 name 或 desc 为空的行
-    const cleaned = form.params
-      .filter((p) => p.name.trim() && p.desc.trim())
-      .map((p) => ({ name: p.name.trim(), desc: p.desc.trim() }))
+  // 参数清洗：过滤掉 name 或 desc 为空的行
+  const cleaned = form.params
+    .filter((p) => p.name.trim() && p.desc.trim())
+    .map((p) => ({ name: p.name.trim(), desc: p.desc.trim() }))
 
-    // 暂存为对象格式 { name: desc }
-    const paramsObj = {}
-    cleaned.forEach((p) => { paramsObj[p.name] = p.desc })
+  // 暂存为对象格式 { name: desc }
+  const paramsObj = {}
+  cleaned.forEach((p) => { paramsObj[p.name] = p.desc })
 
-    emit('saved', {
-      name: form.name.trim(),
-      description: form.description.trim(),
-      color: form.color,
-      icon: form.icon,
-      params: paramsObj
-    })
-    ElMessage.success(isEdit.value ? '场景已更新' : '场景已保存')
-    emit('update:modelValue', false)
-  } finally {
-    saving.value = false
-  }
+  // 只 emit 数据，由父组件控制 API 调用、提示和关闭
+  emit('saved', {
+    name: form.name.trim(),
+    description: form.description.trim(),
+    color: form.color,
+    icon: form.icon,
+    params: paramsObj
+  })
 }
 </script>
 

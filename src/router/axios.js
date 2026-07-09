@@ -101,8 +101,11 @@ axios.interceptors.response.use(
             })
         })
       }
-    } else if (status !== 200 && status !== 0) {
-      // 非 200（BladeX）或非 0（SXK）统一处理
+    } else if (code !== undefined) {
+      // SXK 业务错误码（code !== 0）：正常返回，由页面 else 分支处理
+      return res
+    } else if (res.status >= 400) {
+      // 纯 HTTP 错误（无 code 字段，如 500/502）
       ElMessage({ message: message, type: 'error' })
       return Promise.reject(new Error(message))
     }
