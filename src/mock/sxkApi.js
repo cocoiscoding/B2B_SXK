@@ -2,8 +2,7 @@
  * 神行库业务接口调用层
  *
  * 设计要点：
- * 1. 命名与《神行库_接口设计文档 v1.1》保持一致（资源复数 / 动作子资源）。
- * 2. 每个方法返回 Promise，resolve 值统一为 { code, msg, data, trace_id } 形态，
+ * 1. 每个方法返回 Promise，resolve 值统一为 { code, msg, data, trace_id } 形态，
  *    兼容现有 axios 拦截器的 status === 200 判定（见 src/router/axios.js）。
  * 3. 双轨开关：USE_MOCK_BIZ=true（默认）走本地 Mock 数据；
  *    后端就绪后在 .env.dev 改为 false，所有方法自动切换到真实 request() 链路，
