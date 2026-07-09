@@ -1,0 +1,26 @@
+# 环境变量与密钥（含 LLM API Key，勿提交）
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.egg/
+venv/
+.venv/
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 数据库文件
+data/
+database/*.db
+
+# 文档源文件（大文件）
+03-神行库*.docx

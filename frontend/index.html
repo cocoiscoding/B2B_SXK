@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神行库 · Product Marketing AI</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/dist/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/theme-chalk/dark/css-vars.css">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --primary: #1e3a5f;
+  --primary-light: #2c5282;
+  --primary-dark: #1a365d;
+  --accent: #c9a961;
+  --bg-page: #f5f7fa;
+  --bg-card: #ffffff;
+  --text-primary: #2d3748;
+  --text-secondary: #718096;
+  --text-muted: #a0aec0;
+  --border: #e2e8f0;
+  --border-light: #edf2f7;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.04);
+  --shadow: 0 2px 8px rgba(0,0,0,.06);
+  --shadow-md: 0 4px 12px rgba(0,0,0,.08);
+}
+body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: var(--bg-page); color: var(--text-primary); -webkit-font-smoothing: antialiased; }
+#app { height: 100vh; }
+.app-layout { height: 100vh; }
+.app-header { background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; box-shadow: 0 2px 4px rgba(0,0,0,.08); }
+.app-header .logo { font-size: 19px; font-weight: 600; letter-spacing: 1px; }
+.app-header .logo span { opacity: .7; font-weight: 400; font-size: 12px; margin-left: 10px; }
+.app-header .status { font-size: 13px; opacity: .9; }
+.app-aside { background: var(--primary-dark); transition: width .3s; }
+.app-aside .el-menu { border-right: none; background: transparent; }
+.app-aside .el-menu-item { color: #ffffffa0; }
+.app-aside .el-menu-item:hover, .app-aside .el-menu-item.is-active { background: var(--primary-light); color: #fff; }
+.app-main { padding: 20px 24px; overflow-y: auto; background: var(--bg-page); }
+.page-card { margin-bottom: 16px; border: 1px solid var(--border); border-radius: 6px; }
+.page-card .el-card__header { padding: 14px 18px; border-bottom: 1px solid var(--border-light); background: #fafbfc; }
+.section-title { font-size: 17px; font-weight: 600; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; color: var(--text-primary); }
+.section-title .el-tag { font-weight: 400; }
+.empty-state { text-align: center; padding: 60px 0; color: var(--text-muted); }
+.version-card { margin-bottom: 12px; cursor: pointer; transition: all .2s; border: 1px solid var(--border); }
+.version-card:hover { box-shadow: var(--shadow-md); }
+.version-card.active { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(30,58,95,.15); }
+.version-body { white-space: pre-wrap; line-height: 1.8; font-size: 14px; max-height: 400px; overflow-y: auto; padding: 14px; background: #fafbfc; border-radius: 4px; border: 1px solid var(--border-light); }
+.version-side { margin-bottom: 0; height: 100%; border: 1px solid var(--border); }
+.version-side .el-card__body { padding: 12px; }
+.version-side .el-textarea__inner { font-family: inherit; line-height: 1.6; }
+.version-img { width: 100%; max-height: 160px; object-fit: cover; border-radius: 4px; margin-bottom: 8px; background: var(--border-light); }
+.version-tools { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border-light); padding-top: 8px; margin-top: 6px; }
+.seo-score { font-size: 48px; font-weight: 700; line-height: 1; }
+.seo-item { padding: 8px 0; display: flex; align-items: flex-start; gap: 6px; }
+.agent-step { padding: 12px 14px; border-left: 3px solid var(--border); margin-bottom: 8px; background: #fafbfc; border-radius: 0 4px 4px 0; }
+.agent-step.success { border-color: #52c41a; background: #f6ffed; }
+.agent-step.warning { border-color: #faad14; background: #fffbe6; }
+.agent-step.error { border-color: #ff4d4f; background: #fff2f0; }
+.agent-step .step-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.agent-step .step-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+.agent-step .step-msg { font-size: 13px; color: var(--text-secondary); }
+.agent-step .step-time { font-size: 12px; color: var(--text-muted); }
+.product-form .el-form-item { margin-bottom: 14px; }
+.feature-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+.feature-row .el-input { flex: 1; }
+.tag-input { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px; border: 1px solid var(--border); border-radius: 4px; min-height: 36px; }
+.tag-input .el-tag { margin: 2px; }
+.tag-input input { border: none; outline: none; flex: 1; min-width: 100px; padding: 4px; }
+.gen-result { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+@media (max-width: 1100px) { .gen-result { grid-template-columns: 1fr; } }
+.markdown-body h1,.markdown-body h2,.markdown-body h3 { margin: 12px 0 8px; color: var(--text-primary); }
+.markdown-body table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+.markdown-body th,.markdown-body td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+.markdown-body th { background: #fafbfc; font-weight: 600; }
+.markdown-body blockquote { border-left: 3px solid var(--primary); padding-left: 14px; color: var(--text-secondary); margin: 8px 0; background: #fafbfc; padding: 8px 14px; border-radius: 0 4px 4px 0; }
+.markdown-body ul,.markdown-body ol { padding-left: 20px; margin: 8px 0; }
+.markdown-body code { background: #f0f2f5; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+.step-card .el-card__body { padding: 12px; }
+.landing { text-align: center; padding: 48px 20px; }
+.landing h1 { font-size: 30px; margin-bottom: 14px; color: var(--primary); font-weight: 700; letter-spacing: 1px; }
+.landing p { color: var(--text-secondary); max-width: 620px; margin: 0 auto 28px; line-height: 1.9; font-size: 15px; }
+.landing .flow { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 28px 0; }
+.landing .flow-item { padding: 12px 18px; background: #fff; border-radius: 4px; border: 1px solid var(--border); font-size: 13px; color: var(--text-secondary); box-shadow: var(--shadow-sm); }
+.landing .flow-arrow { display: flex; align-items: center; color: var(--text-muted); }
+.auth-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--primary-dark); position: relative; }
+.auth-screen::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 30% 20%, rgba(201,169,97,.08), transparent 40%), radial-gradient(circle at 70% 80%, rgba(44,82,130,.15), transparent 40%); }
+.auth-card { width: 400px; position: relative; z-index: 1; box-shadow: var(--shadow-md); border: none; }
+.auth-card .el-card__body { padding: 32px; }
+</style>
+</head>
+<body>
+<div id="app">
+<!-- ===== 未登录：登录 / 注册 ===== -->
+<div v-if="!loggedIn" class="auth-screen">
+  <el-card class="auth-card">
+    <div style="text-align:center;margin-bottom:24px">
+      <h2 style="color:var(--primary);font-size:24px;font-weight:700;letter-spacing:2px;margin-bottom:6px">神行库</h2>
+      <p style="color:var(--text-muted);font-size:12px;letter-spacing:1px">PRODUCT MARKETING AI · {{ authView==='login' ? '登录' : '注册' }}</p>
+    </div>
+    <el-form v-if="authView==='login'" label-position="top">
+      <el-form-item label="用户名"><el-input v-model="loginForm.username" placeholder="请输入用户名" @keyup.enter="doLogin"/></el-form-item>
+      <el-form-item label="密码"><el-input type="password" v-model="loginForm.password" show-password placeholder="请输入密码" @keyup.enter="doLogin"/></el-form-item>
+      <el-button type="primary" style="width:100%;background:var(--primary);border-color:var(--primary)" :loading="authLoading" @click="doLogin">登录</el-button>
+      <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--text-secondary)">没有账号？<el-link type="primary" :underline="false" @click="authView='register'" style="color:var(--primary-light)">去注册</el-link></div>
+    </el-form>
+    <el-form v-else label-position="top">
+      <el-form-item label="用户名"><el-input v-model="registerForm.username" placeholder="登录用用户名（≥3位）"/></el-form-item>
+      <el-form-item label="昵称"><el-input v-model="registerForm.name" placeholder="展示昵称"/></el-form-item>
+      <el-form-item label="密码"><el-input type="password" v-model="registerForm.password" show-password placeholder="至少 6 位"/></el-form-item>
+      <el-form-item label="邮箱（选填）"><el-input v-model="registerForm.email"/></el-form-item>
+      <el-button type="primary" style="width:100%;background:var(--primary);border-color:var(--primary)" :loading="authLoading" @click="doRegister">注册并登录</el-button>
+      <div style="text-align:center;margin-top:14px;font-size:13px;color:var(--text-secondary)">已有账号？<el-link type="primary" :underline="false" @click="authView='login'" style="color:var(--primary-light)">去登录</el-link></div>
+    </el-form>
+    <el-alert type="info" :closable="false" style="margin-top:16px;font-size:12px;line-height:1.7;background:#fafbfc;border:1px solid var(--border-light)">
+      演示账号：zhang / li / wang / zhao，密码 123456（zhang 为管理员）
+    </el-alert>
+  </el-card>
+</div>
+
+<!-- ===== 已登录：主应用 ===== -->
+<div v-else class="app-layout">
+  <!-- 顶栏 -->
+  <el-header class="app-header" height="56px">
+    <div class="logo">神行库<span>Product Marketing AI</span></div>
+    <div class="status" style="display:flex;align-items:center;gap:12px">
+      <el-tag :type="llmEnabled ? 'success' : 'info'" size="small" effect="dark">
+        {{ llmEnabled ? 'LLM 已接入' : '模板引擎模式' }}
+      </el-tag>
+      <span v-if="currentUser" style="display:flex;align-items:center;gap:6px">
+        <span :style="{display:'inline-block',width:'8px',height:'8px',borderRadius:'50%',background:currentUser.color}"></span>
+        {{ currentUser.name }}
+        <el-tag v-if="currentUser.is_admin" size="small" effect="dark" style="margin-left:2px;background:var(--accent);border-color:var(--accent)">管理员</el-tag>
+      </span>
+      <el-button text size="small" @click="openProfile" style="color:#ffffffcc">个人资料</el-button>
+      <el-button text size="small" @click="logout" style="color:#ffffffcc">退出</el-button>
+    </div>
+  </el-header>
+
+  <el-container style="height: calc(100vh - 56px)">
+    <!-- 侧边导航 -->
+    <el-aside class="app-aside" :width="collapsed ? '64px' : '200px'">
+      <el-menu :default-active="activeTab" @select="activeTab = $event" :collapse="collapsed" text-color="#ffffffa0" active-text-color="#fff">
+        <el-menu-item index="home"><el-icon><HomeFilled/></el-icon><span>首页</span></el-menu-item>
+        <el-menu-item index="products"><el-icon><Box/></el-icon><span>产品知识库</span></el-menu-item>
+        <el-menu-item index="generate"><el-icon><MagicStick/></el-icon><span>内容生成</span></el-menu-item>
+        <el-menu-item index="scenarios"><el-icon><Document/></el-icon><span>场景模板</span></el-menu-item>
+        <el-menu-item index="history"><el-icon><Clock/></el-icon><span>生成历史</span></el-menu-item>
+      </el-menu>
+      <div style="position:absolute;bottom:12px;left:0;right:0;text-align:center">
+        <el-button text :icon="collapsed ? 'Expand' : 'Fold'" @click="collapsed = !collapsed" style="color:#ffffff60"></el-button>
+      </div>
+    </el-aside>
+
+    <!-- 主区域 -->
+    <el-main class="app-main">
+      <!-- ===== 首页 ===== -->
+      <div v-if="activeTab==='home'" class="landing">
+        <h1>神行库 · 产品营销 AI</h1>
+        <p>基于产品知识库，通过多 Agent 协作快速生成适配不同渠道和受众的营销内容平台。
+        将产品信息结构化沉淀，实现营销素材的快速生成和智能适配。</p>
+        <div class="flow">
+          <div class="flow-item">① 产品信息检索 Agent</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-item">② 竞品分析 Agent</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-item">③ 内容生成 Agent</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-item">④ 渠道适配 Agent</div>
+          <div class="flow-arrow">→</div>
+          <div class="flow-item">⑤ 内容校验 Agent</div>
+        </div>
+        <el-button type="primary" size="large" @click="activeTab='generate'" style="background:var(--primary);border-color:var(--primary);padding:12px 32px">开始生成营销内容</el-button>
+        <div style="margin-top:40px;display:flex;justify-content:center;gap:20px;flex-wrap:wrap">
+          <el-card style="width:240px;text-align:left;border:1px solid var(--border)" shadow="never">
+            <template #header><b style="color:var(--text-primary)">结构化知识库</b></template>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">录入产品功能、参数、卖点、竞品，Agent 自动检索调用。</div>
+          </el-card>
+          <el-card style="width:240px;text-align:left;border:1px solid var(--border)" shadow="never">
+            <template #header><b style="color:var(--text-primary)">6 大营销场景</b></template>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">Banner、产品介绍、竞品分析、客户案例、PPT 大纲、社媒帖子。</div>
+          </el-card>
+          <el-card style="width:240px;text-align:left;border:1px solid var(--border)" shadow="never">
+            <template #header><b style="color:var(--text-primary)">多渠道适配</b></template>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">官网、微信、LinkedIn、邮件、PPT 等渠道风格自动切换，支持新增自定义渠道。</div>
+          </el-card>
+        </div>
+      </div>
+
+      <!-- ===== 产品知识库 ===== -->
+      <div v-if="activeTab==='products'">
+        <div class="section-title">产品知识库 <el-tag size="small">{{ products.length }} 个产品</el-tag>
+          <el-select v-model="productMemberFilter" size="small" style="margin-left:auto;width:130px" placeholder="全部成员" clearable @change="reloadProducts">
+            <el-option v-for="m in members" :key="m.id" :label="m.name" :value="m.id"/>
+          </el-select>
+          <el-button type="primary" size="small" @click="openProductDialog()" style="background:var(--primary);border-color:var(--primary)">+ 新增产品</el-button>
+          <el-button size="small" :loading="uploading" @click="triggerUpload">上传 Word 建库</el-button>
+        </div>
+        <input type="file" ref="uploadInput" accept=".docx" style="display:none" @change="handleUpload"/>
+        <el-row :gutter="16">
+          <el-col :span="8" v-for="p in products" :key="p.id" style="margin-bottom:16px">
+            <el-card shadow="never" class="page-card">
+              <template #header>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <div>
+                    <span style="font-weight:600;font-size:15px;color:var(--text-primary)">{{ p.name }}</span>
+                    <el-tag v-for="cat in p.category" :key="cat" size="small" style="margin-left:6px">{{ cat }}</el-tag>
+                  </div>
+                  <div>
+                    <el-button text size="small" @click="openProductDialog(p)">编辑</el-button>
+                    <el-button text size="small" type="danger" @click="deleteProduct(p)">删除</el-button>
+                  </div>
+                </div>
+              </template>
+              <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px;line-height:1.7">{{ p.description }}</div>
+              <div style="margin-bottom:8px">
+                <el-tag v-for="sp in p.selling_points" :key="sp" size="small" type="success" style="margin:2px">{{ sp }}</el-tag>
+              </div>
+              <el-divider style="margin:8px 0"/>
+              <div style="font-size:12px;color:var(--text-muted)">
+                <div>功能数：{{ p.features.length }} | 目标客户：{{ p.target_customers.length }}</div>
+                <div>定价：{{ p.pricing || '未设置' }}</div>
+                <div>图片：{{ p.images?.length || 0 }} | 文档：{{ p.documents?.length || 0 }}</div>
+                <div v-if="memberName(p.created_by)" style="margin-top:4px">创建人：<span :style="{color:memberColor(p.created_by)}">● {{ memberName(p.created_by) }}</span></div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+        <div v-if="products.length===0" class="empty-state">暂无产品，点击右上角新增</div>
+      </div>
+
+      <!-- ===== 内容生成 ===== -->
+      <div v-if="activeTab==='generate'">
+        <div class="section-title">内容生成 <el-tag size="small" type="info">多 Agent 协作</el-tag></div>
+        <el-row :gutter="16">
+          <!-- 左：配置表单 -->
+          <el-col :span="10">
+            <el-card class="page-card">
+              <template #header><b style="color:var(--text-primary)">生成配置</b></template>
+              <el-form label-width="80px" label-position="top">
+                <el-form-item label="选择产品">
+                  <el-select v-model="genForm.product_id" placeholder="请选择产品" style="width:100%" @change="onProductChange">
+                    <el-option v-for="p in products" :key="p.id" :label="p.name + ' (' + p.category + ')'" :value="p.id"/>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="选择场景">
+                  <el-select v-model="genForm.scenario_id" placeholder="请选择场景" style="width:100%" @change="onScenarioChange">
+                    <el-option-group v-for="cat in scenarioGroups" :key="cat.label" :label="cat.label">
+                      <el-option v-for="s in cat.items" :key="s.id" :label="s.name" :value="s.id"/>
+                    </el-option-group>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="选择模板" v-if="genForm.scenario_id && templatesOf(genForm.scenario_id).length">
+                  <el-select v-model="genForm.template_id" placeholder="请选择模板" style="width:100%">
+                    <el-option v-for="t in templatesOf(genForm.scenario_id)" :key="t.id" :label="t.name + (t.tag ? ' ('+t.tag+')' : '')" :value="t.id"/>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="发布渠道">
+                  <el-select v-model="genForm.channel" placeholder="选择渠道" style="width:100%">
+                    <el-option v-for="ch in availableChannels" :key="ch" :label="ch" :value="ch"/>
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="风格">
+                  <el-select v-model="genForm.style" style="width:100%">
+                    <el-option label="专业严谨" value="专业严谨"/>
+                    <el-option label="激情澎湃" value="激情澎湃"/>
+                    <el-option label="亲和走心" value="亲和走心"/>
+                  </el-select>
+                </el-form-item>
+                <!-- 动态参数：简化为名称+描述，前端表现为文本输入框 -->
+                <el-form-item v-for="param in currentParams" :key="param.name" :label="param.name">
+                  <el-input v-model="genForm.params[param.name]" :placeholder="param.description || '请输入' + param.name"/>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" size="large" style="width:100%;background:var(--primary);border-color:var(--primary)" @click="doGenerate" :loading="generating">
+                    <el-icon v-if="!generating"><MagicStick/></el-icon>
+                    {{ generating ? 'Agent 协作生成中...' : '开始生成' }}
+                  </el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+          </el-col>
+          <!-- 右：结果展示 -->
+          <el-col :span="14">
+            <div v-if="!genResult" class="empty-state" style="padding:80px 0">
+              <el-icon size="48" color="#ddd"><Document/></el-icon>
+              <p style="margin-top:16px">选择产品与场景后点击「开始生成」</p>
+            </div>
+            <div v-else>
+              <!-- Agent 执行链路 -->
+              <el-card class="page-card">
+                <template #header>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <b style="color:var(--text-primary)">Agent 执行链路</b>
+                    <div>
+                      <el-tag v-if="genResult.validated" type="success" size="small">校验通过</el-tag>
+                      <el-tag v-else type="warning" size="small">有待完善</el-tag>
+                    </div>
+                  </div>
+                </template>
+                <div v-for="step in genResult.agent_trace" :key="step.agent" class="agent-step" :class="step.status">
+                  <div class="step-head">
+                    <span class="step-name">{{ step.agent }}</span>
+                    <el-tag :type="step.status==='success'?'success':step.status==='warning'?'warning':'danger'" size="small">{{ step.status }}</el-tag>
+                  </div>
+                  <div class="step-msg">{{ step.message }}</div>
+                  <div class="step-time">耗时 {{ step.duration_ms }}ms</div>
+                </div>
+                <div v-if="genResult.issues.length" style="margin-top:12px">
+                  <el-alert v-for="(issue,i) in genResult.issues" :key="i" :title="issue" type="warning" :closable="false" style="margin-bottom:6px"/>
+                </div>
+              </el-card>
+              <!-- 版本展示 -->
+              <el-card class="page-card">
+                <template #header>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <b style="color:var(--text-primary)">生成结果（{{ genResult.versions.length }} 个版本）</b>
+                    <div>
+                      <el-button size="small" @click="exportResult">导出</el-button>
+                      <el-button size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="saveToHistory">保存</el-button>
+                    </div>
+                  </div>
+                </template>
+                <el-row :gutter="12">
+                  <el-col v-for="v in genResult.versions" :key="v.index" :span="versionSpan">
+                    <el-card shadow="never" class="version-side">
+                      <template #header><b style="color:var(--text-primary)">版本 {{ v.index }}</b></template>
+                      <!-- 多张配图展示 -->
+                      <div v-if="v.images && v.images.length" style="margin-bottom:12px">
+                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">配图（{{ v.images.length }}张）</div>
+                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+                          <div v-for="(img,idx) in v.images" :key="idx" style="position:relative">
+                            <img :src="img.url" class="version-img" :alt="img.caption" style="margin:0"/>
+                            <div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:2px 0">{{ img.caption }}</div>
+                          </div>
+                        </div>
+                      </div>
+                      <!-- 兼容旧版单图 -->
+                      <img v-else-if="v.image" :src="v.image" class="version-img" alt="配图"/>
+                      <el-input v-model="v.title" size="small" style="margin-bottom:8px">
+                        <template #prepend>标题</template>
+                      </el-input>
+                      <el-input type="textarea" :rows="14" v-model="v.body" style="margin-bottom:8px;font-size:13px"/>
+                      <div style="margin-bottom:6px">
+                        <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
+                      </div>
+                      <div class="version-tools">
+                        <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(genResult.history_id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
+                        <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(genResult.history_id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
+                        <el-button text size="small" @click="analyzeSeo(v.title, v.body)">🔍 SEO</el-button>
+                      </div>
+                    </el-card>
+                  </el-col>
+                </el-row>
+              </el-card>
+            </div>
+          </el-col>
+        </el-row>
+      </div>
+
+      <!-- ===== 场景模板 ===== -->
+      <div v-if="activeTab==='scenarios'">
+        <div class="section-title">场景模板 <el-tag size="small">{{ scenarios.length }} 个</el-tag>
+          <el-button type="primary" size="small" style="margin-left:auto;background:var(--primary);border-color:var(--primary)" @click="openScenarioDialog()">+ 新建场景</el-button>
+        </div>
+        <div v-for="s in scenarios" :key="s.id" style="margin-bottom:16px">
+          <el-card shadow="never" class="page-card" :style="{borderLeft: expandedScenario===s.id ? '3px solid var(--primary)' : '3px solid transparent'}">
+            <template #header>
+              <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" @click="toggleScenario(s.id)">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-weight:600;color:var(--text-primary)">{{ s.name }}</span>
+                  <el-tag size="small" :type="expandedScenario===s.id?'primary':'info'">{{ s.parameters.length }} 个参数</el-tag>
+                  <el-tag size="small">{{ templatesOf(s.id).length }} 个模板</el-tag>
+                </div>
+                <div @click.stop>
+                  <el-button text size="small" @click="openScenarioDialog(s)">编辑</el-button>
+                  <el-button text size="small" type="danger" @click="deleteScenario(s)">删除</el-button>
+                </div>
+              </div>
+            </template>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">{{ s.description }}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">
+              参数：<template v-for="(p,i) in s.parameters" :key="i">{{ p.name }}{{ i < s.parameters.length-1 ? '、' : '' }}</template>
+            </div>
+
+            <!-- 展开的模板列表 -->
+            <div v-if="expandedScenario===s.id" style="margin-top:12px;border-top:1px solid var(--border-light);padding-top:12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                <b style="font-size:14px;color:var(--text-primary)">模板列表</b>
+                <el-button size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="openTemplateDialog(s.id)">+ 新建模板</el-button>
+              </div>
+              <div v-if="templatesOf(s.id).length===0" style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:13px">暂无模板，点击上方按钮新建</div>
+              <el-table :data="templatesOf(s.id)" stripe size="small" v-else>
+                <el-table-column prop="name" label="模板名称" width="150"/>
+                <el-table-column prop="tag" label="标签" width="100">
+                  <template #default="{row}">
+                    <el-tag v-if="row.tag" size="small">{{ row.tag }}</el-tag>
+                    <span v-else style="color:var(--text-muted)">—</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="description" label="描述" min-width="200">
+                  <template #default="{row}">
+                    <span style="font-size:13px;color:var(--text-secondary)">{{ row.description }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="prompt" label="提示词" min-width="200">
+                  <template #default="{row}">
+                    <span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:250px">{{ row.prompt }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="140">
+                  <template #default="{row}">
+                    <el-button text size="small" @click="openTemplateDialog(s.id, row)">编辑</el-button>
+                    <el-button text size="small" type="danger" @click="deleteTemplate(s.id, row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-card>
+        </div>
+      </div>
+
+      <!-- ===== 生成历史 ===== -->
+      <div v-if="activeTab==='history'">
+        <div class="section-title">生成历史 <el-tag size="small">{{ history.length }} 条</el-tag></div>
+        <el-table :data="history" stripe @row-click="viewHistory" style="cursor:pointer">
+          <el-table-column prop="product_name" label="产品" width="160"/>
+          <el-table-column prop="scenario_name" label="场景" width="180"/>
+          <el-table-column prop="channel" label="渠道" width="100"/>
+          <el-table-column prop="style" label="风格" width="100"/>
+          <el-table-column label="版本数" width="80">
+            <template #default="{row}">{{ row.versions.length }}</template>
+          </el-table-column>
+          <el-table-column label="校验" width="80">
+            <template #default="{row}">
+              <el-tag :type="row.validated?'success':'warning'" size="small">{{ row.validated?'通过':'待完善' }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="生成时间" width="180"/>
+          <el-table-column label="创建人" width="100">
+            <template #default="{row}">
+              <span v-if="memberName(row.created_by)" :style="{color:memberColor(row.created_by)}">● {{ memberName(row.created_by) }}</span>
+              <span v-else style="color:#bbb">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="反馈" width="110">
+            <template #default="{row}">
+              <el-button text size="small" :type="row.feedback==='like'?'success':'info'" @click.stop="setFeedback(row,'like')" style="padding:2px 6px">👍</el-button>
+              <el-button text size="small" :type="row.feedback==='dislike'?'danger':'info'" @click.stop="setFeedback(row,'dislike')" style="padding:2px 6px">👎</el-button>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="160">
+            <template #default="{row}">
+              <el-button text size="small" @click.stop="exportHistory(row)">导出</el-button>
+              <el-button text size="small" type="danger" @click.stop="deleteHistory(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div v-if="history.length===0" class="empty-state">暂无生成记录</div>
+
+        <!-- 历史详情弹窗 -->
+        <el-dialog v-model="historyDetailVisible" title="历史详情" width="70%" top="5vh">
+          <div v-if="currentHistory">
+            <el-descriptions :column="3" border style="margin-bottom:16px">
+              <el-descriptions-item label="产品">{{ currentHistory.product_name }}</el-descriptions-item>
+              <el-descriptions-item label="场景">{{ currentHistory.scenario_name }}</el-descriptions-item>
+              <el-descriptions-item label="渠道">{{ currentHistory.channel }}</el-descriptions-item>
+              <el-descriptions-item label="风格">{{ currentHistory.style }}</el-descriptions-item>
+              <el-descriptions-item label="时间">{{ currentHistory.created_at }}</el-descriptions-item>
+              <el-descriptions-item label="校验">
+                <el-tag :type="currentHistory.validated?'success':'warning'" size="small">{{ currentHistory.validated?'通过':'待完善' }}</el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="反馈">
+                <el-button text size="small" :type="currentHistory.feedback==='like'?'success':'info'" @click="setFeedback(currentHistory,'like')">👍{{ currentHistory.feedback==='like'?' 已赞':'' }}</el-button>
+                <el-button text size="small" :type="currentHistory.feedback==='dislike'?'danger':'info'" @click="setFeedback(currentHistory,'dislike')">👎{{ currentHistory.feedback==='dislike'?' 已踩':'' }}</el-button>
+              </el-descriptions-item>
+              <el-descriptions-item label="创建人">
+                <span v-if="memberName(currentHistory.created_by)" :style="{color:memberColor(currentHistory.created_by)}">● {{ memberName(currentHistory.created_by) }}</span>
+                <span v-else style="color:#bbb">未标记</span>
+              </el-descriptions-item>
+            </el-descriptions>
+            <el-alert v-if="leadingVersion(currentHistory.versions)" type="success" :closable="false" style="margin-bottom:12px">
+              🏆 A/B 领先版本：版本 {{ leadingVersion(currentHistory.versions).index }}（👍{{ leadingVersion(currentHistory.versions).votes.like }} / 👎{{ leadingVersion(currentHistory.versions).votes.dislike }}）
+            </el-alert>
+            <div style="text-align:right;margin-bottom:8px">
+              <el-button size="small" @click="historyEditMode=!historyEditMode">{{ historyEditMode ? '预览' : '编辑' }}</el-button>
+              <el-button v-if="historyEditMode" size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="saveHistoryDetail">保存修改</el-button>
+            </div>
+            <el-tabs type="card">
+              <el-tab-pane v-for="v in currentHistory.versions" :key="v.index" :label="'版本 '+v.index+' (👍'+(v.votes?.like||0)+'/👎'+(v.votes?.dislike||0)+')'">
+                <template v-if="historyEditMode">
+                  <el-input v-model="v.title" style="margin-bottom:8px"><template #prepend>标题</template></el-input>
+                  <el-input type="textarea" :rows="14" v-model="v.body"/>
+                </template>
+                <template v-else>
+                  <img v-if="v.image" :src="v.image" class="version-img" alt="配图"/>
+                  <h3>{{ v.title }}</h3>
+                  <div class="version-body markdown-body" v-html="renderMarkdown(v.body)"></div>
+                </template>
+                <div class="version-tools" style="margin-top:8px">
+                  <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(currentHistory.id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
+                  <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(currentHistory.id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
+                  <el-button text size="small" @click="analyzeSeo(v.title, v.body)">🔍 SEO 分析</el-button>
+                </div>
+              </el-tab-pane>
+            </el-tabs>
+          </div>
+        </el-dialog>
+      </div>
+    </el-main>
+  </el-container>
+</div>
+
+<!-- 产品编辑弹窗 -->
+<el-dialog v-model="productDialogVisible" :title="editingProduct.id ? '编辑产品' : '新增产品'" width="720px" top="5vh">
+  <el-form :model="editingProduct" label-width="100px" class="product-form">
+    <el-form-item label="产品名称" required>
+      <el-input v-model="editingProduct.name" placeholder="必填"/>
+    </el-form-item>
+    <el-form-item label="产品分类">
+      <el-select v-model="editingProduct.category" multiple filterable allow-create default-first-option style="width:100%" placeholder="输入后回车添加">
+      </el-select>
+    </el-form-item>
+    <el-form-item label="产品描述">
+      <el-input type="textarea" :rows="3" v-model="editingProduct.description"/>
+    </el-form-item>
+    <el-form-item label="功能特性">
+      <div style="width:100%">
+        <div class="feature-row" v-for="(f,i) in editingProduct.features" :key="i">
+          <el-input v-model="f.name" placeholder="功能名称" style="flex:0 0 160px"/>
+          <el-input v-model="f.description" placeholder="功能描述"/>
+          <el-button text type="danger" @click="editingProduct.features.splice(i,1)">删除</el-button>
+        </div>
+        <el-button text type="primary" @click="editingProduct.features.push({name:'',description:''})">+ 添加功能</el-button>
+      </div>
+    </el-form-item>
+    <el-form-item label="目标客户">
+      <el-select v-model="editingProduct.target_customers" multiple filterable allow-create default-first-option style="width:100%" placeholder="输入后回车添加">
+      </el-select>
+    </el-form-item>
+    <el-form-item label="价格信息">
+      <el-input v-model="editingProduct.pricing" placeholder="如：¥50,000/年"/>
+    </el-form-item>
+    <el-form-item label="产品卖点">
+      <el-select v-model="editingProduct.selling_points" multiple filterable allow-create default-first-option style="width:100%" placeholder="输入后回车添加">
+      </el-select>
+    </el-form-item>
+    <el-form-item label="产品图片">
+      <div style="width:100%">
+        <el-upload
+          v-if="editingProduct.id"
+          :action="`/api/products/${editingProduct.id}/upload-image`"
+          :headers="uploadHeaders"
+          :show-file-list="false"
+          :on-success="handleImageUpload"
+          accept="image/*"
+        >
+          <el-button type="primary" size="small" style="background:var(--primary);border-color:var(--primary)">上传图片</el-button>
+        </el-upload>
+        <el-alert v-else type="info" :closable="false" style="margin-bottom:8px">请先保存产品后再上传图片</el-alert>
+        <div v-if="editingProduct.images && editingProduct.images.length" style="margin-top:8px">
+          <div v-for="(img,i) in editingProduct.images" :key="i" style="display:inline-block;margin-right:8px;position:relative">
+            <el-image :src="img.url" style="width:80px;height:80px" fit="cover"/>
+            <el-button size="small" type="danger" circle style="position:absolute;top:-8px;right:-8px" @click="editingProduct.images.splice(i,1)">×</el-button>
+          </div>
+        </div>
+      </div>
+    </el-form-item>
+    <el-form-item label="产品文档">
+      <div style="width:100%">
+        <el-upload
+          v-if="editingProduct.id"
+          :action="`/api/products/${editingProduct.id}/upload-document`"
+          :headers="uploadHeaders"
+          :show-file-list="false"
+          :on-success="handleDocumentUpload"
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+        >
+          <el-button type="primary" size="small" style="background:var(--primary);border-color:var(--primary)">上传文档</el-button>
+        </el-upload>
+        <el-alert v-else type="info" :closable="false" style="margin-bottom:8px">请先保存产品后再上传文档</el-alert>
+        <div v-if="editingProduct.documents && editingProduct.documents.length" style="margin-top:8px">
+          <div v-for="(doc,i) in editingProduct.documents" :key="i" style="margin-bottom:4px">
+            <el-link :href="doc.url" target="_blank" type="primary">{{ doc.name }}</el-link>
+            <el-button size="small" type="danger" text @click="editingProduct.documents.splice(i,1)" style="margin-left:8px">删除</el-button>
+          </div>
+        </div>
+      </div>
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="productDialogVisible=false">取消</el-button>
+    <el-button type="primary" @click="saveProduct" style="background:var(--primary);border-color:var(--primary)">保存</el-button>
+  </template>
+</el-dialog>
+
+<!-- 场景编辑弹窗 -->
+<el-dialog v-model="scenarioDialogVisible" :title="editingScenario.id ? '编辑场景' : '新建场景'" width="640px">
+  <el-form :model="editingScenario" label-width="90px">
+    <el-form-item label="场景名称"><el-input v-model="editingScenario.name" placeholder="如：官网 Banner 文案（必填）"/></el-form-item>
+    <el-form-item label="场景描述"><el-input type="textarea" :rows="2" v-model="editingScenario.description" placeholder="描述此场景的用途（必填）"/></el-form-item>
+    <el-form-item label="场景参数">
+      <div style="width:100%">
+        <div class="feature-row" v-for="(p,i) in editingScenario.parameters" :key="i">
+          <el-input v-model="p.name" placeholder="参数名称" style="flex:0 0 160px"/>
+          <el-input v-model="p.description" placeholder="参数描述"/>
+          <el-button text type="danger" @click="editingScenario.parameters.splice(i,1)">删除</el-button>
+        </div>
+        <el-button text type="primary" @click="editingScenario.parameters.push({name:'',description:''})">+ 添加参数</el-button>
+      </div>
+    </el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="scenarioDialogVisible=false">取消</el-button>
+    <el-button type="primary" @click="saveScenario" style="background:var(--primary);border-color:var(--primary)">保存</el-button>
+  </template>
+</el-dialog>
+
+<!-- 模板编辑弹窗 -->
+<el-dialog v-model="templateDialogVisible" :title="editingTemplate.id ? '编辑模板' : '新建模板'" width="640px">
+  <el-form :model="editingTemplate" label-width="100px">
+    <el-form-item label="模板名称"><el-input v-model="editingTemplate.name" placeholder="如：Banner 标准版（必填）"/></el-form-item>
+    <el-form-item label="标签"><el-input v-model="editingTemplate.tag" placeholder="单个标签，如：标准、促销、深度"/></el-form-item>
+    <el-form-item label="模板描述"><el-input type="textarea" :rows="2" v-model="editingTemplate.description" placeholder="描述此模板的用途（必填）"/></el-form-item>
+    <el-form-item label="提示词/产出格式"><el-input type="textarea" :rows="4" v-model="editingTemplate.prompt" placeholder="填写提示词，可用 {参数名} 引用场景参数"/></el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="templateDialogVisible=false">取消</el-button>
+    <el-button type="primary" @click="saveTemplate" style="background:var(--primary);border-color:var(--primary)">保存</el-button>
+  </template>
+</el-dialog>
+
+<!-- 个人资料弹窗（鉴权）-->
+<el-dialog v-model="profileVisible" title="个人资料" width="460px">
+  <el-form label-width="80px" v-if="profileForm">
+    <el-form-item label="用户名"><el-input :model-value="currentUser?.username || ''" disabled/></el-form-item>
+    <el-form-item label="昵称"><el-input v-model="profileForm.name"/></el-form-item>
+    <el-form-item label="邮箱"><el-input v-model="profileForm.email"/></el-form-item>
+    <el-form-item label="头像色">
+      <div style="display:flex;align-items:center;gap:8px">
+        <el-color-picker v-model="profileForm.color"/>
+        <span style="font-size:12px;color:#999">{{ profileForm.color }}</span>
+      </div>
+    </el-form-item>
+    <el-divider>修改密码（留空则不修改）</el-divider>
+    <el-form-item label="旧密码"><el-input type="password" v-model="profileForm.old_password" show-password/></el-form-item>
+    <el-form-item label="新密码"><el-input type="password" v-model="profileForm.new_password" show-password placeholder="至少 6 位"/></el-form-item>
+  </el-form>
+  <template #footer>
+    <el-button @click="profileVisible=false">取消</el-button>
+    <el-button type="primary" @click="saveProfile" style="background:var(--primary);border-color:var(--primary)">保存</el-button>
+  </template>
+</el-dialog>
+
+<!-- SEO 分析弹窗（加分项）-->
+<el-dialog v-model="seoVisible" title="SEO 分析" width="560px">
+  <div v-if="seoResult">
+    <div style="text-align:center;margin-bottom:16px">
+      <div class="seo-score" :style="{color: seoScoreColor}">{{ seoResult.score }}</div>
+      <div style="color:#999;font-size:13px">SEO 评分（满分 100）</div>
+    </div>
+    <div v-if="seoResult.keywords.length" style="margin-bottom:12px">
+      <span style="font-size:13px;color:#666">关键词：</span>
+      <el-tag v-for="k in seoResult.keywords" :key="k" size="small" style="margin:2px">{{ k }}</el-tag>
+    </div>
+    <el-divider/>
+    <div v-for="(s,i) in seoResult.suggestions" :key="i" class="seo-item">
+      <el-tag :type="s.level==='good'?'success':s.level==='warning'?'warning':'danger'" size="small" style="flex:0 0 auto">{{ s.type }}</el-tag>
+      <span style="margin-left:8px;font-size:13px;line-height:1.6">{{ s.message }}</span>
+    </div>
+    <el-divider/>
+    <div style="font-size:12px;color:#999">
+      标题 {{ seoResult.stats.title_length }} 字 · 正文 {{ seoResult.stats.body_length }} 字 · 小标题 {{ seoResult.stats.headings||0 }} · 平均句长 {{ seoResult.stats.avg_sentence_length||0 }} 字
+    </div>
+    <div v-if="seoResult.stats.meta_description" style="font-size:12px;color:#999;margin-top:6px">
+      建议 Meta：{{ seoResult.stats.meta_description }}
+    </div>
+  </div>
+</el-dialog>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@3.4.0/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/element-plus@2.4.4/dist/index.full.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@element-plus/icons-vue@2.3.1/dist/index.iife.min.js"></script>
+<script>
+const { createApp, ref, reactive, computed, onMounted } = Vue;
+
+const app = createApp({
+  setup() {
+    const activeTab = ref('home');
+    const collapsed = ref(false);
+    const llmEnabled = ref(false);
+
+    // 数据
+    const products = ref([]);
+    const scenarios = ref([]);
+    const history = ref([]);
+
+    // 生成表单
+    const genForm = reactive({
+      product_id: '', scenario_id: '', template_id: '', channel: '官网', style: '专业严谨',
+      version_count: 3, params: {}
+    });
+    const generating = ref(false);
+    const genResult = ref(null);
+    const activeVersion = ref('1');
+
+    // 弹窗
+    const productDialogVisible = ref(false);
+    const editingProduct = reactive({});
+    const scenarioDialogVisible = ref(false);
+    const editingScenario = reactive({});
+    const templates = ref([]);               // 所有模板数据
+    const expandedScenario = ref(null);      // 当前展开的场景 ID
+    const templateDialogVisible = ref(false);
+    const editingTemplate = reactive({});
+    const editingTemplateScenarioId = ref('');
+    const historyDetailVisible = ref(false);
+    const currentHistory = ref(null);
+    const historyEditMode = ref(false);     // 历史详情弹窗：编辑/预览切换
+    const uploadInput = ref(null);          // 隐藏的文件上传 input（模板引用）
+    const uploading = ref(false);           // Word 上传中状态
+    // 团队成员（用于展示创建人）
+    const members = ref([]);
+    const productMemberFilter = ref('');    // 产品列表按成员筛选
+    // SEO 分析（加分项）
+    const seoVisible = ref(false);
+    const seoResult = ref(null);
+    // 鉴权：当前用户、登录/注册表单
+    const currentUser = ref(null);
+    const loggedIn = computed(() => !!currentUser.value);
+    const authView = ref('login');          // 'login' | 'register'
+    const authLoading = ref(false);
+    const loginForm = reactive({ username: '', password: '' });
+    const registerForm = reactive({ username: '', name: '', password: '', email: '' });
+    const profileVisible = ref(false);
+    const profileForm = reactive({ name: '', email: '', color: '#409eff', old_password: '', new_password: '' });
+
+    // 计算属性
+    const channelOptions = ref([]);        // 渠道列表（从 API 加载）
+    const scenarioGroups = computed(() => {
+      // 场景不再按分类分组，统一返回一个分组
+      return [{ label: '全部场景', items: scenarios.value }];
+    });
+
+    // 上传请求头（带认证 token）
+    const uploadHeaders = computed(() => {
+      const accessToken = localStorage.getItem('sx_access_token');
+      return accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {};
+    });
+
+    // 获取指定场景下的模板
+    const templatesOf = (scenarioId) => templates.value.filter(t => t.scenario_id === scenarioId);
+    const currentScenario = computed(() => scenarios.value.find(s => s.id === genForm.scenario_id));
+    const currentParams = computed(() => currentScenario.value?.parameters || []);
+    const availableChannels = computed(() => channelOptions.value.map(ch => ch.name));
+    // 并排展示时每个版本卡片的栅格宽度（24 栅平分给 N 个版本）
+    const versionSpan = computed(() => {
+      const n = genResult.value?.versions.length || 1;
+      return Math.floor(24 / Math.max(1, n));
+    });
+
+    // 团队成员查找表（把 created_by 的 id 翻译成名字/颜色）
+    const memberMap = computed(() => Object.fromEntries(members.value.map(m => [m.id, m])));
+    const memberName = (id) => memberMap.value[id]?.name || '';
+    const memberColor = (id) => memberMap.value[id]?.color || '#bbb';
+    // SEO 评分颜色：≥80 绿 / ≥60 橙 / 否则红
+    const seoScoreColor = computed(() => {
+      const s = seoResult.value?.score ?? 0;
+      return s >= 80 ? '#67c23a' : s >= 60 ? '#e6a23c' : '#f56c6c';
+    });
+
+    // 统一 API 助手：自动带 Authorization 头；401 → 自动刷新令牌并重试
+    const api = async (url, opts = {}) => {
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      const accessToken = localStorage.getItem('sx_access_token');
+      if (accessToken) headers['Authorization'] = 'Bearer ' + accessToken;
+      
+      let response = await fetch(url, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+      
+      // 401 时尝试刷新令牌
+      if (response.status === 401) {
+        const refreshToken = localStorage.getItem('sx_refresh_token');
+        if (refreshToken) {
+          try {
+            const refreshResp = await fetch('/api/auth/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh_token: refreshToken })
+            });
+            
+            if (refreshResp.ok) {
+              const data = await refreshResp.json();
+              // 保存新的 access_token
+              localStorage.setItem('sx_access_token', data.access_token);
+              // 重试原请求
+              headers['Authorization'] = 'Bearer ' + data.access_token;
+              response = await fetch(url, { ...opts, headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+            } else {
+              // 刷新失败，清除令牌并跳转登录
+              localStorage.removeItem('sx_access_token');
+              localStorage.removeItem('sx_refresh_token');
+              currentUser.value = null;
+              throw new Error('登录已失效，请重新登录');
+            }
+          } catch (e) {
+            localStorage.removeItem('sx_access_token');
+            localStorage.removeItem('sx_refresh_token');
+            currentUser.value = null;
+            throw new Error('登录已失效，请重新登录');
+          }
+        } else {
+          localStorage.removeItem('sx_access_token');
+          localStorage.removeItem('sx_refresh_token');
+          currentUser.value = null;
+          throw new Error('登录已失效，请重新登录');
+        }
+      }
+      
+      return response.ok ? response.json() : response.json().then(e => { throw new Error(e.detail || '请求失败'); });
+    };
+
+    // 带鉴权的文件下载（导出 md/txt）：fetch 拿 blob 再触发下载
+    const downloadExport = (url) => {
+      const accessToken = localStorage.getItem('sx_access_token');
+      fetch(url, { headers: accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {} })
+        .then(r => {
+          if (r.status === 401) { currentUser.value = null; localStorage.removeItem('sx_access_token'); localStorage.removeItem('sx_refresh_token'); throw new Error('登录已失效'); }
+          if (!r.ok) throw new Error('导出失败');
+          const cd = r.headers.get('Content-Disposition') || '';
+          let fname = 'export.md';
+          const m = cd.match(/filename\*=UTF-8''(.+)/);
+          if (m) fname = decodeURIComponent(m[1]);
+          return r.blob().then(b => ({ b, fname }));
+        })
+        .then(({ b, fname }) => {
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(b);
+          a.download = fname;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        })
+        .catch(e => ElementPlus.ElMessage.error(e.message));
+    };
+
+    const loadData = async () => {
+      try {
+        const [h, p, s, mb, ch, tms] = await Promise.all([
+          api('/api/health'), api('/api/products'), api('/api/scenarios'), api('/api/members'),
+          api('/api/channels'), api('/api/templates/all')
+        ]);
+        llmEnabled.value = h.llm_enabled;
+        products.value = p;
+        scenarios.value = s;
+        members.value = mb;
+        channelOptions.value = ch;
+        templates.value = tms;
+        history.value = await api('/api/history');
+      } catch (e) { ElementPlus.ElMessage.error('加载失败: ' + e.message); }
+    };
+
+    // 按筛选重新拉取产品列表
+    const reloadProducts = async () => {
+      const url = productMemberFilter.value
+        ? `/api/products?member=${encodeURIComponent(productMemberFilter.value)}`
+        : '/api/products';
+      products.value = await api(url);
+    };
+
+    // 生成
+    const onProductChange = () => {};
+    const onScenarioChange = () => {
+      genForm.params = {};
+      genForm.template_id = '';
+      currentParams.value.forEach(p => { genForm.params[p.name] = ''; });
+      // 自动选中该场景下的第一个模板
+      const tms = templatesOf(genForm.scenario_id);
+      if (tms.length > 0) genForm.template_id = tms[0].id;
+    };
+
+    const doGenerate = async () => {
+      if (!genForm.product_id || !genForm.scenario_id) {
+        ElementPlus.ElMessage.warning('请选择产品和场景'); return;
+      }
+      generating.value = true;
+      genResult.value = null;
+      try {
+        genResult.value = await api('/api/generate', {
+          method: 'POST',
+          body: {
+            product_id: genForm.product_id,
+            scenario_id: genForm.scenario_id,
+            template_id: genForm.template_id,
+            channel: genForm.channel,
+            style: genForm.style,
+            params: genForm.params,
+            version_count: genForm.version_count
+          }
+        });
+        activeVersion.value = '1';
+        history.value = await api('/api/history');
+        ElementPlus.ElMessage.success('生成完成');
+      } catch (e) {
+        ElementPlus.ElMessage.error('生成失败: ' + e.message);
+      } finally {
+        generating.value = false;
+      }
+    };
+
+    const saveToHistory = async () => {
+      // 把生成结果卡片里编辑过的版本回写到历史记录（G1 编辑持久化）
+      if (!genResult.value) return;
+      try {
+        await api(`/api/history/${genResult.value.history_id}`, {
+          method: 'PUT',
+          body: {
+            versions: genResult.value.versions.map(v => ({
+              index: v.index, title: v.title, body: v.body, tags: v.tags
+            }))
+          }
+        });
+        history.value = await api('/api/history');
+        ElementPlus.ElMessage.success('编辑已保存到历史记录');
+      } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
+    };
+
+    const exportResult = () => {
+      // 导出需带鉴权头，用 downloadExport 而非 window.open
+      if (genResult.value) {
+        downloadExport(`/api/history/${genResult.value.history_id}/export?format=markdown`);
+      }
+    };
+
+    // 产品 CRUD
+    const openProductDialog = (p) => {
+      Object.keys(editingProduct).forEach(k => delete editingProduct[k]);
+      if (p) {
+        Object.assign(editingProduct, JSON.parse(JSON.stringify(p)));
+        // 确保数组字段存在
+        if (!editingProduct.category) editingProduct.category = [];
+        if (!editingProduct.features) editingProduct.features = [];
+        if (!editingProduct.target_customers) editingProduct.target_customers = [];
+        if (!editingProduct.selling_points) editingProduct.selling_points = [];
+        if (!editingProduct.images) editingProduct.images = [];
+        if (!editingProduct.documents) editingProduct.documents = [];
+      } else {
+        Object.assign(editingProduct, {
+          name: '', category: [], description: '',
+          features: [], target_customers: [],
+          pricing: '', selling_points: [],
+          images: [], documents: []
+        });
+      }
+      productDialogVisible.value = true;
+    };
+
+    const saveProduct = async () => {
+      if (!editingProduct.name) { ElementPlus.ElMessage.warning('请输入产品名称'); return; }
+      // created_by 由后端从登录令牌写入，前端不传
+      try {
+        if (editingProduct.id) {
+          await api(`/api/products/${editingProduct.id}`, { method: 'PUT', body: editingProduct });
+        } else {
+          await api('/api/products', { method: 'POST', body: editingProduct });
+        }
+        productDialogVisible.value = false;
+        await reloadProducts();
+        ElementPlus.ElMessage.success('保存成功');
+      } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
+    };
+
+    const deleteProduct = async (p) => {
+      try {
+        await ElementPlus.ElMessageBox.confirm(`确认删除产品「${p.name}」？`, '提示', { type: 'warning' });
+        await api(`/api/products/${p.id}`, { method: 'DELETE' });
+        await reloadProducts();
+        ElementPlus.ElMessage.success('已删除');
+      } catch (e) { if (e !== 'cancel') ElementPlus.ElMessage.error('删除失败'); }
+    };
+
+    // 产品图片上传成功回调
+    const handleImageUpload = (response) => {
+      if (response.url) {
+        if (!editingProduct.images) editingProduct.images = [];
+        editingProduct.images.push({
+          url: response.url,
+          name: response.name || '未命名图片',
+          size: response.size || 0
+        });
+        ElementPlus.ElMessage.success('图片上传成功');
+      } else {
+        ElementPlus.ElMessage.error('图片上传失败');
+      }
+    };
+
+    // 产品文档上传成功回调
+    const handleDocumentUpload = (response) => {
+      if (response.url) {
+        if (!editingProduct.documents) editingProduct.documents = [];
+        editingProduct.documents.push({
+          url: response.url,
+          name: response.name || '未命名文档',
+          size: response.size || 0,
+          type: response.type || ''
+        });
+        ElementPlus.ElMessage.success('文档上传成功');
+      } else {
+        ElementPlus.ElMessage.error('文档上传失败');
+      }
+    };
+
+    // 场景展开/收起
+    const toggleScenario = (id) => {
+      expandedScenario.value = expandedScenario.value === id ? null : id;
+    };
+
+    // 场景 CRUD
+    const openScenarioDialog = (s) => {
+      Object.keys(editingScenario).forEach(k => delete editingScenario[k]);
+      if (s) {
+        Object.assign(editingScenario, JSON.parse(JSON.stringify(s)));
+      } else {
+        Object.assign(editingScenario, {
+          name: '', description: '', parameters: []
+        });
+      }
+      scenarioDialogVisible.value = true;
+    };
+
+    const saveScenario = async () => {
+      if (!editingScenario.name) { ElementPlus.ElMessage.warning('请输入场景名称'); return; }
+      if (!editingScenario.description) { ElementPlus.ElMessage.warning('请输入场景描述'); return; }
+      try {
+        const body = {
+          name: editingScenario.name,
+          description: editingScenario.description,
+          parameters: editingScenario.parameters.filter(p => p.name).map(p => ({ name: p.name, description: p.description || '' }))
+        };
+        if (editingScenario.id) {
+          await api(`/api/scenarios/${editingScenario.id}`, { method: 'PUT', body });
+        } else {
+          await api('/api/scenarios', { method: 'POST', body });
+        }
+        scenarioDialogVisible.value = false;
+        scenarios.value = await api('/api/scenarios');
+        ElementPlus.ElMessage.success('保存成功');
+      } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
+    };
+
+    const deleteScenario = async (s) => {
+      try {
+        await ElementPlus.ElMessageBox.confirm(`确认删除场景「${s.name}」？（关联的模板也会一起删除）`, '提示', { type: 'warning' });
+        await api(`/api/scenarios/${s.id}`, { method: 'DELETE' });
+        scenarios.value = await api('/api/scenarios');
+        templates.value = templates.value.filter(t => t.scenario_id !== s.id);
+        ElementPlus.ElMessage.success('已删除');
+      } catch (e) { if (e !== 'cancel') ElementPlus.ElMessage.error('删除失败'); }
+    };
+
+    // 模板 CRUD
+    const openTemplateDialog = (scenarioId, t) => {
+      Object.keys(editingTemplate).forEach(k => delete editingTemplate[k]);
+      editingTemplateScenarioId.value = scenarioId;
+      if (t) {
+        Object.assign(editingTemplate, JSON.parse(JSON.stringify(t)));
+      } else {
+        Object.assign(editingTemplate, {
+          name: '', tag: '', description: '', prompt: ''
+        });
+      }
+      templateDialogVisible.value = true;
+    };
+
+    const saveTemplate = async () => {
+      if (!editingTemplate.name) { ElementPlus.ElMessage.warning('请输入模板名称'); return; }
+      if (!editingTemplate.description) { ElementPlus.ElMessage.warning('请输入模板描述'); return; }
+      const sid = editingTemplate.scenario_id || editingTemplateScenarioId.value;
+      try {
+        const body = {
+          name: editingTemplate.name,
+          tag: editingTemplate.tag || '',
+          description: editingTemplate.description,
+          prompt: editingTemplate.prompt || ''
+        };
+        if (editingTemplate.id) {
+          await api(`/api/scenarios/${sid}/templates/${editingTemplate.id}`, { method: 'PUT', body });
+        } else {
+          await api(`/api/scenarios/${sid}/templates`, { method: 'POST', body });
+        }
+        templateDialogVisible.value = false;
+        templates.value = await api('/api/templates/all');
+        ElementPlus.ElMessage.success('保存成功');
+      } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
+    };
+
+    const deleteTemplate = async (sid, t) => {
+      try {
+        await ElementPlus.ElMessageBox.confirm(`确认删除模板「${t.name}」？`, '提示', { type: 'warning' });
+        await api(`/api/scenarios/${sid}/templates/${t.id}`, { method: 'DELETE' });
+        templates.value = templates.value.filter(x => x.id !== t.id);
+        ElementPlus.ElMessage.success('已删除');
+      } catch (e) { if (e !== 'cancel') ElementPlus.ElMessage.error('删除失败'); }
+    };
+
+    // 历史
+    const viewHistory = async (row) => {
+      currentHistory.value = await api(`/api/history/${row.id}`);
+      historyEditMode.value = false;
+      historyDetailVisible.value = true;
+    };
+
+    const exportHistory = (row) => {
+      downloadExport(`/api/history/${row.id}/export?format=markdown`);
+    };
+
+    const deleteHistory = async (row) => {
+      try {
+        await ElementPlus.ElMessageBox.confirm('确认删除该历史记录？', '提示', { type: 'warning' });
+        await api(`/api/history/${row.id}`, { method: 'DELETE' });
+        history.value = await api('/api/history');
+        ElementPlus.ElMessage.success('已删除');
+      } catch (e) { if (e !== 'cancel') ElementPlus.ElMessage.error('删除失败'); }
+    };
+
+    // 用户反馈（赞 / 踩）—— G3b
+    // row 可能是列表行，也可能是历史详情对象；再次点击同值 = 取消标记
+    const setFeedback = async (row, fb) => {
+      const next = row.feedback === fb ? '' : fb;
+      try {
+        const updated = await api(`/api/history/${row.id}/feedback`, {
+          method: 'PUT', body: { feedback: next }
+        });
+        Object.assign(row, updated);
+        history.value = await api('/api/history');   // 同步列表中的反馈状态
+        ElementPlus.ElMessage.success(next ? (next === 'like' ? '已点赞' : '已踩') : '已取消标记');
+      } catch (e) { ElementPlus.ElMessage.error('操作失败: ' + e.message); }
+    };
+
+    // 历史详情里编辑后保存 —— G1
+    const saveHistoryDetail = async () => {
+      if (!currentHistory.value) return;
+      try {
+        await api(`/api/history/${currentHistory.value.id}`, {
+          method: 'PUT',
+          body: { versions: currentHistory.value.versions.map(v => ({
+            index: v.index, title: v.title, body: v.body, tags: v.tags
+          })) }
+        });
+        history.value = await api('/api/history');
+        ElementPlus.ElMessage.success('已保存修改');
+      } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
+    };
+
+    // 上传 Word 手册建库 —— G3a
+    const triggerUpload = () => {
+      if (uploadInput.value) uploadInput.value.click();
+    };
+
+    const handleUpload = async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      uploading.value = true;
+      try {
+        // 文件上传用 multipart/form-data，不能复用默认的 JSON api 助手，但需手动带鉴权头
+        const fd = new FormData();
+        fd.append('file', file);
+        const accessToken = localStorage.getItem('sx_access_token');
+        const resp = await fetch('/api/products/import-docx', {
+          method: 'POST', body: fd,
+          headers: accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {}
+        }).then(async (r) => {
+          if (r.status === 401) {
+            // 尝试刷新令牌
+            const refreshToken = localStorage.getItem('sx_refresh_token');
+            if (refreshToken) {
+              try {
+                const refreshResp = await fetch('/api/auth/refresh', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refresh_token: refreshToken })
+                });
+                if (refreshResp.ok) {
+                  const data = await refreshResp.json();
+                  localStorage.setItem('sx_access_token', data.access_token);
+                  // 重试上传
+                  const retryResp = await fetch('/api/products/import-docx', {
+                    method: 'POST', body: fd,
+                    headers: { 'Authorization': 'Bearer ' + data.access_token }
+                  });
+                  return retryResp.ok ? retryResp.json() : retryResp.json().then(x => { throw new Error(x.detail || '解析失败'); });
+                }
+              } catch (e) {
+                console.error('刷新令牌失败:', e);
+              }
+            }
+            currentUser.value = null;
+            localStorage.removeItem('sx_access_token');
+            localStorage.removeItem('sx_refresh_token');
+            throw new Error('登录已失效');
+          }
+          return r.ok ? r.json() : r.json().then(x => { throw new Error(x.detail || '解析失败'); });
+        });
+        // 把解析出的草稿载入产品编辑弹窗，供用户核对后保存
+        openProductDialog();
+        Object.assign(editingProduct, resp.product);
+        productDialogVisible.value = true;
+        ElementPlus.ElMessage.success(`解析完成（${resp.extractor}，${resp.char_count} 字）：${resp.note}`);
+      } catch (err) {
+        ElementPlus.ElMessage.error('上传失败: ' + err.message);
+      } finally {
+        uploading.value = false;
+        e.target.value = '';   // 清空，便于重复上传同名文件
+      }
+    };
+
+    // A/B 测试投票（加分项）—— 按版本投票，同方向再点 = 取消
+    const votedDir = (v) => {
+      const id = currentUser.value?.id;
+      return (v.voters && id && v.voters[id]) || '';
+    };
+    const castVote = async (historyId, version, vote) => {
+      const next = votedDir(version) === vote ? '' : vote;   // 同向再点 = 取消
+      try {
+        const updated = await api(`/api/history/${historyId}/vote`, {
+          method: 'PUT',
+          body: { version_index: version.index, vote: next }
+        });
+        // 用返回结果回填当前 version 的 votes/voters
+        const uv = updated.versions.find(x => x.index === version.index);
+        if (uv) { version.votes = uv.votes; version.voters = uv.voters; }
+        // 同步历史列表中对应记录的版本票数
+        const listRow = history.value.find(r => r.id === historyId);
+        if (listRow) {
+          const lv = listRow.versions.find(x => x.index === version.index);
+          if (lv && uv) { lv.votes = uv.votes; lv.voters = uv.voters; }
+        }
+        ElementPlus.ElMessage.success(next ? '已投票' : '已取消投票');
+      } catch (e) { ElementPlus.ElMessage.error('投票失败: ' + e.message); }
+    };
+
+    // A/B 领先版本：净票数(赞-踩)最高且为正的版本，无正票返回 null
+    const leadingVersion = (versions) => {
+      if (!versions || !versions.length) return null;
+      let best = null, bestNet = 0;
+      for (const v of versions) {
+        const net = (v.votes?.like || 0) - (v.votes?.dislike || 0);
+        if (net > bestNet) { bestNet = net; best = v; }
+      }
+      return best;
+    };
+
+    // SEO 分析（加分项）
+    const analyzeSeo = async (title, body) => {
+      try {
+        seoResult.value = await api('/api/seo/analyze', { method: 'POST', body: { title, body } });
+        seoVisible.value = true;
+      } catch (e) { ElementPlus.ElMessage.error('SEO 分析失败: ' + e.message); }
+    };
+
+    // ===== 鉴权：登录 / 注册 / 退出 / 个人资料 =====
+    // 登录/注册用裸 fetch（此时还没有 token），其余接口走 api() 自动带头
+    const doLogin = async () => {
+      authLoading.value = true;
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(loginForm)
+        }).then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.detail || '登录失败'); }));
+        localStorage.setItem('sx_access_token', resp.access_token);
+        localStorage.setItem('sx_refresh_token', resp.refresh_token);
+        currentUser.value = resp.user;
+        loginForm.password = '';
+        await loadData();
+        ElementPlus.ElMessage.success('登录成功');
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+      finally { authLoading.value = false; }
+    };
+
+    const doRegister = async () => {
+      authLoading.value = true;
+      try {
+        const resp = await fetch('/api/auth/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(registerForm)
+        }).then(r => r.ok ? r.json() : r.json().then(e => { throw new Error(e.detail || '注册失败'); }));
+        localStorage.setItem('sx_access_token', resp.access_token);
+        localStorage.setItem('sx_refresh_token', resp.refresh_token);
+        currentUser.value = resp.user;
+        registerForm.username = ''; registerForm.name = ''; registerForm.password = ''; registerForm.email = '';
+        await loadData();
+        ElementPlus.ElMessage.success('注册成功，已自动登录');
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+      finally { authLoading.value = false; }
+    };
+
+    const logout = async () => {
+      try {
+        // 调用后端 API 撤销 token，加入黑名单
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('sx_access_token')
+          }
+        });
+      } catch (e) {
+        console.error('退出登录失败:', e);
+      } finally {
+        // 无论后端调用是否成功，都清除本地存储
+        localStorage.removeItem('sx_access_token');
+        localStorage.removeItem('sx_refresh_token');
+        currentUser.value = null;
+        genResult.value = null;
+        ElementPlus.ElMessage.success('已退出登录');
+      }
+    };
+
+    const openProfile = () => {
+      profileForm.name = currentUser.value?.name || '';
+      profileForm.email = currentUser.value?.email || '';
+      profileForm.color = currentUser.value?.color || '#409eff';
+      profileForm.old_password = '';
+      profileForm.new_password = '';
+      profileVisible.value = true;
+    };
+
+    const saveProfile = async () => {
+      const body = { name: profileForm.name, email: profileForm.email, color: profileForm.color };
+      if (profileForm.new_password) { body.old_password = profileForm.old_password; body.new_password = profileForm.new_password; }
+      try {
+        currentUser.value = await api('/api/auth/me', { method: 'PUT', body });
+        members.value = await api('/api/members');   // 自己的名字/颜色可能变了，刷新成员表
+        profileVisible.value = false;
+        profileForm.old_password = ''; profileForm.new_password = '';
+        ElementPlus.ElMessage.success('已保存');
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    };
+
+    // 简易 Markdown 渲染
+    const renderMarkdown = (md) => {
+      if (!md) return '';
+      let html = md
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`(.+?)`/g, '<code>$1</code>')
+        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        .replace(/^---+$/gm, '<hr/>');
+      // 表格
+      const lines = html.split('\n');
+      let inTable = false, result = [];
+      lines.forEach(line => {
+        if (line.startsWith('|') && line.endsWith('|')) {
+          if (!inTable) { result.push('<table>'); inTable = true; }
+          const cells = line.slice(1, -1).split('|').map(c => c.trim());
+          if (cells.every(c => c.startsWith('---') || c === '')) return; // 分隔行
+          const tag = result[result.length - 1]?.startsWith('<table') && !result.slice(-2)[0]?.includes('<tr') ? 'th' : 'td';
+          result.push('<tr>' + cells.map(c => `<${tag}>${c}</${tag}>`).join('') + '</tr>');
+        } else {
+          if (inTable) { result.push('</table>'); inTable = false; }
+          if (line.startsWith('- ')) result.push('<li>' + line.slice(2) + '</li>');
+          else result.push(line);
+        }
+      });
+      if (inTable) result.push('</table>');
+      html = result.join('\n').replace(/(<li>.*?<\/li>\n?)+/g, m => '<ul>' + m + '</ul>');
+      return html;
+    };
+
+    onMounted(async () => {
+      // 有令牌则校验并载入数据；无令牌停留在登录页
+      const accessToken = localStorage.getItem('sx_access_token');
+      if (accessToken) {
+        try {
+          currentUser.value = await api('/api/auth/me');
+          await loadData();
+        } catch (e) {
+          // 令牌失效：api() 已清登录态,留在登录页
+        }
+      }
+    });
+
+    return {
+      activeTab, collapsed, llmEnabled, products, scenarios, history,
+      genForm, generating, genResult, activeVersion, versionSpan,
+      productDialogVisible, editingProduct,
+      scenarioDialogVisible, editingScenario,
+      templateDialogVisible, editingTemplate,
+      templates, expandedScenario,
+      historyDetailVisible, currentHistory, historyEditMode,
+      uploadInput, uploading,
+      scenarioGroups, currentScenario, currentParams, availableChannels, channelOptions,
+      onProductChange, onScenarioChange, doGenerate, saveToHistory, exportResult,
+      openProductDialog, saveProduct, deleteProduct,
+      openScenarioDialog, saveScenario, deleteScenario,
+      toggleScenario, templatesOf,
+      openTemplateDialog, saveTemplate, deleteTemplate,
+      viewHistory, exportHistory, deleteHistory, renderMarkdown,
+      setFeedback, saveHistoryDetail, triggerUpload, handleUpload,
+      members, memberName, memberColor, productMemberFilter, reloadProducts,
+      castVote, votedDir, leadingVersion,
+      seoVisible, seoResult, seoScoreColor, analyzeSeo,
+      // 鉴权
+      currentUser, loggedIn, authView, authLoading, loginForm, registerForm,
+      profileVisible, profileForm, doLogin, doRegister, logout, openProfile, saveProfile, downloadExport
+    };
+  }
+});
+
+for (const [key, comp] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, comp);
+}
+app.use(ElementPlus);
+app.mount('#app');
+</script>
+</body>
+</html>
