@@ -279,15 +279,20 @@ const useCommonTemplate = (tpl) => {
 
 // ========== 数据加载 ==========
 const load = async () => {
-  // 并行加载：首页统计 + 最近 3 条 + 当前用户
-  const [statRes, recentRes, userRes] = await Promise.all([
-    sxkApi.getDashboardStats(),
-    sxkApi.getRecentGenerations(3),
-    sxkApi.getCurrentUser()
-  ])
-  if (statRes.data) stats.value = statRes.data
-  if (recentRes.data) recentList.value = recentRes.data.items || []
-  if (userRes.data) welcomeName.value = userRes.data.username || '营销专家'
+  try {
+    // 并行加载：首页统计 + 最近 3 条 + 当前用户
+    const [statRes, recentRes, userRes] = await Promise.allSettled([
+      sxkApi.getDashboardStats(),
+      sxkApi.getRecentGenerations(3),
+      sxkApi.getCurrentUser()
+    ])
+    if (statRes.status === 'fulfilled' && statRes.value?.data) stats.value = statRes.value.data
+    if (recentRes.status === 'fulfilled' && recentRes.value?.data) recentList.value = recentRes.value.data.items || []
+    if (userRes.status === 'fulfilled' && userRes.value?.data) welcomeName.value = userRes.value.data.username || '营销专家'
+  } catch (e) {
+    console.error('[Dashboard] load failed', e)
+    ElMessage.error('加载数据失败，请检查网络或重新登录')
+  }
 }
 
 onMounted(load)

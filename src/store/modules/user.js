@@ -117,7 +117,7 @@ export const useUserStore = defineStore('user', {
           return resolve()
         }
 
-        // 真实链路：POST /api/sxk/auth/login
+        // 真实链路：POST /api/auth/login
         loginByUsername(
           userInfo.username,
           userInfo.password,
@@ -125,13 +125,15 @@ export const useUserStore = defineStore('user', {
           userInfo.code
         )
           .then((res) => {
-            // SXK 响应格式：{ code: 0, data: { access_token, expires_in, token_type, user: { user_id, username, role, ... } } }
+            // Mock 壳格式：{ code: 0, data: { access_token, ... } }
+            // 后端裸格式：{ access_token, refresh_token, user: { id, name, ... } }
             const payload = res.data || {}
-            if (payload.code !== 0) {
+            const isMock = payload.code !== undefined
+            if (isMock && payload.code !== 0) {
               ElMessage({ message: payload.msg || '登录失败', type: 'error' })
               return resolve()
             }
-            const tokenData = payload.data || {}
+            const tokenData = isMock ? payload.data : payload
             const user = tokenData.user || {}
 
             this.setToken(tokenData.access_token)
@@ -150,10 +152,18 @@ export const useUserStore = defineStore('user', {
               expires_in: tokenData.expires_in,
               token_type: tokenData.token_type
             })
-            // roles 适配：供权限判断与"个人信息"页使用
-            this.roles = user.role
-              ? [{ role_id: user.role, role_name: user.role_name || user.role, role_alias: user.role }]
-              : []
+            // roles 适配：后端用 is_admin 标识，Mock 用 role 字段
+            if (isMock && user.role) {
+              this.roles = [
+                { role_id: user.role, role_name: user.role_name || user.role, role_alias: user.role }
+              ]
+            } else if (user.is_admin !== undefined) {
+              this.roles = user.is_admin
+                ? [{ role_id: 'admin', role_name: '管理员', role_alias: 'admin' }]
+                : [{ role_id: 'user', role_name: '用户', role_alias: 'user' }]
+            } else {
+              this.roles = []
+            }
 
             this.initSxkMenu()
             this.delAllTag()
@@ -189,8 +199,18 @@ export const useUserStore = defineStore('user', {
       return new Promise((resolve, reject) => {
         getUserInfo()
           .then((res) => {
-            const data = res.data.data
-            this.roles = data.roles
+            // Mock 壳格式：{ code: 0, data: { user_id, username, role, roles } }
+            // 后端裸格式：{ id, name, color, username, email, is_admin, created_at }
+            const payload = res.data || {}
+            const isMock = payload.code !== undefined
+            const data = isMock ? payload.data : payload
+            if (isMock) {
+              this.roles = data.roles || []
+            } else {
+              this.roles = data.is_admin
+                ? [{ role_id: 'admin', role_name: '管理员', role_alias: 'admin' }]
+                : [{ role_id: 'user', role_name: '用户', role_alias: 'user' }]
+            }
             resolve(data)
           })
           .catch((err) => {
@@ -209,13 +229,14 @@ export const useUserStore = defineStore('user', {
           userInfo?.switchMode
         )
           .then((res) => {
-            // SXK 响应格式：{ code: 0, data: { access_token, token_type, expires_in } }
-            // refresh_token 由后端通过 Set-Cookie (HttpOnly) 管理，不在 JSON body 中
+            // Mock 壳格式：{ code: 0, data: { access_token, refresh_token } }
+            // 后端裸格式：{ access_token }
             const payload = res.data || {}
-            if (payload.code !== 0) {
+            const isMock = payload.code !== undefined
+            if (isMock && payload.code !== 0) {
               return reject(new Error(payload.msg || '刷新 token 失败'))
             }
-            const tokenData = payload.data || {}
+            const tokenData = isMock ? payload.data : payload
             this.setToken(tokenData.access_token)
             resolve()
           })
@@ -391,7 +412,7 @@ export const useUserStore = defineStore('user', {
         },
         {
           path: '/templates/index',
-          name: '模板管理',
+          name: '场景模板管理',
           source: 'Files',
           children: []
         }

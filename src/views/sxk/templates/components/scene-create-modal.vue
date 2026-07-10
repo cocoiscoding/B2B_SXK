@@ -149,14 +149,14 @@ import { Grid, Close, Checked, Plus, Delete } from '@element-plus/icons-vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  // 编辑模式：传入 { name, description, params } 则为编辑；不传则为新增
-  sceneData: { type: Object, default: null },
+  // 编辑模式：传入场景 schema 对象则为编辑；不传则为新增
+  editData: { type: Object, default: null },
   // 父组件 API 进行中状态，用于禁用按钮防重复提交
   loading: { type: Boolean, default: false }
 })
 const emit = defineEmits(['update:modelValue', 'saved'])
 
-const isEdit = computed(() => !!props.sceneData)
+const isEdit = computed(() => !!props.editData)
 
 const blankForm = () => ({
   name: '',
@@ -168,16 +168,23 @@ const blankForm = () => ({
 const form = reactive(blankForm())
 
 const init = () => {
-  if (props.sceneData) {
+  if (props.editData) {
     // 编辑模式：回填
-    const paramsArr = props.sceneData.params
-      ? Object.entries(props.sceneData.params).map(([name, desc]) => ({ name, desc }))
-      : []
+    // editData.params 可能是 [{key, label, default}] 数组格式
+    let paramsArr = []
+    if (Array.isArray(props.editData.params)) {
+      paramsArr = props.editData.params.map((p) => ({
+        name: p.label || p.key || p.name || '',
+        desc: p.default || p.desc || p.description || ''
+      }))
+    } else if (props.editData.params && typeof props.editData.params === 'object') {
+      paramsArr = Object.entries(props.editData.params).map(([name, desc]) => ({ name, desc }))
+    }
     Object.assign(form, {
-      name: props.sceneData.name || '',
-      description: props.sceneData.description || '',
-      color: props.sceneData.color || 'blue',
-      icon: props.sceneData.icon || 'document',
+      name: props.editData.name || '',
+      description: props.editData.description || '',
+      color: props.editData.color || 'blue',
+      icon: props.editData.icon || 'document',
       params: paramsArr
     })
   } else {

@@ -96,10 +96,10 @@
           </el-form-item>
         </el-form>
 
-        <!-- 体验账号提示 -->
+        <!-- 注册提示 -->
         <div class="login-tip">
           <el-icon><InfoFilled /></el-icon>
-          <span>体验账号：<b>admin</b> / 任意密码即可登录</span>
+          <span>首次使用请先<b>注册账号</b>，然后登录即可体验全部功能</span>
         </div>
 
         <!-- 还没有账号？去注册 -->

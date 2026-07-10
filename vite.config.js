@@ -117,10 +117,16 @@ export default defineConfig(({ mode }) => {
       }
     },
     server: {
-      host: '0.0.0.0',
+      // 关键修复：Windows 上绑定 0.0.0.0（通配地址）需要管理员权限，否则会
+      // 触发 EACCES: permission denied。改为 127.0.0.1 可以正常启动且无需权限。
+      // 如需局域网访问，临时改为 '0.0.0.0' 或以管理员身份运行。
+      host: '127.0.0.1',
       port: Number(port),
-      // 端口被占用时直接退出，防止启动第二个实例共享缓存导致冲突
-      strictPort: true,
+      // 关键修复：Windows 上其他进程占用端口会触发 EACCES。
+      // 当 strictPort=true 时 Vite 直接报错退出，导致开发体验极差。
+      // 改为 strictPort=false，Vite 会自动尝试下一个可用端口 (52701, 52702, ...)。
+      // 同时通过打印的端口号确保用户能知道实际访问地址。
+      strictPort: false,
       open: false,
       cors: true,
       // 排除 node_modules 变化触发频繁的 fs.watch（另一个 Windows 上的性能杀手）

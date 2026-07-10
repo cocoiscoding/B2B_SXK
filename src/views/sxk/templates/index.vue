@@ -1,10 +1,9 @@
 <!--
-  神行库 · 模板管理
-  对应需求文档 5.5（US007/008）：
-    - 4 个统计卡片（场景模板数 / 具体模板数 / 本月使用数 / 自定义模板数）
-    - 2 列模板卡片网格
-    - 模板详情弹窗
-    - 创建自定义模板
+  神行库 · 模板管理（场景维度）
+  对应原型 SXK_v3.html 页面5：
+    - 4 个统计卡片（场景模板数 / 具体模板数 / 总使用次数 / 自定义场景数）
+    - 场景卡片列表（每个场景下含子模板，点击查看详情/添加子模板）
+    - 场景详情弹窗（template-detail-modal）
 -->
 <template>
   <div class="sxk-templates">
@@ -12,18 +11,18 @@
     <basic-block>
       <div class="page-header">
         <div>
-          <h2>营销场景模板</h2>
-          <p>管理预置模板与自定义模板，支撑多 Agent 内容生成</p>
+          <h2>场景模板管理</h2>
+          <p>管理营销场景与子模板，支撑多 Agent 内容生成</p>
         </div>
         <div class="page-header__actions">
-          <el-button type="primary" @click="onAddScene">
-            <el-icon><Plus /></el-icon>
-            <span>新增场景</span>
+          <el-button @click="onAddScene">
+            <el-icon><Grid /></el-icon>
+            <span>新建场景</span>
           </el-button>
-          <!-- <el-button type="primary" @click="onCreate">
-            <el-icon><Plus /></el-icon>
-            <span>创建自定义模板</span>
-          </el-button> -->
+          <el-button type="primary" @click="onManageScenes">
+            <el-icon><Setting /></el-icon>
+            <span>管理场景</span>
+          </el-button>
         </div>
       </div>
     </basic-block>
@@ -33,138 +32,194 @@
       <el-col :xs="24" :sm="12" :md="6" v-for="card in statCards" :key="card.label">
         <basic-block hover-shadow padding="small">
           <div class="mini-stat">
-            <div class="mini-stat__value" :style="{ color: card.color }">{{ card.value }}</div>
-            <div class="mini-stat__label">{{ card.label }}</div>
+            <div class="mini-stat__icon" :style="{ background: card.bg, color: card.color }">
+              <el-icon :size="20"><component :is="card.icon" /></el-icon>
+            </div>
+            <div class="mini-stat__body">
+              <div class="mini-stat__value" :style="{ color: card.color }">{{ card.value }}</div>
+              <div class="mini-stat__label">{{ card.label }}</div>
+            </div>
           </div>
         </basic-block>
       </el-col>
     </el-row>
 
-    <!-- 筛选条 -->
-    <basic-block>
-      <div class="filter-bar">
-        <el-select v-model="filters.scene_code" placeholder="全部场景" clearable style="width: 200px" @change="loadList">
-          <el-option label="全部场景" value="" />
-          <el-option
-            v-for="s in scenes"
-            :key="s.code"
-            :label="s.name"
-            :value="s.code"
-          />
-        </el-select>
-        <el-radio-group v-model="filters.is_custom" @change="loadList">
-          <el-radio-button :value="null">全部</el-radio-button>
-          <el-radio-button :value="false">预置</el-radio-button>
-          <el-radio-button :value="true">自定义</el-radio-button>
-        </el-radio-group>
-      </div>
-    </basic-block>
-
-    <!-- 模板卡片网格（2 列） -->
-    <el-row :gutter="16" v-loading="loading">
-      <el-col
-        :xs="24"
-        :sm="24"
-        :md="12"
-        v-for="tpl in list"
-        :key="tpl.template_id"
+    <!-- 场景卡片列表 -->
+    <div class="scene-list" v-loading="loading">
+      <div
+        v-for="scene in sceneList"
+        :key="scene.scene_code"
+        class="scene-card"
       >
-        <div class="template-card">
-          <div class="tpl-head">
-            <div class="tpl-icon" :style="{ background: tplColor(tpl.scene_code).bg, color: tplColor(tpl.scene_code).color }">
-              <el-icon :size="22"><component :is="tplColor(tpl.scene_code).icon" /></el-icon>
+        <!-- 场景卡片头部：图标 + 名称 + 子模板数 + 编辑/删除 -->
+        <div class="scene-card__head">
+          <div class="scene-card__title" @click="onDetail(scene)">
+            <div class="scene-card__icon" :style="{ background: tplColor(scene.scene_code, scene.name).bg, color: tplColor(scene.scene_code, scene.name).color }">
+              <el-icon :size="24"><component :is="tplColor(scene.scene_code, scene.name).icon" /></el-icon>
             </div>
-            <div class="tpl-meta">
-              <div class="tpl-name">
-                {{ tpl.name }}
-                <el-tag v-if="tpl.is_custom" size="small" effect="plain">自定义</el-tag>
-              </div>
-              <div class="tpl-tags">
-                <el-tag
-                  v-for="tag in tpl.tags"
-                  :key="tag.tag_id"
+            <div>
+              <div class="scene-card__name">
+                {{ scene.name }}
+                <!-- <el-tag
+                  v-if="isCustomScene(scene.scene_code)"
                   size="small"
-                  type="info"
+                  type="warning"
                   effect="plain"
-                >{{ tag.name }}</el-tag>
+                >自定义</el-tag> -->
               </div>
+              <div class="scene-card__sub-count">{{ getSceneTemplates(scene.scene_code).length }} 个子模板</div>
             </div>
-          </div>
-          <div class="tpl-desc">{{ tpl.description }}</div>
-          <div class="tpl-foot">
-            <span class="tpl-stat">
-              <el-icon><DataAnalysis /></el-icon>
-              近 30 天使用 <b>{{ tpl.use_count_30d }}</b> 次
-            </span>
-            <span class="tpl-updated">最近更新：{{ formatDate(tpl.updated_at) }}</span>
-          </div>
-          <div class="tpl-actions">
-            <el-button link type="primary" @click="onDetail(tpl)">查看模板</el-button>
-            <el-button link type="primary" @click="onUse(tpl)">使用此场景生成</el-button>
           </div>
         </div>
-      </el-col>
-    </el-row>
 
-    <div v-if="!loading && list.length === 0" class="empty">
-      <p>未找到匹配的模板</p>
+        <!-- 场景描述 -->
+        <p class="scene-card__desc">{{ scene.description || '暂无描述' }}</p>
+
+        <!-- 子模板预览（前3个） -->
+        <div class="scene-card__preview">
+          <template v-if="getSceneTemplates(scene.scene_code).length > 0">
+            <el-tag
+              v-for="tpl in getSceneTemplates(scene.scene_code).slice(0, 3)"
+              :key="tpl.template_id"
+              size="small"
+              effect="plain"
+            >{{ tpl.name }}</el-tag>
+            <span v-if="getSceneTemplates(scene.scene_code).length > 3" class="scene-card__more">
+              等 {{ getSceneTemplates(scene.scene_code).length }} 个
+            </span>
+          </template>
+          <span v-else class="scene-card__empty-preview">暂无子模板，点击"查看详情"添加</span>
+        </div>
+
+        <!-- 场景卡片底部：最近更新 + 操作 -->
+        <div class="scene-card__foot">
+          <div class="scene-card__foot-left">
+            <el-icon><Clock /></el-icon>
+            <span>最近更新 {{ formatSceneUpdate(scene.scene_code) }}</span>
+          </div>
+          <div class="scene-card__foot-right">
+            <el-button link type="primary" @click="onDetail(scene)">查看详情</el-button>
+            <span class="scene-card__divider">|</span>
+            <el-button
+              link
+              type="danger"
+              :icon="Delete"
+              @click="onDeleteScene(scene)"
+            >删除</el-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-if="!loading && sceneList.length === 0" class="empty">
+        <el-icon style="font-size: 48px; color: var(--el-text-color-placeholder)"><Grid /></el-icon>
+        <p>还没有任何场景，点击右上角"新建场景"开始创建</p>
+      </div>
     </div>
 
-    <!-- 模板详情弹窗 -->
+    <!-- 场景详情弹窗 -->
     <template-detail-modal
       v-model="detailVisible"
       :template-id="detailTargetId"
+      :scene-code="detailTargetSceneCode"
       @use="onUse"
     />
 
-    <!-- 创建模板弹窗 -->
-    <template-create-modal
-      v-model="createVisible"
-      :meta="meta"
-      @created="loadList"
-    />
-
-    <!-- 新增场景弹窗 -->
+    <!-- 新增/编辑场景弹窗 -->
     <scene-create-modal
       v-model="sceneCreateVisible"
       :loading="sceneSaving"
+      :edit-data="sceneEditData"
       @saved="onSceneSaved"
     />
+
+    <!-- 管理场景弹窗 -->
+    <el-dialog
+      v-model="sceneManageVisible"
+      width="640px"
+      class="scene-manage-dialog"
+      :show-close="false"
+    >
+      <div class="sm-head">
+        <div class="sm-head__left">
+          <el-icon :size="20" color="var(--el-color-primary)"><Setting /></el-icon>
+          <div>
+            <h3>管理场景</h3>
+            <p>查看、编辑或删除已有场景</p>
+          </div>
+        </div>
+        <el-icon class="sm-head__close" @click="sceneManageVisible = false"><Close /></el-icon>
+      </div>
+      <div class="sm-body">
+        <div v-for="s in sceneSchemasList" :key="s.scene_code" class="sm-item">
+          <div class="sm-item__icon" :style="{ background: tplColor(s.scene_code, s.name).bg, color: tplColor(s.scene_code, s.name).color }">
+            <el-icon :size="18"><component :is="tplColor(s.scene_code, s.name).icon" /></el-icon>
+          </div>
+          <div class="sm-item__info">
+            <div class="sm-item__name">{{ s.name }}</div>
+            <div class="sm-item__desc">{{ s.description || '暂无描述' }}</div>
+            <div class="sm-item__params">{{ (s.params || []).length }} 个参数</div>
+          </div>
+          <div class="sm-item__actions">
+            <el-button link type="primary" @click="onEditScene(s)">编辑</el-button>
+            <el-button link type="danger" @click="onDeleteScene(s)">删除</el-button>
+          </div>
+        </div>
+        <div v-if="sceneSchemasList.length === 0" class="sm-empty">暂无场景数据</div>
+      </div>
+      <div class="sm-foot">
+        <el-button @click="sceneManageVisible = false">关闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, markRaw, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Plus,
+  Grid,
   Document,
   PieChart,
   Share,
   Message,
   Promotion,
-  DataAnalysis
+  Setting,
+  Close,
+  EditPen,
+  Delete,
+  Clock,
+  Files,
+  DataLine,
+  Plus as PlusIcon,
+  Monitor,        // 官网/Banner
+  Histogram,      // 产品介绍
+  TrendCharts,    // 竞品对比
+  Medal,          // 客户案例
+  Film,           // PPT/演示
+  ChatDotRound    // 社交媒体
 } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
 import TemplateDetailModal from './components/template-detail-modal.vue'
-import TemplateCreateModal from './components/template-create-modal.vue'
 import SceneCreateModal from './components/scene-create-modal.vue'
 
 const router = useRouter()
 
 // ========== 状态 ==========
-const list = ref([])
+const allTemplates = ref([])     // 全部模板（扁平列表）
 const loading = ref(false)
-const filters = reactive({ scene_code: '', is_custom: null })
-const scenes = ref([])
-const meta = ref({ scene_codes: [], output_formats: [] })
 
 const detailVisible = ref(false)
 const detailTargetId = ref(null)
-const createVisible = ref(false)
+const detailTargetSceneCode = ref('')
 const sceneCreateVisible = ref(false)
 const sceneSaving = ref(false)
+
+// 场景管理弹窗
+const sceneManageVisible = ref(false)
+const sceneSchemasList = ref([])
+const sceneEditData = ref(null)  // null=新增模式，对象=编辑模式
 
 // ========== 工具 ==========
 const formatDate = (iso) => {
@@ -173,6 +228,7 @@ const formatDate = (iso) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// ========== 场景图标 / 配色：基于场景名称关键词智能匹配 ==========
 const ICON_MAP = {
   product_intro: Document,
   competitor: PieChart,
@@ -181,72 +237,138 @@ const ICON_MAP = {
   event: Promotion,
   other: Document
 }
-// 场景色：对齐原型 SXK.html（Tailwind *-50 底 + *-600 字）
-const COLOR_MAP = {
-  product_intro: { bg: '#eff6ff', color: '#2563eb' },  // blue-50 / blue-600
-  competitor: { bg: '#fff7ed', color: '#ea580c' },      // orange-50 / orange-600
-  channel_adapt: { bg: '#f0fdf4', color: '#16a34a' },  // green-50 / green-600
-  email: { bg: '#faf5ff', color: '#9333ea' },           // purple-50 / purple-600
-  event: { bg: '#fee2e2', color: '#dc2626' },           // red-50 / red-600
-  other: { bg: '#f1f5f9', color: '#475569' }            // slate-50 / slate-600
-}
-const tplColor = (code) => ({
-  ...(COLOR_MAP[code] || COLOR_MAP.other),
-  icon: ICON_MAP[code] || Document
-})
 
-// ========== 计算属性：4 张统计卡 ==========
+// 按场景名称关键词匹配图标+配色（顺序优先）
+const SCENE_STYLE_RULES = [
+  { keywords: ['banner', '官网', '首页'],     icon: Monitor,      bg: '#eff6ff', color: '#2563eb' },  // 蓝
+  { keywords: ['产品介绍', '产品功能', '白皮书'], icon: Histogram,    bg: '#f0fdf4', color: '#16a34a' },  // 绿
+  { keywords: ['竞品', '对比', '竞争'],        icon: TrendCharts,  bg: '#fff7ed', color: '#ea580c' },  // 橙
+  { keywords: ['案例', '客户', '成功'],        icon: Medal,        bg: '#faf5ff', color: '#9333ea' },  // 紫
+  { keywords: ['ppt', '演示', '大纲', '路演'],  icon: Film,         bg: '#fee2e2', color: '#dc2626' },  // 红
+  { keywords: ['社交', '媒体', '帖子', '传播'],  icon: ChatDotRound, bg: '#ecfdf5', color: '#059669' },  // 翠绿
+  { keywords: ['邮件', 'email', 'edm'],       icon: Message,      bg: '#fffbeb', color: '#d97706' },  // 琥珀
+  { keywords: ['活动', 'event', '推广'],       icon: Promotion,    bg: '#fef2f2', color: '#e11d48' },  // 玫红
+]
+
+const FALLBACK_STYLE = { icon: Document, bg: '#f1f5f9', color: '#475569' }  // slate
+
+const tplColor = (sceneCode, sceneName = '') => {
+  // 1) 先尝试按 code 直接匹配旧版 key
+  if (ICON_MAP[sceneCode]) {
+    const c = COLOR_MAP_LEGACY[sceneCode] || FALLBACK_STYLE
+    return { bg: c.bg, color: c.color, icon: ICON_MAP[sceneCode] }
+  }
+  // 2) 按场景名称关键词匹配
+  const name = (sceneName || '').toLowerCase()
+  for (const rule of SCENE_STYLE_RULES) {
+    if (rule.keywords.some((kw) => name.includes(kw.toLowerCase()))) {
+      return { bg: rule.bg, color: rule.color, icon: rule.icon }
+    }
+  }
+  // 3) 兜底
+  return { ...FALLBACK_STYLE }
+}
+
+// 旧版 code → 配色映射（兼容）
+const COLOR_MAP_LEGACY = {
+  product_intro: { bg: '#eff6ff', color: '#2563eb' },
+  competitor: { bg: '#fff7ed', color: '#ea580c' },
+  channel_adapt: { bg: '#f0fdf4', color: '#16a34a' },
+  email: { bg: '#faf5ff', color: '#9333ea' },
+  event: { bg: '#fee2e2', color: '#dc2626' },
+  other: { bg: '#f1f5f9', color: '#475569' }
+}
+
+// 判断是否自定义场景（非预置 ID 格式）
+const PRESET_SCENE_CODES = ['product_intro', 'competitor', 'channel_adapt', 'email', 'event', 'other']
+const isCustomScene = (code) => !PRESET_SCENE_CODES.includes(code)
+
+// ========== 计算属性 ==========
+// 场景列表（来源于 getSceneSchemas）
+const sceneList = computed(() => sceneSchemasList.value)
+
+// 按场景分组获取模板
+const getSceneTemplates = (sceneCode) => {
+  return allTemplates.value.filter((t) => t.scene_code === sceneCode)
+}
+
+// 获取场景下最近更新时间
+const formatSceneUpdate = (sceneCode) => {
+  const tpls = getSceneTemplates(sceneCode)
+  if (tpls.length === 0) return '—'
+  const sorted = [...tpls].sort((a, b) => new Date(b.updated_at || 0) - new Date(a.updated_at || 0))
+  return formatDate(sorted[0].updated_at)
+}
+
+// 4 张统计卡
 const statCards = computed(() => {
-  const total = list.value.length
-  const customCount = list.value.filter((t) => t.is_custom).length
-  const useCount = list.value.reduce((sum, t) => sum + (t.use_count_30d || 0), 0)
-  const sceneCount = new Set(list.value.map((t) => t.scene_code)).size
+  const sceneCount = sceneList.value.length
+  const tplCount = allTemplates.value.length
+  const useCount = allTemplates.value.reduce((sum, t) => sum + (t.use_count_30d || 0), 0)
+  const customSceneCount = sceneList.value.filter((s) => isCustomScene(s.scene_code)).length
   return [
-    { label: '场景模板数', value: sceneCount, color: '#2563eb' },   // blue-600
-    { label: '模板总数', value: total, color: '#16a34a' },          // green-600
-    { label: '本月使用次数', value: useCount, color: '#ea580c' },    // orange-600
-    { label: '自定义模板', value: customCount, color: '#9333ea' }    // purple-600
+    { label: '场景模板数', value: sceneCount, color: '#2563eb', bg: '#eff6ff', icon: markRaw(Grid) },
+    { label: '具体模板数', value: tplCount, color: '#16a34a', bg: '#f0fdf4', icon: markRaw(Files) },
+    { label: '总使用次数', value: useCount, color: '#ea580c', bg: '#fff7ed', icon: markRaw(DataLine) },
+    { label: '自定义场景', value: customSceneCount, color: '#9333ea', bg: '#faf5ff', icon: markRaw(PlusIcon) }
   ]
 })
 
-// ========== 数据 ==========
-const loadList = async () => {
+// ========== 数据加载 ==========
+const loadAllTemplates = async () => {
   loading.value = true
-  const res = await sxkApi.listTemplates({
-    page: 1,
-    size: 100,
-    scene_code: filters.scene_code,
-    is_custom: filters.is_custom
-  })
-  loading.value = false
-  if (res.data) list.value = res.data.items || []
+  try {
+    const res = await sxkApi.listTemplates({ page: 1, size: 500 })
+    if (res.data) allTemplates.value = res.data.items || []
+  } catch (e) {
+    console.error('[Templates] loadAllTemplates failed', e)
+    ElMessage.error('加载模板列表失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-const loadMeta = async () => {
-  const res = await sxkApi.getTemplateMeta()
-  if (res.data) {
-    meta.value = res.data
-    scenes.value = res.data.scene_codes || []
+const loadSceneSchemas = async () => {
+  try {
+    const res = await sxkApi.getSceneSchemas()
+    if (res.data) {
+      sceneSchemasList.value = res.data.scenes || []
+    }
+  } catch (e) {
+    console.error('[Templates] loadSceneSchemas failed', e)
   }
 }
 
 // ========== 操作 ==========
-const onCreate = () => {
-  createVisible.value = true
-}
 const onAddScene = () => {
+  sceneEditData.value = null
   sceneCreateVisible.value = true
 }
+
 const onSceneSaved = async (scene) => {
   sceneSaving.value = true
   try {
-    const res = await sxkApi.createScene(scene)
-    if (res.code === 0) {
-      ElMessage.success(`场景「${scene.name}」已保存`)
-      sceneCreateVisible.value = false
-      loadMeta()
+    if (sceneEditData.value) {
+      // 编辑模式：更新场景
+      const res = await sxkApi.updateScene(sceneEditData.value.scene_code, scene)
+      if (res.code === 0) {
+        ElMessage.success(`场景「${scene.name}」已更新`)
+        sceneCreateVisible.value = false
+        sceneEditData.value = null
+        loadSceneSchemas()
+      } else {
+        ElMessage.error(res.msg || '保存失败')
+      }
     } else {
-      ElMessage.error(res.msg || '保存失败')
+      // 新增模式
+      const res = await sxkApi.createScene(scene)
+      if (res.code === 0) {
+        ElMessage.success(`场景「${scene.name}」已保存`)
+        sceneCreateVisible.value = false
+        loadSceneSchemas()
+      } else {
+        ElMessage.error(res.msg || '保存失败')
+      }
     }
   } catch {
     // axios 拦截器已提示错误
@@ -254,30 +376,77 @@ const onSceneSaved = async (scene) => {
     sceneSaving.value = false
   }
 }
-const onDetail = (tpl) => {
-  detailTargetId.value = tpl.template_id
+
+// 点击场景 → 打开详情弹窗（传场景下第一个模板 ID 或 null）
+const onDetail = (scene) => {
+  const tpls = getSceneTemplates(scene.scene_code)
+  detailTargetId.value = tpls.length > 0 ? tpls[0].template_id : ''
+  detailTargetSceneCode.value = scene.scene_code
   detailVisible.value = true
 }
+
+// 使用此场景生成 → 跳转内容生成页
 const onUse = async (tpl) => {
+  detailVisible.value = false
+  ElMessage.success(`已使用「${tpl.name || ''}」预设场景`)
+  router.push({ path: '/generate/index', query: { scene: tpl.scene_code, template: tpl.template_id } })
+}
+
+const onUseScene = (scene) => {
+  const tpls = getSceneTemplates(scene.scene_code)
+  if (tpls.length > 0) {
+    onUse({ ...tpls[0], scene_code: scene.scene_code })
+  } else {
+    ElMessage.success(`已预设场景「${scene.name}」`)
+    router.push({ path: '/generate/index', query: { scene: scene.scene_code } })
+  }
+}
+
+// ========== 场景管理 ==========
+const onManageScenes = async () => {
+  await loadSceneSchemas()
+  sceneManageVisible.value = true
+}
+
+const onEditScene = (scene) => {
+  sceneEditData.value = scene
+  sceneManageVisible.value = false
+  sceneCreateVisible.value = true
+}
+
+const onEditSceneFromCard = (scene) => {
+  sceneEditData.value = scene
+  sceneCreateVisible.value = true
+}
+
+const onDeleteScene = async (scene) => {
+  const tplCount = getSceneTemplates(scene.scene_code).length
   try {
-    // 4.5.6：调用使用次数 +1 接口
-    const res = await sxkApi.useTemplate(tpl.template_id)
-    if (res.code !== 0) {
-      ElMessage.error(res.msg || '操作失败')
-      return
+    await ElMessageBox.confirm(
+      `确定要删除场景「${scene.name}」吗？${tplCount > 0 ? `该场景下有 ${tplCount} 个子模板，也将一并删除。` : ''}此操作不可恢复。`,
+      '删除确认',
+      { type: 'warning', confirmButtonText: '确定删除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return // 用户取消
+  }
+  try {
+    const res = await sxkApi.deleteScene(scene.scene_code)
+    if (res.code === 0) {
+      ElMessage.success(`场景「${scene.name}」已删除`)
+      loadSceneSchemas()
+      loadAllTemplates()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
     }
-    // 5.5.3：使用此场景生成 → 跳转内容生成并预设场景
-    detailVisible.value = false
-    ElMessage.success(`已使用「${tpl.name}」预设场景`)
-    router.push({ path: '/generate/index', query: { scene: tpl.scene_code, template: tpl.template_id } })
   } catch {
     // axios 拦截器已提示错误
   }
 }
 
 onMounted(() => {
-  loadList()
-  loadMeta()
+  loadAllTemplates()
+  loadSceneSchemas()
 })
 </script>
 
@@ -315,36 +484,50 @@ onMounted(() => {
 
 // ========== 统计卡片 ==========
 .mini-stat {
-  text-align: center;
-  padding: $spacing-md 0;
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+
+  &__icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: $radius-md;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__body {
+    flex: 1;
+    min-width: 0;
+  }
 
   &__value {
-    font-size: $font-size-3xl;
+    font-size: $font-size-2xl;
     font-weight: 700;
     line-height: 1.2;
   }
   &__label {
     font-size: $font-size-sm;
     color: $text-regular;
-    margin-top: $spacing-xs;
+    margin-top: 2px;
   }
 }
 
-// ========== 筛选条 ==========
-.filter-bar {
+// ========== 场景卡片列表 ==========
+.scene-list {
   display: flex;
-  align-items: center;
-  gap: $spacing-lg;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: $spacing-md;
 }
 
-// ========== 模板卡片 ==========
-.template-card {
-  margin-bottom: $spacing-lg;
-  padding: $spacing-lg $spacing-xl;
+.scene-card {
+  padding: $spacing-lg;
   background: $bg-card;
   border: 1px solid $border-base;
   border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
   transition: $transition-base;
 
   &:hover {
@@ -352,80 +535,252 @@ onMounted(() => {
     box-shadow: $shadow-hover;
   }
 
-  .tpl-head {
+  // 头部：图标 + 名称 + 操作
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: $spacing-sm;
+  }
+
+  &__title {
     display: flex;
     align-items: center;
     gap: $spacing-md;
-    margin-bottom: $spacing-md;
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+
+    &:hover {
+      .scene-card__name {
+        color: $primary-color;
+      }
+    }
   }
 
-  .tpl-icon {
-    width: 44px;
-    height: 44px;
+  &__icon {
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
     border-radius: $radius-lg;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__name {
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $text-primary;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    transition: color 0.2s;
+  }
+
+  &__sub-count {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    margin-top: 2px;
+  }
+
+  &__head-actions {
+    display: flex;
+    gap: $spacing-xs;
+    flex-shrink: 0;
+  }
+
+  // 描述
+  &__desc {
+    font-size: $font-size-sm;
+    color: $text-regular;
+    line-height: 1.6;
+    margin: 0 0 $spacing-sm;
+  }
+
+  // 子模板预览
+  &__preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    align-items: center;
+    margin-bottom: $spacing-md;
+    font-size: $font-size-xs;
+  }
+
+  &__more {
+    color: $text-secondary;
+  }
+
+  &__empty-preview {
+    color: $text-placeholder;
+  }
+
+  // 底部
+  &__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: $spacing-md;
+    border-top: 1px solid $border-light;
+
+    &-left {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+      font-size: $font-size-xs;
+      color: $text-secondary;
+    }
+
+    &-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+    }
+  }
+
+  &__divider {
+    color: $border-base;
+  }
+}
+
+// ========== 空状态 ==========
+.empty {
+  text-align: center;
+  color: $text-secondary;
+  padding: $spacing-2xl 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-md;
+}
+
+// ========== 场景管理弹窗 ==========
+.scene-manage-dialog {
+  // 隐藏 el-dialog 默认 header（使用自定义 header）
+  .el-dialog__header {
+    display: none;
+  }
+  .el-dialog__body {
+    padding: 0;
+  }
+  .el-dialog__footer {
+    display: none;
+  }
+}
+
+.sm-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-lg $spacing-xl;
+  border-bottom: 1px solid $border-light;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+
+    h3 {
+      margin: 0;
+      font-size: $font-size-lg;
+      font-weight: 600;
+      color: $text-primary;
+    }
+    p {
+      margin: 0;
+      font-size: $font-size-xs;
+      color: $text-regular;
+    }
+  }
+
+  &__close {
+    cursor: pointer;
+    color: $text-secondary;
+    font-size: 18px;
+    transition: $transition-base;
+
+    &:hover {
+      color: $text-primary;
+    }
+  }
+}
+
+.sm-body {
+  max-height: calc(60vh - 80px);
+  overflow-y: auto;
+  padding: $spacing-md $spacing-xl;
+}
+
+.sm-item {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-md;
+  border: 1px solid $border-light;
+  border-radius: $radius-md;
+  margin-bottom: $spacing-md;
+  transition: $transition-base;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+  &:hover {
+    border-color: $primary-color;
+  }
+
+  &__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-md;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
   }
 
-  .tpl-meta {
+  &__info {
     flex: 1;
+    min-width: 0;
 
-    .tpl-name {
-      font-size: $font-size-lg;
+    .sm-item__name {
+      font-size: $font-size-base;
       font-weight: 600;
       color: $text-primary;
-      display: flex;
-      align-items: center;
-      gap: $spacing-sm;
     }
-    .tpl-tags {
-      display: flex;
-      gap: $spacing-xs;
-      margin-top: $spacing-xs;
-      flex-wrap: wrap;
+    .sm-item__desc {
+      font-size: $font-size-xs;
+      color: $text-regular;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .sm-item__params {
+      font-size: $font-size-xs;
+      color: $text-secondary;
+      margin-top: 4px;
     }
   }
 
-  .tpl-desc {
-    font-size: $font-size-sm;
-    color: $text-regular;
-    line-height: 1.6;
-    margin-bottom: $spacing-md;
-    min-height: 42px;
-  }
-
-  .tpl-foot {
+  &__actions {
     display: flex;
-    justify-content: space-between;
-    font-size: $font-size-xs;
-    color: $text-regular;
-    padding-top: $spacing-md;
-    border-top: 1px solid $border-light;
-
-    .tpl-stat {
-      display: flex;
-      align-items: center;
-      gap: $spacing-xs;
-      b {
-        color: $primary-color;
-        font-weight: 600;
-        margin: 0 2px;
-      }
-    }
-  }
-
-  .tpl-actions {
-    margin-top: $spacing-md;
-    display: flex;
-    gap: $spacing-md;
+    gap: $spacing-xs;
+    flex-shrink: 0;
   }
 }
 
-.empty {
+.sm-empty {
   text-align: center;
   color: $text-secondary;
   padding: $spacing-2xl 0;
+}
+
+.sm-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: $spacing-sm;
+  padding: $spacing-md $spacing-xl;
+  border-top: 1px solid $border-light;
 }
 </style>

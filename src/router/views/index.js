@@ -6,7 +6,7 @@
  *   /knowledge  产品知识库
  *   /generate   内容生成（4 Tab：编辑/Agent协作/渠道预览/多版本对比）
  *   /history    生成历史
- *   /templates  模板管理
+ *   /templates  场景模板管理
  *
  * 保留：
  *   /workbenches 旧入口，等同 /dashboard
@@ -75,8 +75,8 @@ export default [
     children: [
       {
         path: 'index',
-        name: '模板管理',
-        meta: { keepAlive: false, isTab: true, title: '模板管理' },
+        name: '场景模板管理',
+        meta: { keepAlive: false, isTab: true, title: '场景模板管理' },
         component: () => import('@/views/sxk/templates/index.vue')
       }
     ]

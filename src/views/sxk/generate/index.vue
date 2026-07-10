@@ -63,15 +63,39 @@
 
         <!-- 2) 场景选择 -->
         <el-form-item label="内容场景" prop="scene_code">
-          <el-radio-group v-model="form.scene_code" class="sxk-generate__scene">
-            <el-radio-button
+          <div class="sxk-generate__scene-grid">
+            <div
               v-for="s in scenes"
               :key="s.scene_code"
-              :value="s.scene_code"
+              class="sxk-generate__scene-box"
+              :class="{ 'is-active': form.scene_code === s.scene_code }"
+              @click="form.scene_code = s.scene_code"
             >
-              {{ s.name }}
-            </el-radio-button>
-          </el-radio-group>
+              <el-icon :size="22" class="sxk-generate__scene-icon">
+                <component :is="getSceneIcon(s.scene_code)" />
+              </el-icon>
+              <span class="sxk-generate__scene-text">{{ s.name }}</span>
+            </div>
+          </div>
+        </el-form-item>
+
+        <!-- 2.5) 模板选择（选择场景后动态加载） -->
+        <el-form-item v-if="currentScene" label="选择模板">
+          <el-select
+            v-model="form.template_id"
+            placeholder="请选择模板（可选）"
+            filterable
+            clearable
+            style="width: 100%"
+            @change="onTemplateChange"
+          >
+            <el-option
+              v-for="t in sceneTemplates"
+              :key="t.template_id"
+              :label="t.name"
+              :value="t.template_id"
+            />
+          </el-select>
         </el-form-item>
 
         <!-- 3) 动态参数：来自 sxkApi.getSceneSchemas() -->
@@ -88,7 +112,7 @@
             <el-select
               v-if="p.type === 'enum'"
               v-model="form.params[p.key]"
-              :placeholder="`请选择${p.label}`"
+              :placeholder="p.default || `请选择${p.label}`"
               style="width: 100%"
             >
               <el-option
@@ -103,7 +127,7 @@
             <el-input
               v-else-if="p.type === 'text'"
               v-model="form.params[p.key]"
-              :placeholder="`请输入${p.label}`"
+              :placeholder="p.default || '请输入...'"
               clearable
             />
 
@@ -113,14 +137,24 @@
               v-model="form.params[p.key]"
               type="textarea"
               :rows="3"
-              :placeholder="`请输入${p.label}`"
+              :placeholder="p.default || '请输入...'"
             />
 
             <!-- 兜底 -->
             <el-input
               v-else
               v-model="form.params[p.key]"
-              :placeholder="`请输入${p.label}`"
+              :placeholder="p.default || '请输入...'"
+            />
+          </el-form-item>
+
+          <!-- 提示词：选择模板后自动填充并显示 -->
+          <el-form-item v-if="form.params.prompt" label="提示词">
+            <el-input
+              v-model="form.params.prompt"
+              type="textarea"
+              :rows="4"
+              placeholder="提示词内容"
             />
           </el-form-item>
         </template>
@@ -469,7 +503,12 @@ import {
   ChatLineRound,
   Connection,
   Aim,
-  Histogram
+  Histogram,
+  Box,
+  TrendCharts,
+  Share,
+  Promotion,
+  Message
 } from '@element-plus/icons-vue'
 import BasicBlock from '@/components/basic-block/main.vue'
 import { sxkApi } from '@/mock/sxkApi'
@@ -500,6 +539,7 @@ const channelKey = ref('wechat')
 const form = reactive({
   product_id: '',
   scene_code: 'product_intro',
+  template_id: '',
   params: {}
 })
 
@@ -511,6 +551,22 @@ const rules = {
 // ---------- 元数据：场景 / 产品下拉 ----------
 const scenes = ref([]) // 来自 sxkApi.getSceneSchemas().scenes
 const productOptions = ref([])
+
+// 当前场景下的模板列表
+const sceneTemplates = ref([])
+
+// 场景图标映射
+const SCENE_ICON_MAP = {
+  product_intro: Box,
+  competitor: TrendCharts,
+  channel_adapt: Share,
+  email: Message,
+  event: Promotion,
+  other: Document
+}
+function getSceneIcon(sceneCode) {
+  return SCENE_ICON_MAP[sceneCode] || Document
+}
 
 // ---------- 生成的运行态 ----------
 const currentGeneration = ref(null) // 最近一次生成的元数据 + versions
@@ -565,6 +621,12 @@ onMounted(async () => {
   } else {
     // 应用场景默认参数
     applySceneDefaults()
+    // 加载当前场景的模板列表
+    await loadSceneTemplates()
+    // 如果路由有预选模板，自动获取详情填充提示词
+    if (tid) {
+      await onTemplateChange(String(tid))
+    }
   }
 })
 
@@ -572,25 +634,69 @@ onBeforeUnmount(() => {
   stopAgentPolling()
 })
 
-// 监听场景切换：重置动态参数
+// 监听场景切换：重置动态参数并加载该场景的模板
 watch(
   () => form.scene_code,
-  () => applySceneDefaults()
+  () => {
+    applySceneDefaults()
+    loadSceneTemplates()
+  }
 )
 
 // ---------- 业务方法 ----------
 
 /**
  * 应用当前场景的默认参数到 form.params
+ * 参数初始化为空字符串，default 值作为 placeholder 显示
  * （每次切换场景都执行，避免遗留字段造成校验噪声）
  */
 function applySceneDefaults() {
   if (!currentScene.value) return
   const next = {}
   for (const p of currentScene.value.params) {
-    next[p.key] = p.default ?? ''
+    next[p.key] = ''  // 初始化为空，default 作为 placeholder
   }
   form.params = next
+}
+
+/**
+ * 加载当前场景下的所有模板
+ */
+async function loadSceneTemplates() {
+  if (!form.scene_code) {
+    sceneTemplates.value = []
+    return
+  }
+  try {
+    const resp = await sxkApi.listTemplates({
+      page: 1,
+      size: 100,
+      scene_code: form.scene_code
+    })
+    sceneTemplates.value = resp.data?.items || []
+  } catch {
+    sceneTemplates.value = []
+  }
+}
+
+/**
+ * 模板选择变化：获取模板详情并自动填充提示词
+ */
+async function onTemplateChange(templateId) {
+  if (!templateId) {
+    // 清空：移除提示词
+    if (form.params.prompt) delete form.params.prompt
+    return
+  }
+  try {
+    const resp = await sxkApi.getTemplate(templateId, form.scene_code)
+    if (resp.code === 0 && resp.data) {
+      // 自动填充提示词
+      form.params.prompt = resp.data.prompt || ''
+    }
+  } catch {
+    // 获取模板详情失败，不影响流程
+  }
 }
 
 /**
@@ -952,45 +1058,50 @@ function resetAll() {
   color: $text-primary;
 }
 
-// 场景单选按钮组：卡片式选择器（每个场景独立圆角胶囊，可自由换行）
-.sxk-generate__scene {
+// 场景网格：一行两列，每个场景框分两行（图标 + 文字）
+.sxk-generate__scene-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   width: 100%;
+}
 
-  // 重置 el-radio-button 默认连体按钮组样式，改为独立圆角卡片
-  :deep(.el-radio-button) {
-    // 关键：让每个按钮独立，不再依赖相邻按钮的 border-radius/-webkit-border-image
-    margin: 0;
+.sxk-generate__scene-box {
+  width: calc(50% - 4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px 8px;
+  border: 1px solid $border-base;
+  border-radius: $radius-md;
+  background: $bg-card;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: $primary-color;
+    color: $primary-color;
   }
 
-  :deep(.el-radio-button__inner) {
-    // 去掉 Element Plus 连体按钮组的首尾圆角假设
-    border: 1px solid $border-base !important;
-    border-radius: $radius-md !important;
-    // 去掉左边邻接阴影（el-radio-button 默认 box-shadow: -1px 0 0 0 ...）
-    box-shadow: none !important;
-    background: $bg-card;
-    color: $text-regular;
-    font-weight: 500;
-    padding: 8px 18px;
-    transition: all 0.2s ease;
-
-    &:hover {
-      border-color: $primary-color;
-      color: $primary-color;
-      background: $primary-color-light;
-    }
+  &.is-active {
+    border-color: $primary-color;
+    background: $primary-color;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(26, 86, 219, 0.25);
   }
+}
 
-  // 选中态
-  :deep(.el-radio-button.is-active .el-radio-button__inner) {
-    border-color: $primary-color !important;
-    background: $primary-color !important;
-    color: #fff !important;
-    box-shadow: 0 2px 8px rgba(26, 86, 219, 0.25) !important;
-  }
+.sxk-generate__scene-icon {
+  // 图标在第一行，大小由 :size="22" 控制
+}
+
+.sxk-generate__scene-text {
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.3;
 }
 
 // 动态参数小标题：左侧品牌色竖线（与 dashboard页/toolbar 风格一致）

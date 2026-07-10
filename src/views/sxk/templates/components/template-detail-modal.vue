@@ -124,10 +124,6 @@
 
     <template #footer>
       <div class="detail-footer">
-        <el-button @click="onManageSub">
-          <el-icon><EditPen /></el-icon>
-          <span>管理子模板</span>
-        </el-button>
         <el-button type="primary" @click="onUse">
           <el-icon><MagicStick /></el-icon>
           <span>使用此场景生成</span>
@@ -178,7 +174,8 @@ import SubTemplateEditor from './sub-template-editor.vue'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
-  templateId: { type: String, default: null }
+  templateId: { type: String, default: null },
+  sceneCode: { type: String, default: '' }
 })
 const emit = defineEmits(['update:modelValue', 'use'])
 
@@ -205,7 +202,7 @@ const COLOR_MAP = {
   other: { bg: '#f1f5f9', color: '#475569' }
 }
 
-const sceneCode = computed(() => data.value?.scene_code || '')
+const sceneCode = computed(() => data.value?.scene_code || props.sceneCode || '')
 const iconComp = computed(() => ICON_MAP[sceneCode.value] || Document)
 const iconStyle = computed(() => {
   const c = COLOR_MAP[sceneCode.value] || COLOR_MAP.other
@@ -269,25 +266,33 @@ const relativeTime = (iso) => {
 
 // ========== 加载 ==========
 const load = async () => {
-  if (!props.templateId) return
   loading.value = true
-  const res = await sxkApi.getTemplate(props.templateId)
+  // 并行加载场景 schema（如果尚未加载）
+  if (sceneSchemasList.value.length === 0) {
+    const sceneRes = await sxkApi.getSceneSchemas()
+    if (sceneRes.code === 0 && sceneRes.data) {
+      sceneSchemasList.value = sceneRes.data.scenes || []
+    }
+  }
+  // 无模板 ID：仅加载场景信息（空模板列表）
+  if (!props.templateId) {
+    data.value = {
+      scene_code: props.sceneCode,
+      templates: []
+    }
+    loading.value = false
+    return
+  }
+  const res = await sxkApi.getTemplate(props.templateId, props.sceneCode)
   loading.value = false
   if (res.code === 0 && res.data) {
     data.value = res.data
-    // 并行加载场景 schema（如果尚未加载）
-    if (sceneSchemasList.value.length === 0) {
-      const sceneRes = await sxkApi.getSceneSchemas()
-      if (sceneRes.code === 0 && sceneRes.data) {
-        sceneSchemasList.value = sceneRes.data.scenes || []
-      }
-    }
   } else {
     ElMessage.error(res.msg || '加载模板失败')
   }
 }
 
-watch(() => props.templateId, () => {
+watch([() => props.templateId, () => props.modelValue], () => {
   if (props.modelValue) load()
 })
 
@@ -299,7 +304,7 @@ const pickTemplate = (tpl) => {
 
 const onEditSub = async (tpl) => {
   // 获取完整模板数据（siblings 只有最小字段）
-  const res = await sxkApi.getTemplate(tpl.template_id)
+  const res = await sxkApi.getTemplate(tpl.template_id, data.value?.scene_code)
   if (res.code === 0 && res.data) {
     subtplEditData.value = res.data
     subtplVisible.value = true
@@ -492,7 +497,7 @@ const onUse = () => {
 
 // ========== 通用区块 ==========
 .detail-section {
-  margin-bottom: $spacing-lg;
+  margin-bottom: $spacing-xl;
 
   &:last-child {
     margin-bottom: 0;

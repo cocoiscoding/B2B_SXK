@@ -11,7 +11,6 @@ import { serialize } from '@/util/util'
 import { getToken } from '@/util/auth'
 import { isURL } from '@/util/validate'
 import website from '@/config/website'
-import { Base64 } from 'js-base64'
 import { baseUrl } from '@/config/env'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
@@ -37,16 +36,13 @@ axios.interceptors.request.use(
     if (!isURL(config.url) && !config.url.startsWith(baseUrl)) {
       config.url = baseUrl + config.url
     }
-    // Basic Auth
-    config.headers['Authorization'] = `Basic ${Base64.encode(
-      `${website.clientId}:${website.clientSecret}`
-    )}`
-    // 让每个请求携带token
+    // 鉴权：meta.isToken === false 的请求（登录/注册）不附加 token
+    // 其他请求携带 Authorization: Bearer <token>（后端 FastAPI 标准 OAuth2）
     const meta = config.meta || {}
-    const isToken = meta.isToken === false
+    const skipToken = meta.isToken === false
     const token = getToken()
-    if (token && !isToken) {
-      config.headers[website.tokenHeader] = token
+    if (token && !skipToken) {
+      config.headers['Authorization'] = `Bearer ${token}`
     }
     // headers 中配置 text 请求
     if (config.text === true) {
@@ -69,27 +65,45 @@ let isTokenRefreshing = false
 axios.interceptors.response.use(
   (res) => {
     NProgress.done()
-    // SXK 约定 code === 0 表示成功；BladeX 约定 HTTP 状态码（200/401/...）
-    // 当响应体含 code 字段时优先使用，否则回退到 HTTP status
+
+    // 两种响应格式：
+    // 1. Mock（SXK 壳）：{ code: 0, msg, data } — code === 0 表示成功
+    // 2. 后端（FastAPI）：直接返回对象体，错误为 { detail: "..." } + HTTP 4xx/5xx
+    const meta = (res.config && res.config.meta) || {}
+    const skipToken = meta.isToken === false
     const code = res.data.code
-    const status = code !== undefined ? code : res.status
+    const hasCode = code !== undefined
+
+    // 错误消息：detail（FastAPI）优先，msg（Mock/SXK）兜底
+    let message = res.data.detail || res.data.msg || res.data.error_description || '未知错误'
+    if (Array.isArray(message)) {
+      message = message.map((e) => e.msg || JSON.stringify(e)).join('; ')
+    }
+
     const statusWhiteList = website.statusWhiteList || []
-    const message = res.data.msg || res.data.error_description || '未知错误'
 
-    // 白名单里的状态码自行 catch 处理
-    if (statusWhiteList.includes(status)) return Promise.reject(res)
+    // --- Mock/SXK 壳格式：有 code 字段 ---
+    if (hasCode) {
+      if (statusWhiteList.includes(code)) return Promise.reject(res)
+      if (code === 0) return res // 成功
+      // Mock 业务错误码：正常返回，由调用方处理
+      return res
+    }
 
-    // 401: token 无效，刷新token
-    if (status === 401) {
-      if (!isTokenRefreshing) {
+    // --- 后端格式：无 code 字段，按 HTTP 状态码判断 ---
+    const httpStatus = res.status
+    if (statusWhiteList.includes(httpStatus)) return Promise.reject(res)
+
+    if (httpStatus === 401) {
+      // 登录/注册请求的 401 是凭证错误，不走 token 刷新
+      if (!skipToken && !isTokenRefreshing) {
         isTokenRefreshing = true
-        // 动态导入避免循环依赖
         import('@/store/modules/user').then(({ useUserStore }) => {
           const userStore = useUserStore()
           userStore
             .refreshToken()
             .then(() => {
-              ElMessage.success('Token已刷新，如有需要请重新操作')
+              ElMessage.success('Token 已刷新，如有需要请重新操作')
             })
             .catch(() => {
               userStore.fedLogOut().then(() => {
@@ -101,14 +115,15 @@ axios.interceptors.response.use(
             })
         })
       }
-    } else if (code !== undefined) {
-      // SXK 业务错误码（code !== 0）：正常返回，由页面 else 分支处理
-      return res
-    } else if (res.status >= 400) {
-      // 纯 HTTP 错误（无 code 字段，如 500/502）
-      ElMessage({ message: message, type: 'error' })
+      ElMessage({ message, type: 'error' })
       return Promise.reject(new Error(message))
     }
+
+    if (httpStatus >= 400) {
+      ElMessage({ message, type: 'error' })
+      return Promise.reject(new Error(message))
+    }
+
     return res
   },
   (error) => {

@@ -11,12 +11,30 @@
 <template>
   <el-dialog
     :model-value="modelValue"
-    :title="dialogTitle"
     width="640px"
+    top="7vh"
+    :show-close="false"
     :close-on-click-modal="false"
+    class="product-edit-dialog"
     @update:model-value="(v) => $emit('update:modelValue', v)"
     @open="initForm"
   >
+    <!-- 头部 -->
+    <div class="pe-head">
+      <div class="pe-head__left">
+        <h3 class="pe-head__title">
+          <el-icon class="pe-head__icon"><component :is="dialogIcon" /></el-icon>
+          {{ dialogTitle }}
+        </h3>
+        <p class="pe-head__sub">{{ dialogSubTitle }}</p>
+      </div>
+      <button class="pe-head__close" @click="$emit('update:modelValue', false)">
+        <el-icon :size="20"><Close /></el-icon>
+      </button>
+    </div>
+
+    <!-- 可滚动内容区 -->
+    <div class="pe-body">
     <el-form
       ref="formRef"
       :model="form"
@@ -195,18 +213,22 @@
         </div>
       </el-form-item>
     </el-form>
+    </div>
 
+    <!-- 底部 -->
     <template #footer>
-      <template v-if="!editing">
-        <el-button @click="cancel">关闭</el-button>
-        <el-button type="primary" @click="startEdit">编辑</el-button>
-      </template>
-      <template v-else>
-        <el-button @click="cancel">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submit">
-          {{ isEdit ? '保存修改' : '创建产品' }}
-        </el-button>
-      </template>
+      <div class="pe-foot">
+        <template v-if="!editing">
+          <el-button @click="cancel">关闭</el-button>
+          <el-button type="primary" @click="startEdit">编辑</el-button>
+        </template>
+        <template v-else>
+          <el-button @click="cancel">取消</el-button>
+          <el-button type="primary" :loading="saving" @click="submit">
+            {{ isEdit ? '保存修改' : '创建产品' }}
+          </el-button>
+        </template>
+      </div>
     </template>
   </el-dialog>
 </template>
@@ -214,7 +236,7 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Close, Delete, PictureFilled, UploadFilled } from '@element-plus/icons-vue'
+import { Close, Delete, PictureFilled, UploadFilled, View, EditPen, Plus } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
 import TagInput from '@/components/tag-input/index.vue'
 
@@ -510,7 +532,88 @@ const submit = async () => {
 }
 </script>
 
+<style lang="scss">
+// 全局样式：覆盖 el-dialog 默认 padding（弹窗 teleport 到 body，scoped 无法穿透）
+.product-edit-dialog {
+  .el-dialog__header {
+    display: none;
+  }
+  .el-dialog__body {
+    padding: 0;
+  }
+  .el-dialog__footer {
+    padding: 0;
+  }
+}
+</style>
+
 <style lang="scss" scoped>
+// ========== 头部 ==========
+.pe-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: $spacing-lg $spacing-lg $spacing-md;
+  border-bottom: 1px solid $border-light;
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0;
+  }
+
+  &__icon {
+    color: $primary-color;
+    font-size: 20px;
+  }
+
+  &__sub {
+    font-size: 12px;
+    color: $text-placeholder;
+    margin: $spacing-xs 0 0;
+  }
+
+  &__close {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: $text-placeholder;
+    padding: 4px;
+    border-radius: $radius-sm;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      color: $text-primary;
+      background: $gray-100;
+    }
+  }
+}
+
+// ========== 可滚动内容区 ==========
+.pe-body {
+  max-height: calc(86vh - 180px);
+  overflow-y: auto;
+  padding: $spacing-lg;
+}
+
+// ========== 底部 ==========
+.pe-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-lg $spacing-md;
+  border-top: 1px solid $border-light;
+}
+
 .dynamic-list {
   display: flex;
   flex-direction: column;

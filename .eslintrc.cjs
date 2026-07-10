@@ -20,6 +20,8 @@ module.exports = {
   rules: {
     'no-console': process.env.NODE_ENV === 'production' ? 'error' : 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'off',
+    // 下划线前缀的参数/变量视为有意保留（签名兼容等）
+    'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     'vue/multi-word-component-names': 'off'
   }
 }

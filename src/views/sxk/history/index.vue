@@ -238,26 +238,36 @@ const emptyText = computed(() =>
 // ========== 数据加载 ==========
 const load = async () => {
   loading.value = true
-  const res = await sxkApi.listHistory({
-    page: pager.page,
-    size: pager.size,
-    keyword: filters.keyword,
-    template_id: filters.template_id,
-    status: filters.status
-  })
-  loading.value = false
-  if (res.data) {
-    list.value = res.data.items || []
-    total.value = res.data.total || 0
-    // 首页"最近生成"跳转过来时，定位并高亮目标行
-    scrollToHighlight()
+  try {
+    const res = await sxkApi.listHistory({
+      page: pager.page,
+      size: pager.size,
+      keyword: filters.keyword,
+      template_id: filters.template_id,
+      status: filters.status
+    })
+    if (res.data) {
+      list.value = res.data.items || []
+      total.value = res.data.total || 0
+      // 首页"最近生成"跳转过来时，定位并高亮目标行
+      scrollToHighlight()
+    }
+  } catch (e) {
+    console.error('[History] load failed', e)
+    ElMessage.error('加载历史记录失败')
+  } finally {
+    loading.value = false
   }
 }
 
 const loadTemplates = async () => {
-  // 仅取首屏足够多（mock 阶段直接拉全部；后端就绪后会自动分页）
-  const res = await sxkApi.listTemplates({ page: 1, size: 100 })
-  if (res.data) templateOptions.value = res.data.items || []
+  try {
+    // 仅取首屏足够多（mock 阶段直接拉全部；后端就绪后会自动分页）
+    const res = await sxkApi.listTemplates({ page: 1, size: 100 })
+    if (res.data) templateOptions.value = res.data.items || []
+  } catch (e) {
+    console.error('[History] loadTemplates failed', e)
+  }
 }
 
 const search = () => {

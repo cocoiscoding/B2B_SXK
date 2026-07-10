@@ -69,7 +69,7 @@
     <!-- 用 CSS Grid auto-fit 让卡片数变化时自动平均铺满，不产生尾部空白 -->
     <div class="cat-grid" v-if="stats">
       <!-- 产品总数：品牌蓝高亮 -->
-      <div class="cat-card cat-card--total">
+      <!-- <div class="cat-card cat-card--total">
         <div class="cat-card__icon">
           <el-icon><Box /></el-icon>
         </div>
@@ -77,7 +77,7 @@
           <div class="cat-card__value">{{ stats.total }}</div>
           <div class="cat-card__label">产品总数</div>
         </div>
-      </div>
+      </div> -->
       <!-- 各分类：按类目动态配色 -->
       <div
         v-for="cat in categoryStatList"
@@ -280,22 +280,32 @@ const highlight = (text) => {
 // ========== 数据加载 ==========
 const loadList = async () => {
   loading.value = true
-  const res = await sxkApi.listProducts({
-    page: pager.page,
-    size: pager.size,
-    keyword: filters.keyword,
-    category: filters.category
-  })
-  if (res.data) {
-    list.value = res.data.items || []
-    total.value = res.data.total || 0
+  try {
+    const res = await sxkApi.listProducts({
+      page: pager.page,
+      size: pager.size,
+      keyword: filters.keyword,
+      category: filters.category
+    })
+    if (res.data) {
+      list.value = res.data.items || []
+      total.value = res.data.total || 0
+    }
+  } catch (e) {
+    console.error('[Knowledge] loadList failed', e)
+    ElMessage.error('加载产品列表失败')
+  } finally {
+    loading.value = false
   }
-  loading.value = false
 }
 
 const loadStats = async () => {
-  const res = await sxkApi.getProductStats()
-  if (res.data) stats.value = res.data
+  try {
+    const res = await sxkApi.getProductStats()
+    if (res.data) stats.value = res.data
+  } catch (e) {
+    console.error('[Knowledge] loadStats failed', e)
+  }
 }
 
 const search = () => {

@@ -35,61 +35,55 @@ export const getCaptcha = () => {
 
 /**
  * 神行库登录
- * POST /api/sxk/auth/login
+ * POST /api/auth/login
  *
- * 请求体：{ tenantId, username, password, key, code, grant_type, scope, type }
- * 响应体：{ code: 0, data: { access_token, expires_in, token_type, user: { user_id, username, role, ... } } }
+ * 后端请求体：{ username, password }
+ * 后端响应体：{ access_token, refresh_token, user: { id, name, color, username, email, is_admin, created_at } }
  *
- * @param {string} username  用户名（或邮箱）
+ * @param {string} username  用户名
  * @param {string} password  明文密码（传输层建议 HTTPS）
- * @param {string} key       验证码 key（captchaMode 时必填）
- * @param {string} code      用户输入的验证码（captchaMode 时必填）
+ * @param {string} key       验证码 key（captchaMode 时必填，后端暂不校验）
+ * @param {string} code      用户输入的验证码（captchaMode 时必填，后端暂不校验）
  */
-export const loginByUsername = (username, password, key, code) => {
+export const loginByUsername = (username, password, _key, _code) => {
   if (MOCK_AUTH) {
     // 真实鉴权链路已在 store/modules/user.js loginByUsername 入口短路，
     // 此处仅保留函数签名兼容，避免调用方走到 request() 时 ECONNREFUSED。
     return ok({ access_token: 'mock', refresh_token: 'mock' })
   }
   return request({
-    url: '/api/sxk/auth/login',
+    url: '/api/auth/login',
     method: 'post',
     meta: { isToken: false },
     data: {
-      tenantId: website.tenantId,
       username,
-      password,
-      key,
-      code,
-      grant_type: website.captchaMode ? 'captcha' : 'password',
-      scope: 'all',
-      type: 'account'
+      password
     }
   })
 }
 
 /**
  * 神行库注册
- * POST /api/sxk/auth/register
+ * POST /api/auth/register
  *
- * 请求体：{ username, email, password, key, code }
- * 响应体：{ code: 0, data: { user_id, username, ... }, msg }
+ * 后端请求体：{ username, password, name, email }
+ * 后端响应体：{ access_token, refresh_token, user: { id, name, color, username, email, is_admin, created_at } }
  *
  * @param {string} username  用户名
  * @param {string} email     邮箱
  * @param {string} password  明文密码（传输层建议 HTTPS）
- * @param {string} key       验证码 key
- * @param {string} code      用户输入的验证码
+ * @param {string} key       验证码 key（后端暂不校验）
+ * @param {string} code      用户输入的验证码（后端暂不校验）
  */
-export const registerByInfo = (username, email, password, key, code) => {
+export const registerByInfo = (username, email, password, _key, _code) => {
   if (MOCK_AUTH) {
     return ok({ username })
   }
   return request({
-    url: '/api/sxk/auth/register',
+    url: '/api/auth/register',
     method: 'post',
     meta: { isToken: false },
-    data: { username, email, password, key, code }
+    data: { username, password, name: username, email }
   })
 }
 
@@ -133,7 +127,7 @@ export const loginBySocial = (tenantId, source, code, state) => {
   })
 }
 
-export const refreshToken = (refresh_token, tenantId, deptId, roleId, switchMode) => {
+export const refreshToken = (refresh_token, _tenantId, _deptId, _roleId, _switchMode) => {
   if (MOCK_AUTH) {
     // 演示阶段：刷新 token 直接复用原 token，不更新过期时间
     return ok({
@@ -142,10 +136,10 @@ export const refreshToken = (refresh_token, tenantId, deptId, roleId, switchMode
     })
   }
   return request({
-    url: '/api/sxk/auth/refresh',
+    url: '/api/auth/refresh',
     method: 'post',
     meta: { isToken: false },
-    data: {}
+    data: { refresh_token }
   })
 }
 
@@ -160,9 +154,8 @@ export const getButtons = () => {
 export const logout = () => {
   if (MOCK_AUTH) return ok(null)
   return request({
-    url: '/api/sxk/auth/logout',
+    url: '/api/auth/logout',
     method: 'post',
-    meta: { isToken: false },
     data: {}
   })
 }
@@ -177,7 +170,7 @@ export const getUserInfo = () => {
     })
   }
   return request({
-    url: '/api/blade-auth/oauth/user-info',
+    url: '/api/auth/me',
     method: 'get'
   })
 }
