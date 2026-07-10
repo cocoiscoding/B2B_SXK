@@ -182,7 +182,11 @@ class VersionContent(BaseModel):
     title: str                  # 标题
     body: str                   # 正文
     tags: list[str] = Field(default_factory=list)  # 标签列表
-    image: str | None = None    # 文生图配图（SVG data URL 或图片 URL，加分项）
+    # 渠道归属：多渠道适配后标识该版本属于哪个渠道；初稿阶段为空字符串
+    channel: str = ""
+    image: str | None = None    # 文生图配图（首图，向后兼容；SVG data URL 或图片 URL，加分项）
+    # 全部配图列表（1-5 张）：每张 {url, caption, theme, type}，前端按小节穿插展示
+    images: list[dict[str, Any]] = Field(default_factory=list)
     # A/B 测试票数（加分项）：每个版本独立计票，用于对比哪个版本更受欢迎
     votes: dict[str, int] = Field(default_factory=lambda: {"like": 0, "dislike": 0})
     # 已投票成员及其方向 {member_id: 'like'|'dislike'}，用于防重复投票 / 改票 / 取消
@@ -367,3 +371,63 @@ class SeoAnalyzeResponse(BaseModel):
     suggestions: list[SeoSuggestion]    # 优化建议列表
     keywords: list[str] = Field(default_factory=list)  # 从正文提取的关键词
     stats: dict[str, Any] = Field(default_factory=dict)  # 统计信息（字数/标题长度等）
+
+
+# ===== 草稿（多阶段交互式生成流程的中间状态）=====
+# 四阶段：检索-生成-校验 -> 用户选版+改内容 -> 多渠道适配 -> 文生图+落 history
+# 跨阶段状态存 drafts 表，draft_id 串联，最终确认才写 history
+
+
+class CreateDraftRequest(BaseModel):
+    """创建草稿请求体（阶段1：检索+生成+校验）。
+
+    与 GenerateRequest 的区别：渠道后置（不在阶段1传），由阶段3多选。
+    """
+    product_id: str
+    scenario_id: str
+    template_id: str = ""
+    style: str = "专业严谨"
+    params: dict[str, Any] = Field(default_factory=dict)
+    version_count: int = Field(default=3, ge=1, le=5)
+
+
+class RegenerateRequest(BaseModel):
+    """重新生成请求体（阶段1内）：可选微调参数后重新生成初稿。"""
+    params: dict[str, Any] | None = None   # 传则覆盖原参数，不传用草稿原参数
+
+
+class SelectVersionRequest(BaseModel):
+    """阶段2：提交用户选定+改动后的那一版。"""
+    version: dict[str, Any]               # {index, title, body, tags, ...}
+
+
+class AdaptRequest(BaseModel):
+    """阶段3：多选渠道，产出每渠道 1 个适配版本。"""
+    channels: list[str]                   # 用户多选的渠道名列表
+
+
+class Draft(BaseModel):
+    """草稿完整状态（GET /api/drafts/{id} 及各阶段响应共用）。"""
+    id: str
+    user_id: str
+    product_id: str
+    product_name: str = ""
+    scenario_id: str
+    scenario_name: str = ""
+    template_id: str | None = None
+    template_name: str | None = None
+    style: str = ""
+    params: dict[str, Any] = Field(default_factory=dict)
+    stage: str = "draft"                  # draft / editing / adapted / imaged / done
+    retrieved_info: dict[str, Any] = Field(default_factory=dict)
+    draft_versions: list[VersionContent] = Field(default_factory=list)
+    validation: dict[str, Any] = Field(default_factory=dict)   # {issues, validated}
+    agent_trace: list[AgentStep] = Field(default_factory=list)
+    selected_version: VersionContent | None = None
+    channels: list[str] = Field(default_factory=list)
+    versions: list[VersionContent] = Field(default_factory=list)   # 多渠道适配后的版本
+    history_id: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -63,6 +63,29 @@ class LLMProvider:
         """
         raise NotImplementedError
 
+    def generate_qwen_image(
+        self, prompt: str, size: str = "1024x1024", n: int = 1, **kwargs
+    ) -> list[dict]:
+        """通义千问/万相 文生图专用接口。
+
+        这是为对接千问生图大模型预留的专用方法，与 generate_image 不同的是：
+        - 返回结构化数据而非单 URL
+        - 支持尺寸/数量/seed 等 Qwen 特有参数
+        - 不做 SVG 降级（失败就该让上层知道）
+        - 后续接真实千问 API 时直接改此方法即可
+
+        参数：
+            prompt: 图片描述
+            size: 图片尺寸，如 "1024x1024"、"1024x576"、"720x1280"
+            n: 生成数量（1-4）
+            **kwargs: Qwen 扩展参数，如 style、seed 等
+
+        返回：
+            [{"url": str | None, "b64_json": str | None, "prompt": str}, ...]
+            每张图一个元素，url 和 b64_json 至少有一个不为 None
+        """
+        raise NotImplementedError
+
     @property
     def name(self) -> str:
         """Provider 名称（用于日志和展示）。"""
@@ -125,6 +148,16 @@ class MockLLMProvider(LLMProvider):
     def generate_image(self, prompt: str, theme: str = "", scene_style: dict = None) -> str:
         """Mock 文生图：生成主题化 SVG 占位图（即时、无需联网）。"""
         return _build_svg_image(prompt, theme, scene_style)
+
+    def generate_qwen_image(
+        self, prompt: str, size: str = "1024x1024", n: int = 1, **kwargs
+    ) -> list[dict]:
+        """Mock 千问文生图：生成 n 张 Pillow 占位图。"""
+        results = []
+        for i in range(n):
+            b64 = _build_svg_image(prompt, theme=kwargs.get("style", ""))
+            results.append({"url": None, "b64_json": b64, "prompt": prompt})
+        return results
 
 
 class OpenAICompatibleProvider(LLMProvider):
@@ -219,7 +252,21 @@ class OpenAICompatibleProvider(LLMProvider):
         兼容 OpenAI 格式 /images/generations（通义万相 wanx、DALL-E 等）。
         响应可能返回 url 或 b64_json，任一可用即返回；否则回退 SVG。
         任何异常（API 不支持 / 网络 / 格式不符）都回退，绝不阻断生成流程。
+
+        优化：将 scene_style 中的风格描述、元素、色调建议注入 prompt，
+        让生成的图片更符合场景定位。
         """
+        # 增强 prompt：融入场景风格描述
+        if scene_style:
+            style_desc = scene_style.get("style", "")
+            elements = scene_style.get("elements", "")
+            color_hint = scene_style.get("color_hint", "")
+            style_extra = f"。风格：{style_desc}，元素：{elements}，色调：{color_hint}"
+        else:
+            style_extra = ""
+
+        enhanced_prompt = prompt + style_extra if style_extra else prompt
+
         url = f"{LLM_BASE_URL.rstrip('/')}/images/generations"
         headers = {
             "Authorization": f"Bearer {LLM_API_KEY}",
@@ -234,7 +281,7 @@ class OpenAICompatibleProvider(LLMProvider):
         else:
             size = "1024x1024"  # 默认正方形
 
-        payload = {"model": "wanx2.1-t2i-turbo", "prompt": prompt, "n": 1, "size": size}
+        payload = {"model": "wanx2.1-t2i-turbo", "prompt": enhanced_prompt, "n": 1, "size": size}
         try:
             resp = self._client.post(url, json=payload, headers=headers, timeout=LLM_TIMEOUT)
             resp.raise_for_status()
@@ -249,6 +296,53 @@ class OpenAICompatibleProvider(LLMProvider):
         except Exception:
             pass  # 静默回退：图像 API 不可用时用 SVG 占位
         return _build_svg_image(prompt, theme, scene_style)
+
+    def generate_qwen_image(
+        self, prompt: str, size: str = "1024x1024", n: int = 1, **kwargs
+    ) -> list[dict]:
+        """通义千问/万相 文生图专用接口。
+
+        调用 OpenAI-compatible /images/generations 端点。
+        与 generate_image 的不同：
+        - 不做 SVG 降级，失败直接抛异常（让上层决策如何处理）
+        - 支持 n>1 批量生图
+        - 支持 seed/style 等 Qwen 扩展参数
+        - 返回结构化列表而非单 URL
+
+        后续接千问原生 API 时，改写此方法即可，调用方不受影响。
+        """
+        url = f"{LLM_BASE_URL.rstrip('/')}/images/generations"
+        headers = {
+            "Authorization": f"Bearer {LLM_API_KEY}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": kwargs.get("model", "wanx2.1-t2i-turbo"),
+            "prompt": prompt,
+            "n": min(n, 4),  # 千问单次最多 4 张
+            "size": size,
+        }
+        # 可选参数透传
+        for key in ("seed", "style"):
+            if key in kwargs:
+                payload[key] = kwargs[key]
+
+        resp = self._client.post(url, json=payload, headers=headers, timeout=LLM_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        items = data.get("data") or []
+        if not items:
+            raise RuntimeError(f"千问生图返回空结果: {data}")
+
+        results = []
+        for item in items:
+            result = {"url": None, "b64_json": None, "prompt": prompt}
+            if item.get("b64_json"):
+                result["b64_json"] = f"data:image/png;base64,{item['b64_json']}"
+            if item.get("url"):
+                result["url"] = item["url"]
+            results.append(result)
+        return results
 
 
 # ===== 文生图 SVG 占位图生成器（Mock / 回退共用）=====

@@ -101,24 +101,57 @@ def _svg_to_png(svg_bytes: bytes):
 def _build_docx(data: dict) -> bytes:
     """把历史记录导出为 docx（含配图），返回字节。
 
-    配图是 data URL（SVG/PNG），SVG 需转 PNG 才能插入 docx；
-    转换或插入失败则跳过该图，不影响文案导出。
+    配图是 data URL（SVG/PNG）或 http URL；SVG 需转 PNG 才能插入 docx；
+    下载/转换/插入失败则跳过该图，不影响文案导出。
     markdown 标题/列表转为 docx 对应样式，表格按行原样输出。
+    配图按小节边界穿插在正文中（与前端 renderArticle 一致），而非全部堆在末尾。
     """
     from docx import Document
-    from docx.shared import Inches
 
     doc = Document()
     doc.add_heading(f"{data['product_name']} - {data['scenario_name']}", level=0)
     doc.add_paragraph(f"渠道：{data['channel']} | 风格：{data['style']} | 生成时间：{data['created_at']}")
 
     for v in data.get("versions", []):
-        doc.add_heading(f"版本 {v.get('index', 1)}：{v.get('title', '')}", level=1)
-        # 正文：markdown 标题/列表转 docx 样式，其余按段落
-        for line in (v.get("body") or "").split("\n"):
-            s = line.strip()
-            if not s:
-                continue
+        title = v.get("title", "")
+        doc.add_heading(f"版本 {v.get('index', 1)}：{title}", level=1)
+        body = v.get("body") or ""
+        images = v.get("images") or ([{"url": v["image"]}] if v.get("image") else [])
+
+        # 正文按空行切成块
+        blocks = [b for b in re.split(r"\n\s*\n", body) if b.strip()]
+        # 去掉与标题重复的正文首标题（与前端 renderArticle 一致，如 mock 的 ## 产品名）
+        if blocks and title:
+            m = re.match(r"^#{1,2}\s+(.*)$", blocks[0].lstrip())
+            if m:
+                h = m.group(1).strip()
+                if h and (h in title or title in h):
+                    blocks.pop(0)
+
+        # 计算配图穿插点（块索引，在其后插入）：首块 + 标题块 + 末块，去重保序
+        points = []
+
+        def push_point(i):
+            if 0 <= i < len(blocks) and i not in points:
+                points.append(i)
+
+        if blocks:
+            push_point(0)
+            for i, b in enumerate(blocks):
+                if b.lstrip().startswith("#"):
+                    push_point(i)
+            push_point(len(blocks) - 1)
+
+        # 每张图分配一个穿插点（不足则循环复用同一位置）
+        after = {}
+        if points:
+            for k, img in enumerate(images):
+                after.setdefault(points[k % len(points)], []).append(img)
+        else:
+            after[-1] = list(images)    # 无正文块：配图全部放末尾
+
+        def add_line(s):
+            """把一行 markdown 转为 docx 段落/标题/列表项。"""
             if s.startswith("###"):
                 doc.add_heading(s.lstrip("# ").strip(), level=3)
             elif s.startswith("##"):
@@ -129,24 +162,64 @@ def _build_docx(data: dict) -> bytes:
                 doc.add_paragraph(s.lstrip("-• ").strip(), style="List Bullet")
             else:
                 doc.add_paragraph(s)
-        # 配图：SVG 转 PNG，PNG/JPEG 直接插入
-        img = v.get("image")
-        if img:
-            mime, img_bytes = _parse_data_url(img)
-            if img_bytes:
-                insert = _svg_to_png(img_bytes) if (mime and "svg" in mime) else img_bytes
-                if insert:
-                    try:
-                        doc.add_picture(io.BytesIO(insert), width=Inches(5.5))
-                        doc.add_paragraph()
-                    except Exception:
-                        doc.add_paragraph("（配图插入失败）")
+
+        # 逐块渲染正文，在穿插点后插入对应配图
+        for i, blk in enumerate(blocks):
+            for line in blk.split("\n"):
+                s = line.strip()
+                if s:
+                    add_line(s)
+            for img in after.get(i, []):
+                _insert_docx_image(
+                    doc,
+                    img.get("url") if isinstance(img, dict) else None,
+                    img.get("caption", "") if isinstance(img, dict) else "",
+                )
+        # 无正文块的剩余配图
+        for img in after.get(-1, []):
+            _insert_docx_image(
+                doc,
+                img.get("url") if isinstance(img, dict) else None,
+                img.get("caption", "") if isinstance(img, dict) else "",
+            )
         if v.get("tags"):
             doc.add_paragraph(f"标签：{', '.join(v['tags'])}")
 
     buf = io.BytesIO()
     doc.save(buf)
     return buf.getvalue()
+
+
+def _insert_docx_image(doc, url: str, caption: str = "") -> None:
+    """把一张配图插入 docx：data URL 直接解析，http(s) URL 下载后插入；SVG 转 PNG；失败静默跳过。"""
+    img_bytes = None
+    mime = None
+    if url.startswith("data:"):
+        mime, img_bytes = _parse_data_url(url)
+    elif url.startswith("http://") or url.startswith("https://"):
+        try:
+            import httpx
+            r = httpx.get(url, timeout=30, follow_redirects=True)
+            r.raise_for_status()
+            img_bytes = r.content
+            mime = r.headers.get("content-type", "")
+        except Exception:
+            return    # 下载失败：跳过该图，不影响整体导出
+    if not img_bytes:
+        return
+    from docx.shared import Inches
+    insert = _svg_to_png(img_bytes) if (mime and "svg" in mime) else img_bytes
+    if not insert:
+        return
+    try:
+        doc.add_picture(io.BytesIO(insert), width=Inches(5.5))
+        if caption:
+            cap_p = doc.add_paragraph(caption)
+            if cap_p.runs:
+                cap_p.runs[0].italic = True
+        doc.add_paragraph()
+    except Exception:
+        pass
 
 
 @router.get("/{history_id}/export")

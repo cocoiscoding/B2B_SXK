@@ -20,7 +20,7 @@ from app.database import init_db, close_pool
 # 从 seed_data.py 导入种子数据初始化函数
 from app.seed_data import seed_if_empty
 # 从 routers 包导入 4 个路由模块
-from app.routers import products, scenarios, generate, history, members, seo, auth, channels, templates
+from app.routers import products, scenarios, generate, history, members, seo, auth, channels, templates, drafts
 
 # 创建 FastAPI 应用实例
 # title 和 version 会显示在自动生成的 API 文档（/docs）中
@@ -41,7 +41,8 @@ app.add_middleware(
 app.include_router(products.router)    # 产品知识库管理
 app.include_router(scenarios.router)   # 场景管理
 app.include_router(templates.router)   # 模板管理
-app.include_router(generate.router)    # 内容生成
+app.include_router(generate.router)    # 内容生成（旧：一次性全流程，保留兼容）
+app.include_router(drafts.router)      # 草稿：多阶段交互式生成（新流程）
 app.include_router(history.router)     # 历史记录管理
 app.include_router(members.router)     # 团队成员（加分项：团队协作）
 app.include_router(seo.router)         # SEO 分析（加分项）

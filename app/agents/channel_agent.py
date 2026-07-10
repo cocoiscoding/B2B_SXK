@@ -88,6 +88,47 @@ class ChannelAgent(BaseAgent):
             adapted,
         )
 
+    # ----- 多渠道适配（新流程：单版本 -> N 渠道，每渠道 1 版）-----
+
+    def adapt_to_channels(
+        self, version: dict, channels: list[str], scenario: dict
+    ) -> tuple[list[dict], list[str]]:
+        """把单个版本适配到多个渠道，每个渠道产出 1 个版本。
+
+        与 _execute（一批版本 -> 单渠道）互补，本方法服务于交互式流程的阶段3：
+        用户已选定 1 个版本，多选 N 个渠道 -> 产出 N 个渠道版本。
+
+        返回 (适配后的版本列表, 跳过的未知渠道列表)。
+        每个版本带 channel 字段标识归属；index 重新编号 1..N。
+        模板标注了 applicable_channels 时，实际渠道不在其中则在该版本 tags 里告警（不阻断）。
+        """
+        results: list[dict] = []
+        skipped: list[str] = []
+        applicable = scenario.get("template_applicable_channels") or []
+
+        for i, ch in enumerate(channels, 1):
+            cfg = get_channel_config(ch)
+            if cfg is None:
+                skipped.append(ch)
+                continue
+            use_llm = bool(self._llm) and self._llm.name != "mock-engine"
+            if use_llm:
+                adapted = self._adapt_with_llm(version, ch, cfg)
+            else:
+                adapted = self._adapt_rule(version, cfg, ch)
+            # 标识渠道归属 + 重新编号
+            adapted["channel"] = ch
+            adapted["index"] = i
+            # 渠道不在模板适用范围 -> 在 tags 里告警（前端可见，不阻断适配）
+            if applicable and ch not in applicable:
+                tags = list(adapted.get("tags") or [])
+                warn = f"⚠{ch}非模板适用渠道"
+                if warn not in tags:
+                    tags.append(warn)
+                adapted["tags"] = tags
+            results.append(adapted)
+        return results, skipped
+
     # ----- LLM 改写 -----
 
     def _adapt_with_llm(self, version: dict, channel: str, cfg: dict) -> dict:

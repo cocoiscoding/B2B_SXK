@@ -146,7 +146,8 @@ class Orchestrator:
                 title=v.get("title", ""),
                 body=v.get("body", ""),
                 tags=v.get("tags", []),
-                image=v.get("image"),                                           # 文生图配图
+                image=v.get("image"),                                           # 文生图配图（首图，向后兼容）
+                images=v.get("images", []),                                      # 全部配图（前端按小节穿插展示）
                 votes=v.get("votes", {"like": 0, "dislike": 0}),                # A/B 测试票数
                 voters=v.get("voters", {}),                                     # 已投票成员 {id: 方向}
             )
@@ -190,6 +191,116 @@ class Orchestrator:
             validated=validated,
             issues=issues,
         )
+
+    # ===== 多阶段交互式流程（新流程）=====
+    # 阶段1 run_draft：检索->生成->校验（只跑一次，不返工）
+    # 阶段3 run_adapt：单版本->多渠道适配
+    # 阶段4 run_images：对多渠道版本配图
+    # 阶段2（用户选版+改内容）无 Agent 参与，由 router 直接写草稿
+
+    def _load_product(self, product_id: str) -> dict:
+        """加载产品（含 JSONB 字段解析）。不存在抛 ValueError。"""
+        row = query_one("SELECT * FROM products WHERE id = %s", (product_id,))
+        if not row:
+            raise ValueError(f"产品 {product_id} 不存在")
+        return _parse_json_fields(
+            row, ["features", "tech_params", "target_customers", "competitors", "selling_points"]
+        )
+
+    def _load_scenario(self, scenario_id: str, template_id: str | None) -> dict:
+        """加载场景并注入模板字段（与 run() 一致）。不存在抛 ValueError。"""
+        row = query_one("SELECT * FROM scenarios WHERE id = %s", (scenario_id,))
+        if not row:
+            raise ValueError(f"场景 {scenario_id} 不存在")
+        scenario = _parse_json_fields(row, ["parameters"])
+        if template_id:
+            tmpl = query_one(
+                "SELECT * FROM templates WHERE id = %s AND scenario_id = %s",
+                (template_id, scenario_id),
+            )
+            if tmpl:
+                scenario["template"] = tmpl["prompt"]
+                scenario["template_name"] = tmpl["name"]
+                scenario["template_constraints"] = tmpl.get("constraints") or {}
+                scenario["template_structure"] = tmpl.get("structure") or ""
+                scenario["template_examples"] = tmpl.get("examples") or []
+                scenario["template_diff_dims"] = tmpl.get("differentiation_dims") or []
+                scenario["template_applicable_channels"] = tmpl.get("applicable_channels") or []
+        if "template" not in scenario or not scenario.get("template"):
+            scenario["template"] = f"根据场景「{scenario['name']}」生成内容"
+        return scenario
+
+    def run_draft(self, product_id: str, scenario_id: str, template_id: str | None,
+                  style: str, params: dict, version_count: int = 3) -> dict:
+        """阶段1：检索 -> 生成 -> 校验（只跑一次，不返工）。
+
+        渠道适配与文生图不在本阶段。校验问题交由前端展示，用户决定是否重新生成。
+        返回 {retrieved_info, draft_versions, validation, agent_trace}。
+        """
+        product = self._load_product(product_id)
+        scenario = self._load_scenario(scenario_id, template_id)
+
+        ctx = AgentContext(
+            product=product,
+            scenario=scenario,
+            style=style,
+            params=params,
+            version_count=version_count,
+        )
+
+        trace: list[dict] = []
+        # ① 检索
+        trace.append(self.retrieval.execute(ctx))
+        if not ctx.retrieved_info:
+            raise ValueError("产品信息检索失败，无法生成")
+        # ② 生成
+        trace.append(self.generation.execute(ctx))
+        if not ctx.draft_versions:
+            raise ValueError("内容生成失败，未产出任何版本")
+        # ③ 校验（只跑一次，不返工）
+        val_step = self.validation.execute(ctx)
+        trace.append(val_step)
+        val_output = val_step.get("output") or {}
+        if not isinstance(val_output, dict):
+            val_output = {"issues": [], "validated": False}
+
+        return {
+            "retrieved_info": ctx.retrieved_info,
+            "draft_versions": ctx.draft_versions,
+            "validation": val_output,
+            "agent_trace": trace,
+            "product_name": product["name"],
+            "scenario_name": scenario["name"],
+            "template_name": scenario.get("template_name"),
+        }
+
+    def run_adapt(self, selected_version: dict, channels: list[str],
+                  scenario_id: str, template_id: str | None) -> dict:
+        """阶段3：把用户选定的 1 个版本适配到多个渠道，每渠道 1 版。
+
+        返回 {versions, skipped}。skipped 为未知渠道列表。
+        """
+        if not selected_version:
+            raise ValueError("未选定版本，无法适配")
+        if not channels:
+            raise ValueError("未选择任何渠道")
+        scenario = self._load_scenario(scenario_id, template_id)
+        versions, skipped = self.channel.adapt_to_channels(selected_version, channels, scenario)
+        if not versions:
+            raise ValueError("渠道适配失败：所选渠道均无效")
+        return {"versions": versions, "skipped": skipped}
+
+    def run_images(self, versions: list[dict], scenario_id: str,
+                   retrieved_info: dict) -> dict:
+        """阶段4：对多渠道版本逐个配图。
+
+        返回 {versions, image_step}。配图失败不阻断（图片字段留空）。
+        """
+        scenario = self._load_scenario(scenario_id, None)
+        ctx = AgentContext(scenario=scenario, retrieved_info=retrieved_info or {})
+        ctx.versions = versions
+        image_step = self.image.execute(ctx)
+        return {"versions": ctx.versions, "image_step": image_step}
 
 
 # 单例模式：全局只创建一个 Orchestrator 实例

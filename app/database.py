@@ -205,6 +205,32 @@ def init_db() -> None:
                     feedback      VARCHAR(20),    -- 用户反馈：like / dislike / NULL
                     created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 );
+
+                -- 草稿表：多阶段交互式生成流程的中间状态
+                -- 检索生成校验 -> 用户选版改内容 -> 多渠道适配 -> 文生图 -> 落 history
+                CREATE TABLE IF NOT EXISTS drafts (
+                    id               VARCHAR(20)  PRIMARY KEY,        -- D + uuid hex
+                    user_id          VARCHAR(20)  NOT NULL,
+                    product_id       VARCHAR(20)  NOT NULL,
+                    product_name     VARCHAR(200),
+                    scenario_id      VARCHAR(20)  NOT NULL,
+                    scenario_name    VARCHAR(200),
+                    template_id      VARCHAR(20),
+                    template_name    VARCHAR(200),
+                    style            VARCHAR(100),
+                    params           JSONB        NOT NULL DEFAULT '{}'::jsonb,
+                    stage            VARCHAR(20)  NOT NULL DEFAULT 'draft',  -- draft/editing/adapted/imaged/done
+                    retrieved_info   JSONB,                              -- 阶段1 检索产物
+                    draft_versions   JSONB        NOT NULL DEFAULT '[]'::jsonb,  -- 阶段1 三个初稿
+                    validation       JSONB,                              -- {issues, validated}
+                    agent_trace      JSONB        NOT NULL DEFAULT '[]'::jsonb,
+                    selected_version JSONB,                              -- 阶段2 用户选定+改动后的那一版
+                    channels         JSONB        NOT NULL DEFAULT '[]'::jsonb,  -- 阶段3 用户多选渠道
+                    versions         JSONB        NOT NULL DEFAULT '[]'::jsonb,  -- 阶段3 N 个渠道版本(每版带 channel)
+                    history_id       VARCHAR(20),                         -- 阶段4 落库后回填
+                    created_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                );
                 """
             )
         conn.commit()

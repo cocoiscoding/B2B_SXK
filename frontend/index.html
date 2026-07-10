@@ -75,6 +75,27 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
 .markdown-body blockquote { border-left: 3px solid var(--primary); padding-left: 14px; color: var(--text-secondary); margin: 8px 0; background: #fafbfc; padding: 8px 14px; border-radius: 0 4px 4px 0; }
 .markdown-body ul,.markdown-body ol { padding-left: 20px; margin: 8px 0; }
 .markdown-body code { background: #f0f2f5; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+
+/* 文档式展示：标题+正文+配图统一在一张「Word 文档页」内，标题与正文不再分开 */
+.doc-page { background:#fff; max-width:780px; margin:0 auto; padding:44px 52px; box-shadow:0 2px 14px rgba(0,0,0,.10); border:1px solid var(--border); border-radius:2px; font-family:Georgia,"Times New Roman","宋体",SimSun,serif; color:#1a1a1a; line-height:1.85; }
+.doc-title { font-size:25px; font-weight:700; text-align:center; margin:0 0 26px; line-height:1.4; color:#1a1a1a; }
+.doc-content { font-size:15.5px; }
+.doc-content h1 { font-size:20px; margin:22px 0 10px; font-weight:700; }
+.doc-content h2 { font-size:18px; margin:18px 0 8px; font-weight:700; }
+.doc-content h3 { font-size:16px; margin:14px 0 6px; font-weight:700; }
+.doc-content p { margin:10px 0; }
+.doc-content ul,.doc-content ol { padding-left:22px; margin:8px 0; }
+.doc-content blockquote { border-left:3px solid #bbb; color:#555; margin:10px 0; padding:4px 14px; background:#fafafa; }
+.doc-content table { border-collapse:collapse; width:100%; margin:10px 0; }
+.doc-content th,.doc-content td { border:1px solid #ccc; padding:6px 10px; text-align:left; }
+.doc-content th { background:#f5f5f5; font-weight:700; }
+.doc-page .article-fig { margin:22px 0; text-align:center; }
+.doc-page .article-fig img { max-width:100%; max-height:440px; object-fit:contain; border-radius:4px; border:1px solid var(--border-light); display:block; margin:0 auto; }
+.doc-page .article-fig figcaption { font-size:12.5px; color:#666; margin-top:6px; line-height:1.5; }
+/* 编辑模式配图参考列表 */
+.img-ref-list { font-size: 12px; color: var(--text-secondary); margin: 8px 0; padding: 8px 10px; background: #fafbfc; border: 1px solid var(--border-light); border-radius: 4px; }
+.img-ref { display: inline-flex; align-items: center; gap: 4px; margin: 4px 10px 4px 0; }
+.img-ref img { width: 30px; height: 30px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border); }
 .step-card .el-card__body { padding: 12px; }
 .landing { text-align: center; padding: 48px 20px; }
 .landing h1 { font-size: 30px; margin-bottom: 14px; color: var(--primary); font-weight: 700; letter-spacing: 1px; }
@@ -86,6 +107,68 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
 .auth-screen::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 30% 20%, rgba(201,169,97,.08), transparent 40%), radial-gradient(circle at 70% 80%, rgba(44,82,130,.15), transparent 40%); }
 .auth-card { width: 400px; position: relative; z-index: 1; box-shadow: var(--shadow-md); border: none; }
 .auth-card .el-card__body { padding: 32px; }
+
+/* 内容生成展示优化
+   ============================================ */
+
+/* 左侧配置栏压缩，右侧结果栏最大化 */
+.gen-layout-left { transition: all .3s; }
+.gen-layout-right { transition: all .3s; }
+
+/* 折叠版 Agent 链路 */
+.trace-toggle { cursor: pointer; user-select: none; }
+.trace-collapse-wrap { overflow: hidden; transition: max-height .35s ease, opacity .3s ease; }
+.trace-collapse-wrap.is-folded { max-height: 0 !important; opacity: 0; padding: 0 12px 0 !important; }
+.trace-collapse-wrap.is-expanded { max-height: 2000px; opacity: 1; }
+
+/* 版本 Tab 展示 */
+.version-tabs .el-tabs__header { margin-bottom: 0; }
+.version-tabs .el-tabs__header .el-tabs__item { font-size: 13px; padding: 0 14px; height: 34px; line-height: 34px; }
+.version-tabs .el-tabs__content { padding: 16px 0 4px; }
+.version-tab-pane { min-height: 120px; }
+
+/* 可滚动的正文编辑区 */
+.version-body-input .el-textarea__inner { max-height: 360px; overflow-y: auto; font-family: inherit; line-height: 1.7; font-size: 14px; }
+
+/* 响应式：窄屏时取消左右分栏改上下 */
+@media (max-width: 1000px) {
+  .gen-layout-left,
+  .gen-layout-right { display: block; width: 100% !important; max-width: 100%; flex: 0 0 100% !important; }
+  .version-img { max-height: 120px; }
+  .doc-page { padding: 28px 22px; }
+}
+
+/* ===== Step1 编辑区 ===== */
+.edit-pane .el-card__body { padding: 18px 20px; }
+.edit-title-row { margin-bottom: 16px; }
+.edit-title-row .el-input-group__prepend { font-size: 13px; color: var(--text-secondary); }
+.edit-title-row .el-input__inner { font-size: 15px; font-weight: 500; }
+.edit-body-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
+.edit-body-head .cnt { color: var(--text-muted); font-size: 12px; }
+.edit-body-wrap .el-textarea__inner { font-size: 14px; line-height: 1.85; font-family: inherit; border-radius: 6px; min-height: 360px; }
+.edit-tags { margin-top: 12px; }
+
+/* 渠道多选卡片化 */
+.channel-pane .el-checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+.channel-pane .el-checkbox { width: 100%; margin: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; height: auto; align-items: flex-start; transition: all .2s; }
+.channel-pane .el-checkbox:hover { border-color: var(--primary-light); background: #fafbfc; }
+.channel-pane .el-checkbox.is-checked { border-color: var(--primary); background: rgba(30,58,95,.05); }
+.channel-pane .el-checkbox__label { white-space: normal; line-height: 1.5; }
+
+/* ===== 生成历史卡片列表 ===== */
+.history-list { width: 100%; padding-right: 6px; }
+.history-list::-webkit-scrollbar { width: 6px; }
+.history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.history-card { display: flex; width: 100%; margin-bottom: 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; cursor: pointer; transition: all .2s; box-shadow: var(--shadow-sm); box-sizing: border-box; }
+.history-card:last-child { margin-bottom: 0; }
+.history-card:hover { box-shadow: var(--shadow-md); border-color: var(--primary-light); transform: translateY(-1px); }
+.history-card .hc-bar { width: 4px; flex-shrink: 0; background: var(--primary); }
+.history-card:not(.is-valid) .hc-bar { background: #faad14; }
+.history-card .hc-main { flex: 1 1 auto; padding: 12px 16px; min-width: 0; }
+.history-card .hc-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.history-card .hc-product { font-weight: 600; font-size: 15px; color: var(--text-primary); }
+.history-card .hc-meta { display: flex; gap: 18px; font-size: 12.5px; color: var(--text-secondary); flex-wrap: wrap; align-items: center; }
+.history-card .hc-actions { display: flex; align-items: center; gap: 2px; padding: 0 12px; border-left: 1px solid var(--border-light); flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -230,10 +313,14 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
 
       <!-- ===== 内容生成 ===== -->
       <div v-if="activeTab==='generate'">
-        <div class="section-title">内容生成 <el-tag size="small" type="info">多 Agent 协作</el-tag></div>
-        <el-row :gutter="16">
+        <div class="section-title">内容生成 <el-tag size="small" type="info">多阶段协作</el-tag>
+          <el-button v-if="currentDraft" size="small" style="margin-left:auto" @click="discardDraft">放弃草稿，重新配置</el-button>
+        </div>
+
+        <!-- 无草稿：配置表单 -->
+        <el-row v-if="!currentDraft" :gutter="16">
           <!-- 左：配置表单 -->
-          <el-col :span="10">
+          <el-col :span="8" class="gen-layout-left">
             <el-card class="page-card">
               <template #header><b style="color:var(--text-primary)">生成配置</b></template>
               <el-form label-width="80px" label-position="top">
@@ -254,11 +341,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                     <el-option v-for="t in templatesOf(genForm.scenario_id)" :key="t.id" :label="t.name + (t.tag ? ' ('+t.tag+')' : '')" :value="t.id"/>
                   </el-select>
                 </el-form-item>
-                <el-form-item label="发布渠道">
-                  <el-select v-model="genForm.channel" placeholder="选择渠道" style="width:100%">
-                    <el-option v-for="ch in availableChannels" :key="ch" :label="ch" :value="ch"/>
-                  </el-select>
-                </el-form-item>
+                <!-- 渠道后置到阶段2：选定初稿后多选渠道 -->
                 <el-form-item label="风格">
                   <el-select v-model="genForm.style" style="width:100%">
                     <el-option label="专业严谨" value="专业严谨"/>
@@ -271,33 +354,142 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                   <el-input v-model="genForm.params[param.name]" :placeholder="param.description || '请输入' + param.name"/>
                 </el-form-item>
                 <el-form-item>
-                  <el-button type="primary" size="large" style="width:100%;background:var(--primary);border-color:var(--primary)" @click="doGenerate" :loading="generating">
+                  <el-button type="primary" size="large" style="width:100%;background:var(--primary);border-color:var(--primary)" @click="startDraft" :loading="generating">
                     <el-icon v-if="!generating"><MagicStick/></el-icon>
-                    {{ generating ? 'Agent 协作生成中...' : '开始生成' }}
+                    {{ generating ? '检索-生成-校验中...' : '开始生成（3 个初稿）' }}
                   </el-button>
                 </el-form-item>
+                <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+                  渠道适配与配图在生成后分阶段进行：选定初稿 -&gt; 改内容·多选渠道 -&gt; 文生图保存。
+                </div>
               </el-form>
             </el-card>
           </el-col>
           <!-- 右：结果展示 -->
-          <el-col :span="14">
+          <el-col :span="16" class="gen-layout-right">
             <div v-if="!genResult" class="empty-state" style="padding:80px 0">
               <el-icon size="48" color="#ddd"><Document/></el-icon>
               <p style="margin-top:16px">选择产品与场景后点击「开始生成」</p>
             </div>
             <div v-else>
-              <!-- Agent 执行链路 -->
-              <el-card class="page-card">
+              <!-- Agent 执行链路（可折叠） -->
+              <el-card class="page-card" style="margin-bottom:12px">
                 <template #header>
-                  <div style="display:flex;justify-content:space-between;align-items:center">
-                    <b style="color:var(--text-primary)">Agent 执行链路</b>
+                  <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" @click="showAgentTrace = !showAgentTrace">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <b style="color:var(--text-primary)">Agent 执行链路</b>
+                      <el-icon :style="{transform: showAgentTrace ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .25s'}">
+                        <ArrowRight/>
+                      </el-icon>
+                    </div>
                     <div>
                       <el-tag v-if="genResult.validated" type="success" size="small">校验通过</el-tag>
                       <el-tag v-else type="warning" size="small">有待完善</el-tag>
                     </div>
                   </div>
                 </template>
-                <div v-for="step in genResult.agent_trace" :key="step.agent" class="agent-step" :class="step.status">
+                <div v-if="showAgentTrace">
+                  <div v-for="step in genResult.agent_trace" :key="step.agent" class="agent-step" :class="step.status">
+                    <div class="step-head">
+                      <span class="step-name">{{ step.agent }}</span>
+                      <el-tag :type="step.status==='success'?'success':step.status==='warning'?'warning':'danger'" size="small">{{ step.status }}</el-tag>
+                    </div>
+                    <div class="step-msg">{{ step.message }}</div>
+                    <div class="step-time">耗时 {{ step.duration_ms }}ms</div>
+                  </div>
+                  <div v-if="genResult.issues.length" style="margin-top:12px">
+                    <el-alert v-for="(issue,i) in genResult.issues" :key="i" :title="issue" type="warning" :closable="false" style="margin-bottom:6px"/>
+                  </div>
+                </div>
+                <div v-else style="padding:4px 0;font-size:13px;color:var(--text-muted)">
+                  共 {{ genResult.agent_trace.length }} 个 Agent 步骤 · {{ genResult.issues.length }} 个问题提示
+                  <el-link type="primary" :underline="false" style="margin-left:4px">点击展开</el-link>
+                </div>
+              </el-card>
+              <!-- 版本展示（Tab 切换） -->
+              <el-card class="page-card">
+                <template #header>
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <b style="color:var(--text-primary)">生成结果（{{ genResult.versions.length }} 个版本）</b>
+                    <div>
+                      <el-button size="small" @click="exportResult">导出 Word</el-button>
+                      <el-button size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="saveToHistory">保存</el-button>
+                    </div>
+                  </div>
+                </template>
+                <el-tabs v-model="activeVersion" type="card" class="version-tabs">
+                  <el-tab-pane v-for="v in genResult.versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index + '  👍' + (v.votes?.like||0) + '/👎' + (v.votes?.dislike||0)">
+                    <div class="version-tab-pane">
+                      <div style="text-align:right;margin-bottom:8px">
+                        <el-button size="small" @click="genEditMode = !genEditMode">{{ genEditMode ? '预览' : '编辑' }}</el-button>
+                      </div>
+                      <!-- 预览：Word 文档页式，标题+正文+配图统一在一张文档内 -->
+                      <template v-if="!genEditMode">
+                        <div class="doc-page">
+                          <h1 class="doc-title">{{ v.title }}</h1>
+                          <div class="doc-content markdown-body" v-html="renderArticle(v.body, v.images, v.title)"></div>
+                        </div>
+                      </template>
+                      <!-- 编辑：标题 + 正文 + 配图参考 -->
+                      <template v-else>
+                        <el-input v-model="v.title" size="small" style="margin-bottom:10px">
+                          <template #prepend>标题</template>
+                        </el-input>
+                        <div class="version-body-input">
+                          <el-input type="textarea" :rows="10" v-model="v.body" style="font-size:13px"/>
+                        </div>
+                        <div v-if="v.images && v.images.length" class="img-ref-list">
+                          <div style="margin-bottom:4px">配图（{{ v.images.length }} 张，预览时自动穿插在正文中）：</div>
+                          <span v-for="(img,i) in v.images" :key="i" class="img-ref">
+                            <img :src="img.url"/>{{ img.caption || ('配图 ' + (i+1)) }}
+                          </span>
+                        </div>
+                      </template>
+                      <!-- 标签 -->
+                      <div style="margin:10px 0 8px">
+                        <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
+                      </div>
+                      <!-- 操作按钮 -->
+                      <div class="version-tools">
+                        <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(genResult.history_id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
+                        <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(genResult.history_id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
+                        <el-button text size="small" @click="analyzeSeo(v.title, v.body)">🔍 SEO 分析</el-button>
+                      </div>
+                    </div>
+                  </el-tab-pane>
+                </el-tabs>
+              </el-card>
+            </div>
+          </el-col>
+        </el-row>
+
+        <!-- 有草稿：多阶段向导 -->
+        <div v-else>
+          <el-card class="page-card" style="margin-bottom:12px">
+            <el-steps :active="draftStep" finish-status="success" align-center>
+              <el-step title="生成初稿" description="检索 · 生成 · 校验"/>
+              <el-step title="渠道适配" description="选版改内容 · 多选渠道"/>
+              <el-step title="多渠道配图" description="文生图 · 保存"/>
+            </el-steps>
+          </el-card>
+
+          <!-- Step 0：初稿选择 -->
+          <div v-if="draftStep===0">
+            <el-card class="page-card" style="margin-bottom:12px">
+              <template #header>
+                <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" @click="showAgentTrace = !showAgentTrace">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <b style="color:var(--text-primary)">Agent 执行链路</b>
+                    <el-icon :style="{transform: showAgentTrace ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform .25s'}"><ArrowRight/></el-icon>
+                  </div>
+                  <div>
+                    <el-tag v-if="currentDraft.validation?.validated" type="success" size="small">校验通过</el-tag>
+                    <el-tag v-else type="warning" size="small">有待完善</el-tag>
+                  </div>
+                </div>
+              </template>
+              <div v-if="showAgentTrace">
+                <div v-for="(step,i) in currentDraft.agent_trace" :key="i" class="agent-step" :class="step.status">
                   <div class="step-head">
                     <span class="step-name">{{ step.agent }}</span>
                     <el-tag :type="step.status==='success'?'success':step.status==='warning'?'warning':'danger'" size="small">{{ step.status }}</el-tag>
@@ -305,56 +497,123 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                   <div class="step-msg">{{ step.message }}</div>
                   <div class="step-time">耗时 {{ step.duration_ms }}ms</div>
                 </div>
-                <div v-if="genResult.issues.length" style="margin-top:12px">
-                  <el-alert v-for="(issue,i) in genResult.issues" :key="i" :title="issue" type="warning" :closable="false" style="margin-bottom:6px"/>
+                <div v-if="currentDraft.validation?.issues?.length" style="margin-top:12px">
+                  <el-alert v-for="(issue,i) in currentDraft.validation.issues" :key="i" :title="issue" type="warning" :closable="false" style="margin-bottom:6px"/>
                 </div>
-              </el-card>
-              <!-- 版本展示 -->
-              <el-card class="page-card">
-                <template #header>
-                  <div style="display:flex;justify-content:space-between;align-items:center">
-                    <b style="color:var(--text-primary)">生成结果（{{ genResult.versions.length }} 个版本）</b>
-                    <div>
-                      <el-button size="small" @click="exportResult">导出</el-button>
-                      <el-button size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="saveToHistory">保存</el-button>
+              </div>
+              <div v-else style="padding:4px 0;font-size:13px;color:var(--text-muted)">
+                共 {{ currentDraft.agent_trace.length }} 个 Agent 步骤 · {{ currentDraft.validation?.issues?.length || 0 }} 个问题提示
+                <el-link type="primary" :underline="false" style="margin-left:4px">点击展开</el-link>
+              </div>
+            </el-card>
+
+            <el-card class="page-card">
+              <template #header>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <b style="color:var(--text-primary)">初稿（{{ currentDraft.draft_versions.length }} 个版本，请选择一个）</b>
+                  <el-button size="small" @click="regenerateDraft" :loading="generating">重新生成</el-button>
+                </div>
+              </template>
+              <el-tabs v-model="draftVersionIndex" type="card" class="version-tabs">
+                <el-tab-pane v-for="v in currentDraft.draft_versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index">
+                  <div class="version-tab-pane">
+                    <div class="doc-page">
+                      <h1 class="doc-title">{{ v.title }}</h1>
+                      <div class="doc-content markdown-body" v-html="renderArticle(v.body, v.images, v.title)"></div>
+                    </div>
+                    <div style="margin:10px 0 8px">
+                      <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
+                    </div>
+                    <div style="text-align:right">
+                      <el-button type="primary" size="small" style="background:var(--primary);border-color:var(--primary)" @click="selectDraftVersion(v)">选定此版本</el-button>
                     </div>
                   </div>
-                </template>
-                <el-row :gutter="12">
-                  <el-col v-for="v in genResult.versions" :key="v.index" :span="versionSpan">
-                    <el-card shadow="never" class="version-side">
-                      <template #header><b style="color:var(--text-primary)">版本 {{ v.index }}</b></template>
-                      <!-- 多张配图展示 -->
-                      <div v-if="v.images && v.images.length" style="margin-bottom:12px">
-                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">配图（{{ v.images.length }}张）</div>
-                        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
-                          <div v-for="(img,idx) in v.images" :key="idx" style="position:relative">
-                            <img :src="img.url" class="version-img" :alt="img.caption" style="margin:0"/>
-                            <div style="font-size:11px;color:var(--text-secondary);text-align:center;padding:2px 0">{{ img.caption }}</div>
-                          </div>
-                        </div>
-                      </div>
-                      <!-- 兼容旧版单图 -->
-                      <img v-else-if="v.image" :src="v.image" class="version-img" alt="配图"/>
-                      <el-input v-model="v.title" size="small" style="margin-bottom:8px">
-                        <template #prepend>标题</template>
-                      </el-input>
-                      <el-input type="textarea" :rows="14" v-model="v.body" style="margin-bottom:8px;font-size:13px"/>
-                      <div style="margin-bottom:6px">
-                        <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
-                      </div>
-                      <div class="version-tools">
-                        <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(genResult.history_id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
-                        <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(genResult.history_id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
-                        <el-button text size="small" @click="analyzeSeo(v.title, v.body)">🔍 SEO</el-button>
-                      </div>
-                    </el-card>
-                  </el-col>
-                </el-row>
-              </el-card>
-            </div>
-          </el-col>
-        </el-row>
+                </el-tab-pane>
+              </el-tabs>
+            </el-card>
+          </div>
+
+          <!-- Step 1：渠道适配（编辑选定内容 + 多选渠道）-->
+          <div v-else-if="draftStep===1">
+            <el-row :gutter="16">
+              <el-col :span="16">
+                <el-card class="page-card edit-pane">
+                  <template #header>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <b style="color:var(--text-primary)">编辑选定内容</b>
+                      <span style="font-size:12px;color:var(--text-muted)">改动标题与正文，确认后进入多渠道适配</span>
+                    </div>
+                  </template>
+                  <div class="edit-title-row">
+                    <el-input v-model="draftEditingVersion.title" placeholder="文案标题" size="large">
+                      <template #prepend>标题</template>
+                    </el-input>
+                  </div>
+                  <div class="edit-body-wrap">
+                    <div class="edit-body-head"><span>正文</span><span class="cnt">{{ bodyCharCount }} 字</span></div>
+                    <el-input type="textarea" v-model="draftEditingVersion.body" :autosize="{minRows:16,maxRows:26}" resize="vertical"/>
+                  </div>
+                  <div v-if="draftEditingVersion.tags?.length" class="edit-tags">
+                    <el-tag v-for="t in draftEditingVersion.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
+                  </div>
+                </el-card>
+              </el-col>
+              <el-col :span="8">
+                <el-card class="page-card channel-pane">
+                  <template #header>
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <b style="color:var(--text-primary)">发布渠道</b>
+                      <span style="font-size:12px;color:var(--text-muted)">可多选</span>
+                    </div>
+                  </template>
+                  <el-checkbox-group v-model="selectedChannels">
+                    <el-checkbox v-for="ch in channelOptions" :key="ch.name" :label="ch.name">
+                      <div style="font-weight:600;font-size:14px">{{ ch.display_name }}</div>
+                      <div style="font-size:12px;color:var(--text-muted);margin-top:2px">{{ ch.tone }} · {{ ch.format }}</div>
+                    </el-checkbox>
+                  </el-checkbox-group>
+                  <el-button type="primary" size="large" style="width:100%;margin-top:16px;background:var(--primary);border-color:var(--primary)" @click="doAdapt" :loading="adaptingDraft" :disabled="!selectedChannels.length">
+                    {{ adaptingDraft ? '适配中...' : '确认适配（' + selectedChannels.length + ' 个渠道）' }}
+                  </el-button>
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
+
+          <!-- Step 2：多渠道版本 + 配图 -->
+          <div v-else>
+            <el-card class="page-card">
+              <template #header>
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <b style="color:var(--text-primary)">多渠道版本（{{ currentDraft.versions.length }} 个渠道）</b>
+                  <div>
+                    <el-button v-if="currentDraft.history_id" size="small" @click="exportDraftResult">导出 Word</el-button>
+                    <el-button size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="doFinalize" :loading="finalizingDraft" :disabled="currentDraft.history_id">
+                      {{ currentDraft.history_id ? '已保存' : (finalizingDraft ? '文生图中...' : '生成配图并保存') }}
+                    </el-button>
+                  </div>
+                </div>
+              </template>
+              <el-tabs v-model="adaptVersionIndex" type="card" class="version-tabs">
+                <el-tab-pane v-for="v in currentDraft.versions" :key="v.index" :name="String(v.index)" :label="v.channel || ('版本'+v.index)">
+                  <div class="version-tab-pane">
+                    <div class="doc-page">
+                      <h1 class="doc-title">{{ v.title }}</h1>
+                      <div class="doc-content markdown-body" v-html="renderArticle(v.body, v.images, v.title)"></div>
+                    </div>
+                    <div style="margin:10px 0 8px">
+                      <el-tag size="small" type="info" style="margin:2px">渠道：{{ v.channel }}</el-tag>
+                      <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
+                    </div>
+                  </div>
+                </el-tab-pane>
+              </el-tabs>
+              <el-alert v-if="currentDraft.history_id" type="success" :closable="false" style="margin-top:12px">
+                已生成配图并保存到历史记录（{{ currentDraft.history_id }}），可在「生成历史」中查看或导出。
+              </el-alert>
+            </el-card>
+          </div>
+        </div>
       </div>
 
       <!-- ===== 场景模板 ===== -->
@@ -422,40 +681,32 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
       <!-- ===== 生成历史 ===== -->
       <div v-if="activeTab==='history'">
         <div class="section-title">生成历史 <el-tag size="small">{{ history.length }} 条</el-tag></div>
-        <el-table :data="history" stripe @row-click="viewHistory" style="cursor:pointer">
-          <el-table-column prop="product_name" label="产品" width="160"/>
-          <el-table-column prop="scenario_name" label="场景" width="180"/>
-          <el-table-column prop="channel" label="渠道" width="100"/>
-          <el-table-column prop="style" label="风格" width="100"/>
-          <el-table-column label="版本数" width="80">
-            <template #default="{row}">{{ row.versions.length }}</template>
-          </el-table-column>
-          <el-table-column label="校验" width="80">
-            <template #default="{row}">
-              <el-tag :type="row.validated?'success':'warning'" size="small">{{ row.validated?'通过':'待完善' }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="created_at" label="生成时间" width="180"/>
-          <el-table-column label="创建人" width="100">
-            <template #default="{row}">
-              <span v-if="memberName(row.created_by)" :style="{color:memberColor(row.created_by)}">● {{ memberName(row.created_by) }}</span>
-              <span v-else style="color:#bbb">—</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="反馈" width="110">
-            <template #default="{row}">
-              <el-button text size="small" :type="row.feedback==='like'?'success':'info'" @click.stop="setFeedback(row,'like')" style="padding:2px 6px">👍</el-button>
-              <el-button text size="small" :type="row.feedback==='dislike'?'danger':'info'" @click.stop="setFeedback(row,'dislike')" style="padding:2px 6px">👎</el-button>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="160">
-            <template #default="{row}">
-              <el-button text size="small" @click.stop="exportHistory(row)">导出</el-button>
-              <el-button text size="small" type="danger" @click.stop="deleteHistory(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
         <div v-if="history.length===0" class="empty-state">暂无生成记录</div>
+        <div v-else class="history-list">
+          <div v-for="row in history" :key="row.id" class="history-card" :class="{'is-valid':row.validated}" @click="viewHistory(row)">
+            <div class="hc-bar"></div>
+            <div class="hc-main">
+              <div class="hc-top">
+                <span class="hc-product">{{ row.product_name }}</span>
+                <el-tag size="small" type="info" effect="plain">{{ row.scenario_name }}</el-tag>
+                <el-tag v-for="ch in (row.channel||'').split(',').filter(Boolean)" :key="ch" size="small" type="success" effect="light">{{ ch }}</el-tag>
+                <el-tag size="small" :type="row.validated?'success':'warning'">{{ row.validated?'校验通过':'待完善' }}</el-tag>
+              </div>
+              <div class="hc-meta">
+                <span>版本 {{ row.versions.length }} 个</span>
+                <span>风格 · {{ row.style }}</span>
+                <span>{{ (row.created_at||'').replace('T',' ').slice(0,16) }}</span>
+                <span v-if="memberName(row.created_by)" :style="{color:memberColor(row.created_by)}">● {{ memberName(row.created_by) }}</span>
+              </div>
+            </div>
+            <div class="hc-actions" @click.stop>
+              <el-button text size="small" :type="row.feedback==='like'?'success':'info'" @click="setFeedback(row,'like')">👍</el-button>
+              <el-button text size="small" :type="row.feedback==='dislike'?'danger':'info'" @click="setFeedback(row,'dislike')">👎</el-button>
+              <el-button text size="small" @click="exportHistory(row)">导出</el-button>
+              <el-button text size="small" type="danger" @click="deleteHistory(row)">删除</el-button>
+            </div>
+          </div>
+        </div>
 
         <!-- 历史详情弹窗 -->
         <el-dialog v-model="historyDetailVisible" title="历史详情" width="70%" top="5vh">
@@ -463,7 +714,9 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
             <el-descriptions :column="3" border style="margin-bottom:16px">
               <el-descriptions-item label="产品">{{ currentHistory.product_name }}</el-descriptions-item>
               <el-descriptions-item label="场景">{{ currentHistory.scenario_name }}</el-descriptions-item>
-              <el-descriptions-item label="渠道">{{ currentHistory.channel }}</el-descriptions-item>
+              <el-descriptions-item label="渠道">
+                <el-tag v-for="ch in (currentHistory.channel||'').split(',').filter(Boolean)" :key="ch" size="small" type="success" effect="light" style="margin:2px">{{ ch }}</el-tag>
+              </el-descriptions-item>
               <el-descriptions-item label="风格">{{ currentHistory.style }}</el-descriptions-item>
               <el-descriptions-item label="时间">{{ currentHistory.created_at }}</el-descriptions-item>
               <el-descriptions-item label="校验">
@@ -489,12 +742,19 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
               <el-tab-pane v-for="v in currentHistory.versions" :key="v.index" :label="'版本 '+v.index+' (👍'+(v.votes?.like||0)+'/👎'+(v.votes?.dislike||0)+')'">
                 <template v-if="historyEditMode">
                   <el-input v-model="v.title" style="margin-bottom:8px"><template #prepend>标题</template></el-input>
-                  <el-input type="textarea" :rows="14" v-model="v.body"/>
+                  <div class="version-body-input"><el-input type="textarea" :rows="8" v-model="v.body"/></div>
+                  <div v-if="v.images && v.images.length" class="img-ref-list">
+                    <div style="margin-bottom:4px">配图（{{ v.images.length }} 张，预览时自动穿插在正文中）：</div>
+                    <span v-for="(img,i) in v.images" :key="i" class="img-ref">
+                      <img :src="img.url"/>{{ img.caption || ('配图 ' + (i+1)) }}
+                    </span>
+                  </div>
                 </template>
                 <template v-else>
-                  <img v-if="v.image" :src="v.image" class="version-img" alt="配图"/>
-                  <h3>{{ v.title }}</h3>
-                  <div class="version-body markdown-body" v-html="renderMarkdown(v.body)"></div>
+                  <div class="doc-page">
+                    <h1 class="doc-title">{{ v.title }}</h1>
+                    <div class="doc-content markdown-body" v-html="renderArticle(v.body, v.images, v.title)"></div>
+                  </div>
                 </template>
                 <div class="version-tools" style="margin-top:8px">
                   <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(currentHistory.id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
@@ -703,6 +963,24 @@ const app = createApp({
     const generating = ref(false);
     const genResult = ref(null);
     const activeVersion = ref('1');
+    const showAgentTrace = ref(false);
+    const genEditMode = ref(false);     // 生成结果：预览（文章式）/ 编辑 切换，默认预览
+
+    // 多阶段草稿流程（新流程：检索-生成-校验 -> 选版改内容 -> 多渠道适配 -> 文生图）
+    const currentDraft = ref(null);            // 当前草稿对象（含 stage/draft_versions/versions...）
+    const draftVersionIndex = ref('1');        // Step0 初稿选择 active tab
+    const adaptVersionIndex = ref('1');        // Step2 多渠道版本 active tab
+    const draftEditingVersion = ref(null);     // Step1 用户编辑中的选定版本
+    const selectedChannels = ref([]);          // Step1 多选渠道
+    const adaptingDraft = ref(false);          // 渠道适配中
+    const finalizingDraft = ref(false);        // 文生图保存中
+    const draftStep = computed(() => {         // 由草稿阶段推导当前步骤（刷新恢复后自动正确）
+      const s = currentDraft.value?.stage;
+      if (!s || s === 'draft') return 0;
+      if (s === 'editing') return 1;
+      return 2;  // adapted / imaged / done
+    });
+    const bodyCharCount = computed(() => (draftEditingVersion.value?.body || '').length);
 
     // 弹窗
     const productDialogVisible = ref(false);
@@ -753,12 +1031,6 @@ const app = createApp({
     const currentScenario = computed(() => scenarios.value.find(s => s.id === genForm.scenario_id));
     const currentParams = computed(() => currentScenario.value?.parameters || []);
     const availableChannels = computed(() => channelOptions.value.map(ch => ch.name));
-    // 并排展示时每个版本卡片的栅格宽度（24 栅平分给 N 个版本）
-    const versionSpan = computed(() => {
-      const n = genResult.value?.versions.length || 1;
-      return Math.floor(24 / Math.max(1, n));
-    });
-
     // 团队成员查找表（把 created_by 的 id 翻译成名字/颜色）
     const memberMap = computed(() => Object.fromEntries(members.value.map(m => [m.id, m])));
     const memberName = (id) => memberMap.value[id]?.name || '';
@@ -819,7 +1091,7 @@ const app = createApp({
       return response.ok ? response.json() : response.json().then(e => { throw new Error(e.detail || '请求失败'); });
     };
 
-    // 带鉴权的文件下载（导出 md/txt）：fetch 拿 blob 再触发下载
+    // 带鉴权的文件下载（导出 docx）：fetch 拿 blob 再触发下载
     const downloadExport = (url) => {
       const accessToken = localStorage.getItem('sx_access_token');
       fetch(url, { headers: accessToken ? { 'Authorization': 'Bearer ' + accessToken } : {} })
@@ -914,7 +1186,8 @@ const app = createApp({
           method: 'PUT',
           body: {
             versions: genResult.value.versions.map(v => ({
-              index: v.index, title: v.title, body: v.body, tags: v.tags
+              index: v.index, title: v.title, body: v.body, tags: v.tags,
+              image: v.image, images: v.images, votes: v.votes, voters: v.voters
             }))
           }
         });
@@ -926,7 +1199,149 @@ const app = createApp({
     const exportResult = () => {
       // 导出需带鉴权头，用 downloadExport 而非 window.open
       if (genResult.value) {
-        downloadExport(`/api/history/${genResult.value.history_id}/export?format=markdown`);
+        downloadExport(`/api/history/${genResult.value.history_id}/export?format=docx`);
+      }
+    };
+
+    // ===== 多阶段草稿流程 =====
+    // 阶段1：创建草稿（检索-生成-校验）
+    const startDraft = async () => {
+      if (!genForm.product_id || !genForm.scenario_id) {
+        ElementPlus.ElMessage.warning('请选择产品和场景'); return;
+      }
+      generating.value = true;
+      try {
+        const draft = await api('/api/drafts', {
+          method: 'POST',
+          body: {
+            product_id: genForm.product_id,
+            scenario_id: genForm.scenario_id,
+            template_id: genForm.template_id,
+            style: genForm.style,
+            params: genForm.params,
+            version_count: 3
+          }
+        });
+        currentDraft.value = draft;
+        draftVersionIndex.value = '1';
+        showAgentTrace.value = false;
+        localStorage.setItem('sx_draft_id', draft.id);
+        ElementPlus.ElMessage.success('已生成 ' + draft.draft_versions.length + ' 个初稿');
+      } catch (e) {
+        ElementPlus.ElMessage.error('生成失败: ' + e.message);
+      } finally {
+        generating.value = false;
+      }
+    };
+
+    // 阶段1内：重新生成初稿
+    const regenerateDraft = async () => {
+      if (!currentDraft.value) return;
+      generating.value = true;
+      try {
+        const draft = await api(`/api/drafts/${currentDraft.value.id}/regenerate`, {
+          method: 'POST', body: {}
+        });
+        currentDraft.value = draft;
+        draftVersionIndex.value = '1';
+        ElementPlus.ElMessage.success('已重新生成初稿');
+      } catch (e) {
+        ElementPlus.ElMessage.error('重新生成失败: ' + e.message);
+      } finally {
+        generating.value = false;
+      }
+    };
+
+    // 阶段2：选定一个版本（进入渠道适配页）
+    const selectDraftVersion = async (v) => {
+      if (!currentDraft.value) return;
+      try {
+        const draft = await api(`/api/drafts/${currentDraft.value.id}/select`, {
+          method: 'PUT',
+          body: { version: { index: v.index, title: v.title, body: v.body, tags: v.tags } }
+        });
+        currentDraft.value = draft;
+        draftEditingVersion.value = { ...draft.selected_version };
+        selectedChannels.value = [];
+        ElementPlus.ElMessage.success('已选定，进入渠道适配');
+      } catch (e) {
+        ElementPlus.ElMessage.error('选定失败: ' + e.message);
+      }
+    };
+
+    // 阶段3：保存编辑 + 多渠道适配
+    const doAdapt = async () => {
+      if (!currentDraft.value) return;
+      if (!selectedChannels.value.length) {
+        ElementPlus.ElMessage.warning('请至少选择一个渠道'); return;
+      }
+      adaptingDraft.value = true;
+      try {
+        // 先把 step1 的编辑写回 selected_version，再做多渠道适配
+        let draft = await api(`/api/drafts/${currentDraft.value.id}/select`, {
+          method: 'PUT',
+          body: { version: {
+            index: draftEditingVersion.value.index,
+            title: draftEditingVersion.value.title,
+            body: draftEditingVersion.value.body,
+            tags: draftEditingVersion.value.tags
+          } }
+        });
+        draft = await api(`/api/drafts/${currentDraft.value.id}/adapt`, {
+          method: 'POST', body: { channels: selectedChannels.value }
+        });
+        currentDraft.value = draft;
+        adaptVersionIndex.value = '1';
+        ElementPlus.ElMessage.success('已适配 ' + selectedChannels.value.length + ' 个渠道');
+      } catch (e) {
+        ElementPlus.ElMessage.error('适配失败: ' + e.message);
+      } finally {
+        adaptingDraft.value = false;
+      }
+    };
+
+    // 阶段4：文生图 + 落 history
+    const doFinalize = async () => {
+      if (!currentDraft.value) return;
+      finalizingDraft.value = true;
+      try {
+        const draft = await api(`/api/drafts/${currentDraft.value.id}/finalize`, {
+          method: 'POST', body: {}
+        });
+        currentDraft.value = draft;
+        history.value = await api('/api/history');
+        ElementPlus.ElMessage.success('配图完成，已保存到历史记录');
+      } catch (e) {
+        ElementPlus.ElMessage.error('配图失败: ' + e.message);
+      } finally {
+        finalizingDraft.value = false;
+      }
+    };
+
+    const exportDraftResult = () => {
+      if (currentDraft.value?.history_id) {
+        downloadExport(`/api/history/${currentDraft.value.history_id}/export?format=docx`);
+      }
+    };
+
+    const discardDraft = () => {
+      currentDraft.value = null;
+      draftEditingVersion.value = null;
+      selectedChannels.value = [];
+      localStorage.removeItem('sx_draft_id');
+    };
+
+    // 恢复草稿（刷新续作）：按 draft_id 重新拉取，按 stage 重建编辑态
+    const loadDraft = async (id) => {
+      try {
+        const draft = await api(`/api/drafts/${id}`);
+        currentDraft.value = draft;
+        if (draft.selected_version) {
+          draftEditingVersion.value = { ...draft.selected_version };
+        }
+        selectedChannels.value = [...(draft.channels || [])];
+      } catch (e) {
+        localStorage.removeItem('sx_draft_id');   // 草稿不存在/无权，清掉避免反复失败
       }
     };
 
@@ -1109,7 +1524,7 @@ const app = createApp({
     };
 
     const exportHistory = (row) => {
-      downloadExport(`/api/history/${row.id}/export?format=markdown`);
+      downloadExport(`/api/history/${row.id}/export?format=docx`);
     };
 
     const deleteHistory = async (row) => {
@@ -1142,7 +1557,8 @@ const app = createApp({
         await api(`/api/history/${currentHistory.value.id}`, {
           method: 'PUT',
           body: { versions: currentHistory.value.versions.map(v => ({
-            index: v.index, title: v.title, body: v.body, tags: v.tags
+            index: v.index, title: v.title, body: v.body, tags: v.tags,
+            image: v.image, images: v.images, votes: v.votes, voters: v.voters
           })) }
         });
         history.value = await api('/api/history');
@@ -1367,6 +1783,57 @@ const app = createApp({
       return html;
     };
 
+    // ===== 文章式渲染：标题 + 正文，配图按小节穿插（非固定封面、非 md 文本框）=====
+    const escapeHtml = (s) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const escapeAttr = (s) => (s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+    const figureHtml = (img) => {
+      const cap = (img && (img.caption || img.theme)) || '配图';
+      const url = (img && img.url) || '';
+      if (!url) return '';
+      return `<figure class="article-fig"><img src="${escapeAttr(url)}" alt="${escapeAttr(cap)}"/><figcaption>${escapeHtml(cap)}</figcaption></figure>`;
+    };
+
+    // 把正文渲染为文章 HTML：先 markdown 渲染，再去掉与标题重复的首标题，
+    // 最后在小节边界（标题块/首块/末块）穿插配图；无配图则纯正文。
+    const renderArticle = (body, images, title) => {
+      if (!body) return '';
+      const imgs = Array.isArray(images) ? images.filter(i => i && i.url) : [];
+      let html = renderMarkdown(body);
+      // 去掉与文章标题重复的正文首标题（如 mock 模式正文开头的 ## 产品名）
+      if (title) {
+        const m = html.match(/^\s*<h[12]>([^<]*)<\/h[12]>\s*/);
+        if (m) {
+          const h = m[1].trim();
+          if (h && (title.includes(h) || h.includes(title))) html = html.slice(m[0].length);
+        }
+      }
+      if (!imgs.length) return html;
+      // 按空行切块，在小节边界穿插
+      const blocks = html.split(/\n{2,}/).map(s => s.trim()).filter(Boolean);
+      if (blocks.length <= 1) {
+        return html + '\n\n' + imgs.map(figureHtml).join('\n\n');
+      }
+      // 候选插入点（块索引，在其后插入）：首块 + 标题块 + 末块，去重保序
+      const points = [];
+      const push = (i) => { if (i >= 0 && i < blocks.length && !points.includes(i)) points.push(i); };
+      push(0);
+      blocks.forEach((b, i) => { if (/^<h[1-6]>/.test(b)) push(i); });
+      push(blocks.length - 1);
+      // 每张图分配一个插入点（不足则循环复用同一位置）
+      const after = {};
+      imgs.forEach((img, k) => {
+        const p = points[k % points.length];
+        (after[p] = after[p] || []).push(img);
+      });
+      const out = [];
+      blocks.forEach((blk, i) => {
+        out.push(blk);
+        (after[i] || []).forEach(img => out.push(figureHtml(img)));
+      });
+      return out.join('\n\n');
+    };
+
     onMounted(async () => {
       // 有令牌则校验并载入数据；无令牌停留在登录页
       const accessToken = localStorage.getItem('sx_access_token');
@@ -1374,6 +1841,9 @@ const app = createApp({
         try {
           currentUser.value = await api('/api/auth/me');
           await loadData();
+          // 恢复未完成的草稿（刷新续作）
+          const draftId = localStorage.getItem('sx_draft_id');
+          if (draftId) await loadDraft(draftId);
         } catch (e) {
           // 令牌失效：api() 已清登录态,留在登录页
         }
@@ -1382,7 +1852,7 @@ const app = createApp({
 
     return {
       activeTab, collapsed, llmEnabled, products, scenarios, history,
-      genForm, generating, genResult, activeVersion, versionSpan,
+      genForm, generating, genResult, activeVersion, showAgentTrace, genEditMode,
       productDialogVisible, editingProduct,
       scenarioDialogVisible, editingScenario,
       templateDialogVisible, editingTemplate,
@@ -1391,11 +1861,15 @@ const app = createApp({
       uploadInput, uploading,
       scenarioGroups, currentScenario, currentParams, availableChannels, channelOptions,
       onProductChange, onScenarioChange, doGenerate, saveToHistory, exportResult,
+      currentDraft, draftStep, draftVersionIndex, adaptVersionIndex,
+      draftEditingVersion, selectedChannels, adaptingDraft, finalizingDraft,
+      startDraft, regenerateDraft, selectDraftVersion, doAdapt, doFinalize,
+      exportDraftResult, discardDraft, bodyCharCount,
       openProductDialog, saveProduct, deleteProduct,
       openScenarioDialog, saveScenario, deleteScenario,
       toggleScenario, templatesOf,
       openTemplateDialog, saveTemplate, deleteTemplate,
-      viewHistory, exportHistory, deleteHistory, renderMarkdown,
+      viewHistory, exportHistory, deleteHistory, renderMarkdown, renderArticle,
       setFeedback, saveHistoryDetail, triggerUpload, handleUpload,
       members, memberName, memberColor, productMemberFilter, reloadProducts,
       castVote, votedDir, leadingVersion,
