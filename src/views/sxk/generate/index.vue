@@ -235,7 +235,7 @@
             立即生成（3 个初稿）
           </el-button>
           <div class="sxk-generate__submit-tip">
-            渠道适配与配图在生成后分阶段进行：选定初稿 → 改内容·多选渠道 → 文生图保存
+            生成后分三个阶段进行：选定初稿 → 改内容·选渠道 → 文生图·保存历史
           </div>
         </el-form-item>
       </el-form>
@@ -535,7 +535,7 @@
             <div class="sxk-generate__stage-foot">
               <span class="sxk-generate__stage-foot-tip">
                 <el-icon><InfoFilled /></el-icon>
-                确认无误后点击「选定此版本」进入多渠道适配
+                确认无误后点击「选定此版本」进入编辑与渠道
               </span>
               <el-button
                 type="primary"
@@ -560,7 +560,7 @@
                 <div class="sxk-generate__card-head">
                   <b>编辑选定内容</b>
                   <span class="sxk-generate__card-tip">
-                    改动标题与正文，确认后进入多渠道适配
+                    改动标题与正文，确认后进入配图与保存
                   </span>
                 </div>
               </template>
@@ -659,13 +659,13 @@
         </el-row>
       </div>
 
-      <!-- ============ 阶段 2：多渠道适配（卡片对比墙 + 预览/编辑）============ -->
+      <!-- ============ 阶段 2：配图与保存（卡片对比墙 + 预览/编辑）============ -->
       <div v-else class="sxk-generate__stage">
         <el-card class="sxk-generate__card" shadow="never">
           <template #header>
             <div class="sxk-generate__card-head">
               <div class="sxk-generate__card-head-left">
-                <b>多渠道适配</b>
+                <b>配图与保存</b>
                 <span class="sxk-generate__card-tip">
                   共 {{ currentDraft.versions?.length || 0 }} 个渠道 · 已配图
                   {{ adaptedCount }} / {{ currentDraft.versions?.length || 0 }}
@@ -911,27 +911,6 @@
                     SEO 分析
                   </el-button>
                 </div>
-
-                <!-- ============ 重做组：重新生成本渠道配图（已完成才出现）============ -->
-                <!-- <div v-if="currentDraft.history_id && !finalizingDraft" class="sxk-generate__tools-group">
-                  <span class="sxk-generate__tools-group-label">重做</span>
-                  <el-tooltip
-                    content="仅对当前选中渠道重新生成配图（不覆盖其他渠道）"
-                    placement="top"
-                  >
-                    <el-button
-                      class="sxk-generate__tools-regen"
-                      size="small"
-                      text
-                      bg
-                      :icon="Refresh"
-                      @click="onRegenerateCurrentChannel(v)"
-                      :loading="regeneratingChannelIdx === v.index"
-                    >
-                      重配本渠道
-                    </el-button>
-                  </el-tooltip>
-                </div> -->
               </div>
             </div>
           </div>
@@ -964,7 +943,7 @@
           <div class="sxk-generate__done-icon">
             <el-icon><CircleCheckFilled /></el-icon>
           </div>
-          <h2 class="sxk-generate__done-title">多渠道适配已完成</h2>
+          <h2 class="sxk-generate__done-title">配图与保存已完成</h2>
 
           <!-- 一行紧凑的元信息 chip（取代 3 张统计卡） -->
           <div class="sxk-generate__done-meta">
@@ -1282,7 +1261,7 @@ const adaptingDraft = ref(false)
 const finalizingDraft = ref(false)
 // 重新生成当前渠道配图（loading 状态）
 const regeneratingChannelIdx = ref(null)
-// 阶段 2 是否已完成（保存到历史后置 true，刷新"多渠道适配"步骤状态为"完成"）
+// 阶段 2 是否已完成（保存到历史后置 true，刷新"配图与保存"步骤状态为"完成"）
 const stage2Completed = ref(false)
 
 // Agent 链路
@@ -1431,6 +1410,7 @@ const sceneTemplates = ref([])
 const channelOptions = ref([])
 
 // ---------- 阶段步骤配置（用于步骤条 / 摘要）----------
+// 阶段命名遵循 B2B 内容生产标准流程：生成 → 编辑 → 发布
 const stepDefs = [
   {
     title: '生成初稿',
@@ -1438,13 +1418,13 @@ const stepDefs = [
     summary: '选择 1 个最符合预期的初稿，进入下一步'
   },
   {
-    title: '渠道适配',
-    desc: '选版改内容 · 多选渠道',
+    title: '编辑与渠道',
+    desc: '改内容 · 选渠道',
     summary: '编辑选定初稿，并选择发布渠道'
   },
   {
-    title: '多渠道适配',
-    desc: '文生图 · 保存',
+    title: '配图与保存',
+    desc: '文生图 · 保存历史',
     summary: '为各渠道生成配图，并保存到生成历史'
   }
 ]
@@ -1506,7 +1486,7 @@ const draftStep = computed(() => {
 })
 
 const stepTitle = computed(() => {
-  return ['生成初稿', '编辑与渠道', '多渠道适配'][draftStep.value]
+  return ['生成初稿', '编辑与渠道', '配图与保存'][draftStep.value]
 })
 
 const bodyCharCount = computed(() => (draftEditingVersion.value?.body || '').length)
@@ -1801,7 +1781,7 @@ async function onSelectDraftVersion(v) {
     currentDraft.value = resp.data
     draftEditingVersion.value = JSON.parse(JSON.stringify(resp.data.selected_version || v))
     selectedChannels.value = []
-    ElMessage.success('已选定，进入渠道适配')
+    ElMessage.success('已选定，进入编辑与渠道')
   } catch (e) {
     ElMessage.error('选定失败：' + (e?.message || '未知错误'))
   } finally {
@@ -1819,7 +1799,7 @@ async function onAdapt() {
   try {
     // 先把 step1 的编辑写回 selected_version
     await sxkApi.selectDraftVersion(currentDraft.value.id, draftEditingVersion.value)
-    // 再做多渠道适配
+    // 再做配图与保存
     const resp = await sxkApi.adaptDraft(currentDraft.value.id, selectedChannels.value)
     if (resp.code !== 0) {
       ElMessage.error(resp.msg || '适配失败')
@@ -1845,7 +1825,7 @@ async function onFinalize() {
       return
     }
     currentDraft.value = resp.data
-    // 标记阶段 2 已完成（让步骤条"多渠道适配"显示为"完成"）
+    // 标记阶段 2 已完成（让步骤条"配图与保存"显示为"完成"）
     stage2Completed.value = true
     ElMessage.success('配图完成，已保存到历史记录')
   } catch (e) {
