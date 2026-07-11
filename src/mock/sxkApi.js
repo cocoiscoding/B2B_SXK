@@ -181,16 +181,23 @@ const adaptVersion = (v) => {
   const idx = v.index || 1
   const letter = String.fromCharCode(64 + idx) // 1→A, 2→B
   return {
+    // 保留后端原始字段（供历史详情弹窗的 v.title / v.body / v.images / v.channel 使用）
+    index: idx,
+    title: v.title || `版本 ${letter}`,
+    body: v.body || '',
+    channel: v.channel || '',
+    images: v.images || [],
+    tags: v.tags || [],
+    image: v.image || null,
+    votes: v.votes || { like: 0, dislike: 0 },
+    voters: v.voters || {},
+    // 兼容旧版式模板/老接口的字段
     version_key: letter,
     name: v.title || `版本 ${letter}`,
     is_recommended: idx === 1,
     content_html: v.body || '',
     content_markdown: v.body || '',
-    word_count: (v.body || '').length,
-    tags: v.tags || [],
-    image: v.image || null,
-    votes: v.votes || { like: 0, dislike: 0 },
-    voters: v.voters || {}
+    word_count: (v.body || '').length
   }
 }
 
@@ -1015,6 +1022,15 @@ export const sxkApi = {
           is_deleted: product.is_deleted
         },
         template: { template_id: template.template_id, name: template.name },
+        // 补齐详情弹窗与卡片列表所需的字段
+        scene_code: payload.scene_code,
+        scene_name: mockSceneNameMap[payload.scene_code] || payload.scene_code,
+        channel: payload.channel || '',
+        style: payload.style || '专业严谨',
+        feedback: '',
+        validated: true,
+        created_by: mockCurrentUser?.username || 'admin',
+        // 原有字段
         status: 'success', // mock 直接成功
         selected_version: payload.scene_code === 'competitor' ? 'A' : 'A',
         duration_ms: 11000 + Math.floor(Math.random() * 4000),
@@ -1061,8 +1077,40 @@ export const sxkApi = {
     return delay().then(() => {
       const g = mockGenerations.find((x) => x.generation_id === generationId)
       if (!g) return { code: 4041, msg: '生成记录不存在', data: null }
-      const versions = mockVersionContents[generationId] || []
-      return ok({ ...g, versions })
+      const rawVersions = mockVersionContents[generationId] || []
+      // 适配为详情弹窗期望的字段：index/title/body/images/attachments
+      const versions = rawVersions.map((v, i) => {
+        const index = i + 1
+        const version_key = v.version_key || String.fromCharCode(64 + index)
+        const body = v.body || v.content_html || ''
+        const title = v.title || v.name || `版本 ${version_key}: ${(g.product?.name || '').slice(0, 20)}`
+        return {
+          ...v,
+          index,
+          version_key,
+          title,
+          body,
+          content_html: body,
+          attachments: v.attachments || { images: v.images || [], docs: v.docs || [] }
+        }
+      })
+      // 补齐卡片/弹窗共用的元信息字段（兼容老 record）
+      const enriched = {
+        ...g,
+        scene_code: g.scene_code || g.scenario_id || g.template?.scene_code || '',
+        scene_name:
+          g.scene_name ||
+          mockSceneNameMap[g.scene_code || g.scenario_id || g.template?.scene_code] ||
+          g.scene_code ||
+          '—',
+        channel: g.channel || '',
+        style: g.style || '专业严谨',
+        feedback: g.feedback || '',
+        validated: g.validated !== false,
+        created_by: g.created_by || g.creator || 'admin',
+        versions
+      }
+      return ok(enriched)
     })
   },
 
@@ -1227,15 +1275,57 @@ export const sxkApi = {
       const filtered = sorted.filter((g) => {
         if (template_id && g.template.template_id !== template_id) return false
         if (status && g.status !== status) return false
-        if (kw && !g.product.name.toLowerCase().includes(kw)) return false
+        if (kw && !(g.product.name || '').toLowerCase().includes(kw)) return false
         return true
       })
-      return ok(paginate(filtered, page, size))
+      // 补齐卡片列表所需字段
+      const enriched = filtered.map((g) => ({
+        ...g,
+        scene_code: g.scene_code || g.scenario_id || g.template?.scene_code || '',
+        scene_name:
+          g.scene_name ||
+          mockSceneNameMap[g.scene_code || g.scenario_id || g.template?.scene_code] ||
+          g.scene_code ||
+          '—',
+        channel: g.channel || '',
+        style: g.style || '专业严谨',
+        feedback: g.feedback || '',
+        validated: g.validated !== false,
+        created_by: g.created_by || g.creator || 'admin'
+      }))
+      return ok(paginate(enriched, page, size))
     })
   },
 
   /**
-   * 4.7.3 删除历史 DELETE /history/{id}
+   * 4.7.3 更新历史 PUT /history/{id}（详情弹窗保存修改用）
+   * 后端预留接口：PUT /api/history/{id}
+   * 入参 { versions: [...] }
+   */
+  updateHistory: (generationId, payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/history/${generationId}`,
+        method: 'put',
+        data: payload
+      }).then((d) => ok(adaptHistory(d)))
+    }
+    return delay(150).then(() => {
+      const gen = mockGenerations.find((x) => x.generation_id === generationId)
+      if (!gen) return { code: 4041, msg: '记录不存在', data: null }
+      // 仅更新传入的 versions 字段
+      if (Array.isArray(payload.versions)) {
+        gen.versions = payload.versions.map((v) => ({
+          ...v,
+          version_key: v.version_key || v.index
+        }))
+      }
+      return ok(adaptHistory(gen))
+    })
+  },
+
+  /**
+   * 4.7.4 删除历史 DELETE /history/{id}
    */
   removeHistory: (generationId) => {
     if (!USE_MOCK_BIZ) {
@@ -1254,7 +1344,389 @@ export const sxkApi = {
   },
 
   // ----------------- 通用占位 -----------------
-  noop: () => Promise.resolve(ok(null))
+  noop: () => Promise.resolve(ok(null)),
+
+  // ===================================================================
+  // 内容生成页专用 mock 工具（与后端参考版 B2B-SXK-FastApi/frontend 对齐）
+  // 后端 API 暂未提供时，前端用 mock 数据呈现完整 UI/UX 流程
+  // ===================================================================
+
+  /**
+   * 获取可选发布渠道列表
+   * 后端预留接口：GET /api/channels
+   */
+  listChannels: () => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: '/api/channels', method: 'get' }).then((d) => ok(d))
+    }
+    return delay(80).then(() =>
+      ok([
+        { name: 'wechat', display_name: '微信公众号', tone: '亲和走心', format: '长图文' },
+        { name: 'linkedin', display_name: 'LinkedIn', tone: '专业严谨', format: '短帖' },
+        { name: 'ppt', display_name: '内部 PPT', tone: '结构化', format: '幻灯片' },
+        { name: 'email', display_name: 'EDM 邮件', tone: '正式简洁', format: 'HTML 邮件' },
+        { name: 'weibo', display_name: '微博', tone: '年轻活泼', format: '短帖' },
+        { name: 'douyin', display_name: '抖音短视频脚本', tone: '口语化', format: '60s 口播' }
+      ])
+    )
+  },
+
+  /**
+   * SEO 评分分析
+   * 后端预留接口：POST /api/seo/analyze
+   * 入参 { title, body } 出参 { score, keywords, suggestions, stats }
+   */
+  analyzeSeo: ({ title, body }) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/seo/analyze',
+        method: 'post',
+        data: { title, body }
+      }).then((d) => ok(d))
+    }
+    return delay(300).then(() => {
+      const text = (title || '') + '\n' + (body || '')
+      const cjk = (text.match(/[一-龥]/g) || []).length
+      const en = (text.replace(/[一-龥]/g, ' ').match(/[A-Za-z]+/g) || []).length
+      const titleLen = (title || '').length
+      const bodyLen = cjk + en
+      const headings = ((body || '').match(/^#{1,3}\s+/gm) || []).length
+      const avgSentenceLength = bodyLen
+        ? Math.round(bodyLen / Math.max(1, (body.match(/[。！？.!?]/g) || []).length || 1))
+        : 0
+      // 简易评分：标题 15~30 字 +25；正文 200~1500 字 +30；含 H2/H3 +20；句长 10~35 +25
+      let score = 0
+      if (titleLen >= 15 && titleLen <= 30) score += 25
+      if (bodyLen >= 200 && bodyLen <= 1500) score += 30
+      if (headings >= 2) score += 20
+      if (avgSentenceLength >= 10 && avgSentenceLength <= 35) score += 25
+      const keywords = (body || '').match(/[A-Za-z]{3,}/g)?.slice(0, 5) || []
+      const suggestions = []
+      if (titleLen < 15) suggestions.push({ type: 'title', level: 'warning', message: '标题偏短，建议 15~30 字' })
+      else if (titleLen > 30) suggestions.push({ type: 'title', level: 'warning', message: '标题偏长，建议控制在 30 字内' })
+      else suggestions.push({ type: 'title', level: 'good', message: '标题长度合适' })
+      if (bodyLen < 200) suggestions.push({ type: 'body', level: 'danger', message: '正文偏短，建议 200~1500 字' })
+      else if (bodyLen > 1500) suggestions.push({ type: 'body', level: 'warning', message: '正文偏长，可考虑拆分段落' })
+      else suggestions.push({ type: 'body', level: 'good', message: '正文字数合适' })
+      if (headings < 2) suggestions.push({ type: 'structure', level: 'warning', message: '建议使用 H2/H3 划分小节' })
+      else suggestions.push({ type: 'structure', level: 'good', message: '文章结构清晰' })
+      if (avgSentenceLength > 35) suggestions.push({ type: 'readability', level: 'warning', message: '句子偏长，建议拆分' })
+      else if (avgSentenceLength > 0) suggestions.push({ type: 'readability', level: 'good', message: '句长易于阅读' })
+      return ok({
+        score,
+        keywords,
+        suggestions,
+        stats: {
+          title_length: titleLen,
+          body_length: bodyLen,
+          headings,
+          avg_sentence_length: avgSentenceLength,
+          meta_description: (body || '').replace(/\s+/g, ' ').slice(0, 120)
+        }
+      })
+    })
+  },
+
+  /**
+   * 多阶段草稿流程（与后端参考版 step 0/1/2 对齐）
+   * 后端预留接口：POST /api/drafts、PUT /api/drafts/{id}/select、
+   *   POST /api/drafts/{id}/adapt、POST /api/drafts/{id}/finalize
+   *
+   * 草稿状态机：draft -> editing -> adapted -> done
+   *   draft     Step 0：初稿多版本选择
+   *   editing   Step 1：编辑选定内容 + 多选渠道
+   *   adapted   Step 2：多渠道版本展示
+   *   done      Step 2：文生图完成，可导出/查看历史
+   */
+  _drafts: [], // 模块级 mock 草稿库
+
+  _genDraftVersions(product, scene) {
+    // 简易版「3 个初稿」：标题 + 段落 + 标签
+    const t = (i) => `${product.name} · ${scene.name} · 版本 ${String.fromCharCode(65 + i)}`
+    return [
+      {
+        index: 1,
+        title: t(0),
+        body: `# ${product.name}\n\n## 核心卖点\n${product.selling_points?.join('、') || '高效、易用、稳定'}\n\n## 适用场景\n- 企业级部署\n- 团队协作\n- 行业定制\n\n> ${product.description || '为企业提供端到端解决方案'}\n\n## 行动号召\n立即体验，开启数字化升级之旅。`,
+        tags: ['产品介绍', '专业'],
+        images: []
+      },
+      {
+        index: 2,
+        title: t(1),
+        body: `## 为什么选择 ${product.name}\n\n**一、行业领先**：深耕行业 10+ 年，沉淀 1000+ 头部客户最佳实践。\n\n**二、开箱即用**：覆盖产品/方案/咨询/实施全流程，5 天快速上线。\n\n**三、安全可靠**：通过等保三级、ISO27001、SOC2 认证。\n\n| 维度 | ${product.name} | 传统方案 |\n|---|---|---|\n| 部署周期 | 5 天 | 30 天 |\n| 维护成本 | 低 | 高 |\n| 扩展性 | ★★★★★ | ★★ |\n\n立即联系我们，获取专属方案。`,
+        tags: ['方案对比', '正式'],
+        images: []
+      },
+      {
+        index: 3,
+        title: t(2),
+        body: `> 让营销更简单，让内容更有温度。\n\n## 我们能为你做什么\n\n1. **智能生成**：输入产品信息，3 秒产出专业文案\n2. **多渠道适配**：一次输入，5 大渠道自动适配\n3. **数据驱动**：A/B 测试，实时反馈效果\n\n---\n\n### 客户怎么说\n\n"使用 ${product.name} 后，我们的营销效率提升了 3 倍。" —— 某世界 500 强客户\n\n**限时福利**：注册即享 30 天免费试用，点击下方按钮立即开启！`,
+        tags: ['客户故事', '亲和'],
+        images: []
+      }
+    ]
+  },
+
+  /** 步骤 0：创建草稿（检索-生成-校验） */
+  createDraft: ({ product_id, scene_code, template_id, style, params, version_count = 3 }) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: '/api/drafts',
+        method: 'post',
+        data: { product_id, scenario_id: scene_code, template_id, style, params, version_count }
+      }).then((d) => ok(d))
+    }
+    return delay(800).then(() => {
+      const product = mockProducts.find((p) => p.product_id === product_id) || mockProducts[0]
+      const scene = mockSceneSchemas.scenes?.find((s) => s.scene_code === scene_code) || { name: scene_code }
+      const draft = {
+        id: 'd_' + Date.now(),
+        product_id,
+        product_name: product.name,
+        scene_code,
+        scene_name: scene.name,
+        stage: 'draft',
+        style: style || '专业严谨',
+        draft_versions: sxkApi._genDraftVersions(product, scene),
+        selected_version: null,
+        versions: [],
+        channels: [],
+        agent_trace: mockAgentRunsDefault.map((r, i) => ({
+          agent: r.agent_name,
+          status: 'success',
+          message: r.output_summary,
+          duration_ms: 800 + i * 220
+        })),
+        validation: {
+          validated: true,
+          issues: []
+        },
+        history_id: null
+      }
+      sxkApi._drafts.unshift(draft)
+      return ok(draft)
+    })
+  },
+
+  /** 步骤 0：重新生成初稿 */
+  regenerateDraft: (draftId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: `/api/drafts/${draftId}/regenerate`, method: 'post', data: {} }).then((d) => ok(d))
+    }
+    return delay(600).then(() => {
+      const draft = sxkApi._drafts.find((d) => d.id === draftId)
+      if (!draft) return { code: 4041, msg: '草稿不存在', data: null }
+      const product = mockProducts.find((p) => p.product_id === draft.product_id) || mockProducts[0]
+      const scene = { name: draft.scene_name }
+      draft.draft_versions = sxkApi._genDraftVersions(product, scene)
+      draft.selected_version = null
+      draft.stage = 'draft'
+      return ok({ ...draft })
+    })
+  },
+
+  /** 步骤 0->1：选定一个版本（写回 selected_version） */
+  selectDraftVersion: (draftId, version) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/drafts/${draftId}/select`,
+        method: 'put',
+        data: { version }
+      }).then((d) => ok(d))
+    }
+    return delay(150).then(() => {
+      const draft = sxkApi._drafts.find((d) => d.id === draftId)
+      if (!draft) return { code: 4041, msg: '草稿不存在', data: null }
+      draft.selected_version = { ...version }
+      draft.stage = 'editing'
+      return ok({ ...draft })
+    })
+  },
+
+  /** 步骤 1->2：多渠道适配（为每个渠道生成一个版本） */
+  adaptDraft: (draftId, channels) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/drafts/${draftId}/adapt`,
+        method: 'post',
+        data: { channels }
+      }).then((d) => ok(d))
+    }
+    return delay(800).then(() => {
+      const draft = sxkApi._drafts.find((d) => d.id === draftId)
+      if (!draft) return { code: 4041, msg: '草稿不存在', data: null }
+      const base = draft.selected_version || draft.draft_versions[0]
+      const versions = channels.map((ch, i) => {
+        // 不同渠道风格化标题
+        const styleMap = {
+          wechat: { suffix: '｜公众号版', lead: '✨ ' },
+          linkedin: { suffix: '｜LinkedIn 精简版', lead: '🚀 ' },
+          ppt: { suffix: '｜PPT 演示版', lead: '▎' },
+          email: { suffix: '｜邮件版', lead: 'Dear Reader,' },
+          weibo: { suffix: '｜微博短帖', lead: '【速看】' },
+          douyin: { suffix: '｜口播脚本', lead: '[开场 0-3s]' }
+        }
+        const s = styleMap[ch] || { suffix: `｜${ch}`, lead: '' }
+        return {
+          index: i + 1,
+          channel: ch,
+          title: s.lead + (base.title || '营销内容') + s.suffix,
+          body: base.body,
+          tags: [...(base.tags || []), ch],
+          images: []
+        }
+      })
+      draft.versions = versions
+      draft.channels = channels
+      draft.stage = 'adapted'
+      return ok({ ...draft })
+    })
+  },
+
+  /** 步骤 2：文生图 + 落 history */
+  finalizeDraft: (draftId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: `/api/drafts/${draftId}/finalize`, method: 'post', data: {} }).then((d) => ok(d))
+    }
+    return delay(1200).then(() => {
+      const draft = sxkApi._drafts.find((d) => d.id === draftId)
+      if (!draft) return { code: 4041, msg: '草稿不存在', data: null }
+      // 为每个渠道版本生成 1 张占位配图（用 SVG data URL 避免外部依赖）
+      draft.versions.forEach((v, i) => {
+        v.images = [
+          {
+            url: `data:image/svg+xml;utf8,${encodeURIComponent(
+              `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#f1f5f9"/><text x="50%" y="50%" font-family="sans-serif" font-size="22" fill="#475569" text-anchor="middle" dominant-baseline="middle">${v.channel} · 配图 ${i + 1}</text></svg>`
+            )}`,
+            caption: `${v.channel} 主题配图`
+          }
+        ]
+      })
+      draft.stage = 'done'
+      // 同步到历史列表（用 sxkApi 的 mockGenerations）
+      const historyId = 'g_' + Date.now()
+      draft.history_id = historyId
+      mockGenerations.unshift({
+        generation_id: historyId,
+        product_id: draft.product_id,
+        product: { product_id: draft.product_id, name: draft.product_name },
+        scene_code: draft.scene_code,
+        scene_name: draft.scene_name,
+        style: draft.style,
+        selected_version: 'A',
+        versions: draft.versions.map((v) => ({
+          version_key: 'A',
+          name: v.title,
+          content_html: v.body,
+          word_count: (v.body || '').length,
+          is_recommended: v.index === 1,
+          attachments: { images: v.images, docs: [] }
+        })),
+        validated: true,
+        created_at: new Date().toISOString()
+      })
+      return ok({ ...draft })
+    })
+  },
+
+  /** 获取草稿（刷新续作用） */
+  getDraft: (draftId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: `/api/drafts/${draftId}`, method: 'get' }).then((d) => ok(d))
+    }
+    return delay(100).then(() => {
+      const draft = sxkApi._drafts.find((d) => d.id === draftId)
+      if (!draft) return { code: 4041, msg: '草稿不存在', data: null }
+      return ok({ ...draft })
+    })
+  },
+
+  /** A/B 投票：按版本投票，同方向再点 = 取消 */
+  castVote: (generationId, versionIndex, vote) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/history/${generationId}/vote`,
+        method: 'put',
+        data: { version_index: versionIndex, vote }
+      }).then((d) => ok(d))
+    }
+    return delay(120).then(() => {
+      const gen = mockGenerations.find((g) => g.generation_id === generationId)
+      if (!gen) return { code: 4041, msg: '记录不存在', data: null }
+      const v = gen.versions[versionIndex - 1]
+      if (!v) return ok(gen)
+      v.votes = v.votes || { like: 0, dislike: 0 }
+      v.voters = v.voters || {}
+      const voterId = mockCurrentUser?.username || 'guest'
+      const prev = v.voters[voterId]
+      // 切换/取消
+      if (prev === vote) {
+        v.voters[voterId] = ''
+        v.votes[vote] = Math.max(0, v.votes[vote] - 1)
+      } else {
+        if (prev) v.votes[prev] = Math.max(0, v.votes[prev] - 1)
+        v.voters[voterId] = vote
+        v.votes[vote] = (v.votes[vote] || 0) + 1
+      }
+      return ok({ ...gen })
+    })
+  },
+
+  /** 整体反馈（👍/👎 在历史记录级别） */
+  setHistoryFeedback: (generationId, feedback) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/history/${generationId}/feedback`,
+        method: 'put',
+        data: { feedback }
+      }).then((d) => ok(d))
+    }
+    return delay(80).then(() => {
+      const gen = mockGenerations.find((g) => g.generation_id === generationId)
+      if (!gen) return { code: 4041, msg: '记录不存在', data: null }
+      gen.feedback = gen.feedback === feedback ? '' : feedback
+      return ok({ ...gen })
+    })
+  },
+
+  /** 简单 Markdown 渲染（前端工具方法，方便调用） */
+  renderMarkdown: (md) => md || '',
+
+  /** 导出 docx 触发下载（mock：用 text/markdown blob 代替） */
+  exportDocx: (generationId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/history/${generationId}/export?format=docx`,
+        method: 'get',
+        responseType: 'blob'
+      })
+    }
+    return delay(200).then(() => {
+      const gen = mockGenerations.find((g) => g.generation_id === generationId)
+      const text = gen
+        ? gen.versions
+            .map((v) => `# ${v.name}\n\n${v.content_html || v.content_markdown || v.body || ''}`)
+            .join('\n\n---\n\n')
+        : ''
+      // 关键修复：必须把 <a> 元素挂到 DOM 上，再 click，再移除。
+      // 否则部分浏览器（尤其 iframe / sandbox 环境）会静默拦截下载。
+      const blob = new Blob([text || '# 空内容\n'], { type: 'text/markdown;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${gen?.product?.name || 'content'}_${generationId}.md`
+      a.style.display = 'none'
+      document.body.appendChild(a)
+      a.click()
+      // 给浏览器一点时间处理下载
+      setTimeout(() => {
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 100)
+      return ok({ filename: a.download, size: blob.size })
+    })
+  }
 }
 
 export default sxkApi

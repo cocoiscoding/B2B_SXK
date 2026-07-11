@@ -1,19 +1,18 @@
 <!--
-  神行库 · 生成历史
-  对应需求文档 5.4（US016）：
-    - 总条数
-    - 搜索（产品名 / 模板名）+ 模板筛选
-    - 表格：时间/产品/模板/状态/操作
-    - 详情弹窗：查看 / 重新编辑此内容
+  神行库 · 生成历史（卡片式列表）
+  对齐后端参考版 B2B-SXK-FastApi/frontend 的卡片式历史布局
 -->
 <template>
   <div class="sxk-history">
-    <!-- ========== 顶部 ========== -->
+    <!-- ========== 顶部标题 ========== -->
     <basic-block>
       <div class="page-header">
         <div class="page-header__title">
           <h2>生成历史</h2>
-          <p>共 <b>{{ total }}</b> 条记录</p>
+          <p>共 <b>{{ list.length }}</b> 条记录</p>
+        </div>
+        <div class="page-header__actions">
+          <el-button :icon="Refresh" @click="load" :loading="loading">刷新</el-button>
         </div>
       </div>
     </basic-block>
@@ -23,7 +22,7 @@
       <div class="search-bar">
         <el-input
           v-model="filters.keyword"
-          placeholder="按产品名称 / 模板模糊搜索"
+          placeholder="按产品名称模糊搜索"
           clearable
           style="max-width: 360px"
           @keyup.enter="search"
@@ -34,33 +33,31 @@
         </el-input>
 
         <el-select
-          v-model="filters.template_id"
-          placeholder="全部模板"
+          v-model="filters.scene_code"
+          placeholder="全部场景"
           clearable
-          style="width: 240px"
+          style="width: 200px"
           @change="search"
         >
-          <el-option label="全部模板" value="" />
+          <el-option label="全部场景" value="" />
           <el-option
-            v-for="tpl in templateOptions"
-            :key="tpl.template_id"
-            :label="tpl.name"
-            :value="tpl.template_id"
+            v-for="s in scenes"
+            :key="s.scene_code"
+            :label="s.name"
+            :value="s.scene_code"
           />
         </el-select>
 
         <el-select
-          v-model="filters.status"
-          placeholder="全部状态"
+          v-model="filters.validated"
+          placeholder="校验状态"
           clearable
           style="width: 140px"
           @change="search"
         >
-          <el-option label="全部状态" value="" />
-          <el-option label="已完成" value="success" />
-          <el-option label="生成中" value="running" />
-          <el-option label="失败" value="failed" />
-          <el-option label="已取消" value="cancelled" />
+          <el-option label="全部" value="" />
+          <el-option label="校验通过" value="true" />
+          <el-option label="待完善" value="false" />
         </el-select>
 
         <el-button type="primary" @click="search">搜索</el-button>
@@ -68,257 +65,411 @@
       </div>
     </basic-block>
 
-    <!-- ========== 表格 ========== -->
-    <basic-block padding="none">
-      <el-table
-        ref="tableRef"
-        :data="list"
-        v-loading="loading"
-        stripe
-        :row-class-name="rowClassName"
-        :empty-text="emptyText"
-      >
-        <el-table-column label="生成时间" width="200">
-          <template #default="{ row }">
-            <div>{{ formatDateTime(row.created_at) }}</div>
-            <div class="text-sub">{{ relativeTime(row.created_at) }}</div>
-          </template>
-        </el-table-column>
+    <!-- ========== 卡片列表 ========== -->
+    <basic-block>
+      <div v-if="loading && list.length === 0" class="sxk-history__loading">
+        <el-icon class="rotating"><Loading /></el-icon>
+        加载中...
+      </div>
+      <div v-else-if="!filteredList.length" class="sxk-history__empty">
+        <el-empty :description="emptyText" />
+      </div>
+      <div v-else class="sxk-history__list">
+        <div
+          v-for="row in filteredList"
+          :key="row.generation_id"
+          class="sxk-history__card"
+          :class="{ 'is-valid': row.validated, 'is-highlight': highlightId === row.generation_id }"
+          :data-gid="row.generation_id"
+          @click="onView(row)"
+        >
+          <!-- 左侧 4px 侧边条（已校验=蓝、待校验=橙） -->
+          <div class="sxk-history__card-bar" />
 
-        <el-table-column label="产品名称" min-width="180">
-          <template #default="{ row }">
-            <span :class="{ 'is-deleted': row.product.is_deleted }">
-              {{ row.product.name }}
-              <el-tag v-if="row.product.is_deleted" size="small" type="info" effect="plain">已删除</el-tag>
-            </span>
-          </template>
-        </el-table-column>
+          <div class="sxk-history__card-main">
+            <div class="sxk-history__card-top">
+              <span class="sxk-history__card-product">
+                {{ row.product?.name || '已删除产品' }}
+              </span>
+              <span
+                v-if="row.scene_name"
+                class="sxk-history__card-scene"
+              >
+                / {{ row.scene_name }}
+              </span>
+              <span
+                class="sxk-history__card-status"
+                :class="row.validated ? 'is-pass' : 'is-warn'"
+              >
+                <span class="sxk-history__card-status-dot" />
+                <span>{{ row.validated ? '已校验' : '待完善' }}</span>
+              </span>
+            </div>
 
-        <el-table-column label="使用模板" min-width="180">
-          <template #default="{ row }">
-            {{ row.template.name }}
-          </template>
-        </el-table-column>
+            <div class="sxk-history__card-meta">
+              <span v-if="splitChannels(row.channel).length" class="sxk-history__card-channel">
+                渠道 · {{ splitChannels(row.channel).join(' / ') }}
+              </span>
+              <span>{{ formatDateTime(row.created_at) }}</span>
+              <span
+                v-if="row.created_by"
+                class="sxk-history__card-creator"
+                :style="{ color: memberColor(displayCreator(row)) }"
+              >
+                <span class="sxk-history__card-creator-dot" :style="{ background: memberColor(displayCreator(row)) }" />
+                {{ displayCreator(row) }}
+              </span>
+            </div>
+          </div>
 
-        <el-table-column label="耗时" width="120">
-          <template #default="{ row }">
-            <span v-if="row.duration_ms">{{ (row.duration_ms / 1000).toFixed(1) }}s</span>
-            <span v-else>—</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" effect="light" size="small">
-              {{ statusText(row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="onView(row)">查看</el-button>
-            <el-button link type="primary" @click="onEdit(row)">重新编辑</el-button>
-            <el-popconfirm
-              title="确定删除这条历史吗？"
-              confirm-button-text="删除"
-              @confirm="onDelete(row)"
+          <!-- 右侧操作：反馈 + 导出 + 删除 -->
+          <div class="sxk-history__card-actions" @click.stop>
+            <button
+              class="sxk-history__icon-btn is-like"
+              :class="{ 'is-active': row.feedback === 'like' }"
+              title="点赞"
+              @click="onSetFeedback(row, 'like')"
             >
-              <template #reference>
-                <el-button link type="danger">删除</el-button>
-              </template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <el-pagination
-        v-model:current-page="pager.page"
-        v-model:page-size="pager.size"
-        :total="total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next, jumper"
-        background
-        class="pager"
-        @current-change="load"
-        @size-change="load"
-      />
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+              </svg>
+            </button>
+            <button
+              class="sxk-history__icon-btn is-dislike"
+              :class="{ 'is-active': row.feedback === 'dislike' }"
+              title="点踩"
+              @click="onSetFeedback(row, 'dislike')"
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
+              </svg>
+            </button>
+            <el-button text size="small" @click="onExport(row)">导出</el-button>
+            <el-button text size="small" type="danger" @click="onDelete(row)">
+              删除
+            </el-button>
+          </div>
+        </div>
+      </div>
     </basic-block>
 
     <!-- ========== 详情弹窗 ========== -->
     <history-detail-modal
       v-model="detailVisible"
       :generation-id="detailTargetId"
+      :version-index="detailTargetIndex"
       @edit="goEdit"
+      @deleted="onDeleted"
+      @updated="onUpdated"
     />
   </div>
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { Search } from '@element-plus/icons-vue'
-import sxkApi from '@/mock/sxkApi'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  Search,
+  Loading,
+  Refresh
+} from '@element-plus/icons-vue'
+import BasicBlock from '@/components/basic-block/main.vue'
+import { sxkApi } from '@/mock/sxkApi'
 import HistoryDetailModal from './components/history-detail-modal.vue'
 
-const route = useRoute()
 const router = useRouter()
+const route = useRoute()
 
 // ========== 状态 ==========
-const filters = reactive({ keyword: '', template_id: '', status: '' })
+const filters = reactive({ keyword: '', scene_code: '', validated: '' })
 const list = ref([])
-const total = ref(0)
-const pager = reactive({ page: 1, size: 20 })
 const loading = ref(false)
-const templateOptions = ref([])
+const scenes = ref([])
 
 const detailVisible = ref(false)
 const detailTargetId = ref(null)
+const detailTargetIndex = ref(0)
+// 来自 /generate 跳转的高亮卡片（自动清除）
+const highlightId = ref(null)
 
-// ========== 从首页"最近生成"跳转过来的高亮定位 ==========
-// 首页点击某条记录 → URL 携带 query.gid → 历史表格高亮闪烁该行并滚动到位
-const tableRef = ref(null)
-const highlightGid = ref(route.query.gid || '')
-
-// el-table row-class-name：给目标行打标记，便于 CSS 高亮闪烁
-const rowClassName = ({ row }) => {
-  return highlightGid.value && row.generation_id === highlightGid.value
-    ? 'history-highlight-row'
-    : ''
+// 简单的成员色映射（与后端参考版 memberColor 一致）
+const memberColor = (id) => {
+  if (!id) return '#bbb'
+  // 用用户名 hash 生成稳定颜色
+  let hash = 0
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff
+  }
+  const colors = ['#1A56DB', '#16a34a', '#ea580c', '#9333ea', '#dc2626', '#0891b2', '#ca8a04']
+  return colors[Math.abs(hash) % colors.length]
 }
 
-// 数据加载后，定位到 query.gid 对应行：滚动至可视区 + 闪烁 3 次（约 4s 后清除标记）
-const scrollToHighlight = () => {
-  if (!highlightGid.value) return
-  nextTick(() => {
-    const wrapper = tableRef.value?.$el?.querySelector('.el-table__body-wrapper')
-    const targetRow = wrapper?.querySelector('.history-highlight-row')
-    if (targetRow) {
-      targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }
-    // 4 秒后清除高亮，恢复正常表格样式
-    setTimeout(() => {
-      highlightGid.value = ''
-    }, 4000)
+// ========== 计算属性 ==========
+const filteredList = computed(() => {
+  const kw = String(filters.keyword || '').trim().toLowerCase()
+  return list.value.filter((g) => {
+    if (filters.scene_code && g.scene_code !== filters.scene_code) return false
+    if (filters.validated === 'true' && !g.validated) return false
+    if (filters.validated === 'false' && g.validated) return false
+    if (kw && !(g.product?.name || '').toLowerCase().includes(kw)) return false
+    return true
   })
-}
+})
+
+const emptyText = computed(() => {
+  if (filters.keyword || filters.scene_code || filters.validated) {
+    return '未找到匹配的历史记录'
+  }
+  return '暂无生成历史'
+})
 
 // ========== 工具 ==========
-const statusText = (s) =>
-  ({ success: '已完成', running: '生成中', failed: '失败', cancelled: '已取消' })[s] || s
-
-const statusTagType = (s) =>
-  ({ success: 'success', running: 'warning', failed: 'danger', cancelled: 'info' })[s] || 'info'
-
 const formatDateTime = (iso) => {
+  if (!iso) return ''
   const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  if (isNaN(d.getTime())) return ''
+  return (
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0') +
+    ' ' +
+    String(d.getHours()).padStart(2, '0') +
+    ':' +
+    String(d.getMinutes()).padStart(2, '0')
+  )
 }
 
-const relativeTime = (iso) => {
-  const d = new Date(iso)
-  const diff = Date.now() - d.getTime()
-  const min = Math.floor(diff / 60000)
-  if (min < 1) return '刚刚'
-  if (min < 60) return `${min} 分钟前`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr} 小时前`
-  const day = Math.floor(hr / 24)
-  if (day < 30) return `${day} 天前`
-  return ''
+const splitChannels = (channel) => {
+  if (!channel) return []
+  return String(channel)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
 }
 
-const emptyText = computed(() =>
-  filters.keyword || filters.template_id || filters.status
-    ? '未找到匹配的历史记录'
-    : '暂无生成历史'
-)
+// 创建人显示规整：把后端 user_id 形式（u_xxx）回退为当前登录用户名
+// 后端 history 表没有 created_by 列，orchestrator 写的是 user["id"]
+const isUserId = (s) => typeof s === 'string' && /^u_[a-f0-9]+$/i.test(s)
+let cachedUsername = ''
+try {
+  const raw = localStorage.getItem('sxk-access-user') || sessionStorage.getItem('sxk-user')
+  if (raw) {
+    const u = JSON.parse(raw)
+    cachedUsername = u?.username || u?.name || ''
+  }
+} catch {
+  /* ignore */
+}
+const displayCreator = (row) => {
+  const cb = row?.created_by
+  if (cb && !isUserId(cb)) return cb
+  return cachedUsername || '当前用户'
+}
 
 // ========== 数据加载 ==========
 const load = async () => {
   loading.value = true
   try {
-    const res = await sxkApi.listHistory({
-      page: pager.page,
-      size: pager.size,
-      keyword: filters.keyword,
-      template_id: filters.template_id,
-      status: filters.status
-    })
-    if (res.data) {
-      list.value = res.data.items || []
-      total.value = res.data.total || 0
-      // 首页"最近生成"跳转过来时，定位并高亮目标行
-      scrollToHighlight()
-    }
+    const resp = await sxkApi.listHistory({ page: 1, size: 200 })
+    list.value = resp.data?.items || []
   } catch (e) {
-    console.error('[History] load failed', e)
-    ElMessage.error('加载历史记录失败')
+    list.value = []
+    ElMessage.error('加载历史失败：' + (e?.message || '未知错误'))
   } finally {
     loading.value = false
   }
 }
 
-const loadTemplates = async () => {
+const loadScenes = async () => {
   try {
-    // 仅取首屏足够多（mock 阶段直接拉全部；后端就绪后会自动分页）
-    const res = await sxkApi.listTemplates({ page: 1, size: 100 })
-    if (res.data) templateOptions.value = res.data.items || []
-  } catch (e) {
-    console.error('[History] loadTemplates failed', e)
+    const resp = await sxkApi.getSceneSchemas()
+    scenes.value = resp.data?.scenes || []
+  } catch {
+    scenes.value = []
   }
 }
 
+onMounted(async () => {
+  await load()
+  await loadScenes()
+  // 数据加载完成后再处理跳转参数
+  handleOpenDetailFromQuery()
+})
+
+// 监听 query.openDetail 变化（用户从其他页面再次携带参数进来时也能响应）
+watch(
+  () => route.query.openDetail,
+  (newVal) => {
+    if (newVal) handleOpenDetailFromQuery()
+  }
+)
+
+/**
+ * 处理 URL query 中的 openDetail 参数：
+ * - 自动查找对应记录
+ * - 自动打开详情弹窗
+ * - 滚动并高亮目标卡片
+ * - 清除 query，避免刷新重复触发
+ */
+let openDetailLocked = false
+async function handleOpenDetailFromQuery() {
+  // 防止 onMounted 与 watch 重复触发
+  if (openDetailLocked) return
+  const openId = route.query.openDetail
+  if (!openId) return
+  openDetailLocked = true
+  // 如果 list 为空，先等待数据加载（避免在 onMounted 外被 watch 触发时 list 还没就绪）
+  if (list.value.length === 0) {
+    const ok = await waitListReady(20, 200)
+    if (!ok) {
+      console.warn('[history] list 加载超时，跳过自动打开')
+      openDetailLocked = false
+      return
+    }
+  }
+  const target = list.value.find((r) => r.generation_id === openId)
+  if (!target) {
+    console.warn('[history] 在 list 中找不到目标', openId, 'list.length =', list.value.length)
+    openDetailLocked = false
+    return
+  }
+  // 打开详情弹窗 - 先设值，再用 nextTick 等待
+  detailTargetId.value = target.generation_id
+  detailTargetIndex.value = 0
+  // 强制异步下一帧再设置 visible，避免首次渲染时 el-dialog 内部状态未就绪
+  await nextTick()
+  detailVisible.value = true
+  // 监听 dialog 实际打开事件
+  await nextTick()
+  // 高亮 + 滚动（用 nextTick 等待弹窗 + 卡片 DOM 就绪）
+  highlightId.value = target.generation_id
+  await nextTick()
+  const el = document.querySelector(
+    `.sxk-history__card[data-gid="${target.generation_id}"]`
+  )
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+  // 2.4s 后清除高亮
+  setTimeout(() => {
+    highlightId.value = null
+  }, 2400)
+  // 最后清除 query，避免下次刷新重复触发（保留 highlight）
+  router.replace({ query: { ...route.query, openDetail: undefined } })
+}
+
+/**
+ * 等待 list 加载完成（轮询）
+ * @param {number} maxRetry 最大重试次数
+ * @param {number} interval 重试间隔 ms
+ * @returns {Promise<boolean>} 是否就绪
+ */
+function waitListReady(maxRetry = 20, interval = 200) {
+  return new Promise((resolve) => {
+    let retry = 0
+    const tick = () => {
+      if (list.value.length > 0 || retry >= maxRetry) {
+        resolve(list.value.length > 0)
+        return
+      }
+      retry++
+      setTimeout(tick, interval)
+    }
+    tick()
+  })
+}
+
+// ========== 业务方法 ==========
 const search = () => {
-  pager.page = 1
-  load()
+  // 搜索为纯前端过滤，无需重新拉取
 }
 
 const reset = () => {
   filters.keyword = ''
-  filters.template_id = ''
-  filters.status = ''
-  search()
+  filters.scene_code = ''
+  filters.validated = ''
 }
 
-// ========== 操作回调 ==========
 const onView = (row) => {
   detailTargetId.value = row.generation_id
+  detailTargetIndex.value = 0
   detailVisible.value = true
 }
 
-const onEdit = (row) => {
-  // BR-H-04：跳转内容生成页并携带 gid
-  router.push({ path: '/generate/index', query: { gid: row.generation_id } })
-}
-
-const goEdit = (generationId) => {
-  detailVisible.value = false
-  router.push({ path: '/generate/index', query: { gid: generationId } })
-}
-
-const onDelete = async (row) => {
+const onExport = async (row) => {
   try {
-    const res = await sxkApi.removeHistory(row.generation_id)
-    if (res.code === 0) {
-      ElMessage.success('已删除')
-      load()
-    } else {
-      ElMessage.error(res.msg || '删除失败')
-    }
-  } catch {
-    // axios 拦截器已提示错误
+    await sxkApi.exportDocx(row.generation_id)
+    ElMessage.success('已开始导出')
+  } catch (e) {
+    ElMessage.error('导出失败：' + (e?.message || '未知错误'))
   }
 }
 
-onMounted(() => {
+const onDelete = (row) => {
+  ElMessageBox.confirm('确认删除该历史记录？删除后不可恢复。', '删除历史', {
+    type: 'warning',
+    confirmButtonText: '确认删除',
+    cancelButtonText: '取消'
+  })
+    .then(async () => {
+      try {
+        const resp = await sxkApi.removeHistory(row.generation_id)
+        if (resp.code !== 0) {
+          ElMessage.error(resp.msg || '删除失败')
+          return
+        }
+        ElMessage.success('已删除')
+        load()
+      } catch (e) {
+        ElMessage.error('删除失败：' + (e?.message || '未知错误'))
+      }
+    })
+    .catch(() => {})
+}
+
+const onSetFeedback = async (row, fb) => {
+  const next = row.feedback === fb ? '' : fb
+  try {
+    const resp = await sxkApi.setHistoryFeedback(row.generation_id, next)
+    if (resp.code !== 0) {
+      ElMessage.error(resp.msg || '操作失败')
+      return
+    }
+    // 同步本地行
+    Object.assign(row, resp.data)
+    ElMessage.success(next ? (next === 'like' ? '已点赞' : '已踩') : '已取消标记')
+  } catch (e) {
+    ElMessage.error('操作失败：' + (e?.message || '未知错误'))
+  }
+}
+
+const goEdit = (generationId) => {
+  router.push({ path: '/generate/index', query: { gid: generationId } })
+}
+
+const onDeleted = () => {
+  detailVisible.value = false
   load()
-  loadTemplates()
-})
+}
+
+const onUpdated = (updated) => {
+  // 同步列表中对应行
+  const idx = list.value.findIndex((x) => x.generation_id === updated.generation_id)
+  if (idx !== -1) {
+    list.value[idx] = { ...list.value[idx], ...updated }
+  }
+}
 </script>
 
 <style lang="scss" scoped>
+// ============================================================
+// 生成历史（卡片式列表）—— 对齐后端参考版 B2B-SXK-FastApi/frontend
+// 结构：1) 页面头  2) 搜索条  3) 卡片列表  4) 加载/空状态
+// ============================================================
+
 .sxk-history {
   display: flex;
   flex-direction: column;
@@ -326,22 +477,21 @@ onMounted(() => {
 }
 
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $spacing-md;
   &__title {
     h2 {
-      margin: 0 0 $spacing-xs;
+      margin: 0 0 4px;
       font-size: $font-size-xl;
-      font-weight: 700;
-      color: $gray-900;
+      color: $text-primary;
     }
     p {
       margin: 0;
       font-size: $font-size-sm;
       color: $text-regular;
-
-      b {
-        color: $primary-color;
-        margin: 0 $spacing-xs;
-      }
     }
   }
 }
@@ -349,43 +499,196 @@ onMounted(() => {
 .search-bar {
   display: flex;
   align-items: center;
-  gap: $spacing-md;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.sxk-history__loading {
+  text-align: center;
+  padding: $spacing-2xl 0;
+  color: $text-regular;
+  .rotating {
+    animation: sxkRotating 1s linear infinite;
+    margin-right: $spacing-sm;
+  }
+}
+
+.sxk-history__empty {
+  padding: $spacing-xl 0;
+}
+
+.sxk-history__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sxk-history__card {
+  display: flex;
+  width: 100%;
+  background: $bg-card;
+  border: 1px solid $border-base;
+  border-radius: $radius-md;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: $shadow-sm;
+
+  &:hover {
+    box-shadow: $shadow-md;
+    border-color: $primary-color-light;
+    transform: translateY(-1px);
+  }
+
+  // 左侧 4px 侧边条：默认蓝
+  &-bar {
+    width: 4px;
+    flex-shrink: 0;
+    background: $primary-color;
+  }
+  // 待校验时为橙
+  &:not(.is-valid) &-bar {
+    background: #faad14;
+  }
+
+  // 来自 /generate 跳转的"高亮定位"动画（2.4s）
+  &.is-highlight {
+    border-color: $primary-color;
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.2), $shadow-md;
+    animation: sxk-history-pulse 1.2s ease-in-out 2;
+  }
+}
+@keyframes sxk-history-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba($primary-color, 0.2), $shadow-md;
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba($primary-color, 0.05), $shadow-md;
+  }
+}
+
+.sxk-history__card-main {
+  flex: 1 1 auto;
+  padding: 12px 16px;
+  min-width: 0;
+}
+
+.sxk-history__card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
   flex-wrap: wrap;
 }
 
-.text-sub {
-  font-size: $font-size-xs;
-  color: $text-secondary;
-  margin-top: 2px;
+.sxk-history__card-product {
+  font-weight: 600;
+  font-size: 15px;
+  color: $text-primary;
 }
 
-.is-deleted {
-  color: $text-secondary;
-  text-decoration: line-through;
+// 场景（与产品名同行，斜杠分隔，不喧宾夺主）
+.sxk-history__card-scene {
+  font-size: 13px;
+  color: $text-regular;
+  font-weight: 400;
 }
 
-.pager {
-  margin: $spacing-lg;
-  justify-content: flex-end;
-}
+// 校验状态胶囊（圆点+文字，与详情弹窗一致）
+.sxk-history__card-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px 1px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  border: 1px solid transparent;
+  margin-left: auto;
 
-// ========== 从首页"最近生成"跳转过来的目标行高亮闪烁 ==========
-// 用品牌色 #1A56DB 的浅色（blue-50 / blue-100）作为高亮底色，
-// 闪烁 3 次后由 JS 清除 highlightGid 恢复常态。
-// 注意：el-table 的 stripe 斑马纹会给 td.el-table__cell 设背景色，
-// 因此高亮必须作用在 td 上并用 !important 覆盖。
-:deep(.history-highlight-row td.el-table__cell) {
-  background-color: $primary-color-light !important;   // blue-50 #eff6ff
-  animation: sxk-history-row-flash 1.2s ease-in-out 3;
-}
-
-@keyframes sxk-history-row-flash {
-  0%,
-  100% {
-    background-color: $primary-color-light !important;   // blue-50
+  &-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
   }
-  50% {
-    background-color: $primary-color-lighter !important; // blue-100，更明显
+  &.is-pass {
+    background: #ecfdf5;
+    color: #047857;
+    border-color: #a7f3d0;
+  }
+  &.is-warn {
+    background: #fffbeb;
+    color: #b45309;
+    border-color: #fde68a;
+  }
+}
+
+.sxk-history__card-meta {
+  display: flex;
+  gap: 14px;
+  font-size: 12.5px;
+  color: $text-regular;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sxk-history__card-channel {
+  color: $primary-color;
+  font-weight: 500;
+}
+
+.sxk-history__card-creator {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 500;
+
+  &-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+}
+
+.sxk-history__card-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 12px;
+  border-left: 1px solid $border-light;
+  flex-shrink: 0;
+}
+
+// 反馈 icon 按钮（自绘 SVG 拇指，不再用 emoji）
+.sxk-history__icon-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: $text-placeholder;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: $gray-100;
+  }
+  &.is-like:hover,
+  &.is-like.is-active {
+    color: $success-color;
+    background: rgba(103, 194, 58, 0.1);
+  }
+  &.is-dislike:hover,
+  &.is-dislike.is-active {
+    color: $danger-color;
+    background: rgba(245, 108, 108, 0.1);
   }
 }
 </style>
