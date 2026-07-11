@@ -19,8 +19,12 @@
 -->
 <template>
   <div class="sxk-generate" :class="{ 'is-empty': !currentDraft }">
-    <!-- ============================== 左栏：生成配置 + 阶段指示 ============================== -->
-    <basic-block class="sxk-generate__config" hover-shadow>
+    <!-- ============================== 左栏：生成配置 + 阶段指示（v-if 控制显示/隐藏） ============================== -->
+    <basic-block
+      v-if="configPanelVisible"
+      class="sxk-generate__config"
+      hover-shadow
+    >
       <template #header>
         <div class="sxk-page-header" style="width: 100%; padding: 0">
           <div class="sxk-page-header__title">
@@ -112,16 +116,17 @@
         :rules="rules"
         label-position="top"
         size="default"
+        class="sxk-generate__form"
         @submit.prevent
       >
-        <!-- 1) 选择产品 -->
+        <!-- 顶部：选择产品（独立一行，更突出） -->
         <el-form-item label="选择产品" prop="product_id">
           <el-select
             v-model="form.product_id"
             placeholder="请选择产品"
             filterable
             clearable
-            style="width: 100%"
+            class="sxk-generate__form-full"
             @change="onProductChange"
           >
             <el-option
@@ -139,7 +144,7 @@
           </el-select>
         </el-form-item>
 
-        <!-- 2) 场景选择 -->
+        <!-- 内容场景（全宽） -->
         <el-form-item label="内容场景" prop="scene_code">
           <div class="sxk-generate__scene-grid">
             <div
@@ -147,24 +152,28 @@
               :key="s.scene_code"
               class="sxk-generate__scene-box"
               :class="{ 'is-active': form.scene_code === s.scene_code }"
+              :style="{
+                '--scene-bg': getSceneStyle(s.scene_code, s.name).bg,
+                '--scene-color': getSceneStyle(s.scene_code, s.name).color
+              }"
               @click="form.scene_code = s.scene_code"
             >
               <el-icon :size="22" class="sxk-generate__scene-icon">
-                <component :is="getSceneIcon(s.scene_code)" />
+                <component :is="getSceneStyle(s.scene_code, s.name).icon" />
               </el-icon>
               <span class="sxk-generate__scene-text">{{ s.name }}</span>
             </div>
           </div>
         </el-form-item>
 
-        <!-- 2.5) 模板选择（选择场景后动态加载） -->
+        <!-- 2.5) 模板选择（动态参数之前） -->
         <el-form-item v-if="currentScene" label="选择模板">
           <el-select
             v-model="form.template_id"
             placeholder="请选择模板（可选）"
             filterable
             clearable
-            style="width: 100%"
+            class="sxk-generate__form-full"
             @change="onTemplateChange"
           >
             <el-option
@@ -176,43 +185,49 @@
           </el-select>
         </el-form-item>
 
-        <!-- 3) 动态参数 -->
+        <!-- 3) 动态参数（2 列网格） -->
         <template v-if="currentScene">
           <div class="sxk-generate__params-title">动态参数（{{ currentScene.name }}）</div>
-          <el-form-item
-            v-for="p in currentScene.params"
-            :key="p.key"
-            :label="p.label + (p.required ? ' *' : '')"
-            :prop="`params.${p.key}`"
-            :rules="p.required ? [{ required: true, message: `${p.label}为必填` }] : []"
-          >
-            <el-select
-              v-if="p.type === 'enum'"
-              v-model="form.params[p.key]"
-              :placeholder="p.default || `请选择${p.label}`"
-              style="width: 100%"
+          <div class="sxk-generate__params-grid">
+            <el-form-item
+              v-for="p in currentScene.params"
+              :key="p.key"
+              :label="p.label + (p.required ? ' *' : '')"
+              :prop="`params.${p.key}`"
+              :rules="p.required ? [{ required: true, message: `${p.label}为必填` }] : []"
+              class="sxk-generate__params-item"
             >
-              <el-option v-for="opt in p.options" :key="opt" :label="opt" :value="opt" />
-            </el-select>
-            <el-input
-              v-else-if="p.type === 'text'"
-              v-model="form.params[p.key]"
-              :placeholder="p.default || '请输入...'"
-              clearable
-            />
-            <el-input
-              v-else-if="p.type === 'textarea'"
-              v-model="form.params[p.key]"
-              type="textarea"
-              :rows="3"
-              :placeholder="p.default || '请输入...'"
-            />
-            <el-input
-              v-else
-              v-model="form.params[p.key]"
-              :placeholder="p.default || '请输入...'"
-            />
-          </el-form-item>
+              <el-select
+                v-if="p.type === 'enum'"
+                v-model="form.params[p.key]"
+                :placeholder="p.default || `请选择${p.label}`"
+                class="sxk-generate__form-full"
+              >
+                <el-option v-for="opt in p.options" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+              <el-input
+                v-else-if="p.type === 'text'"
+                v-model="form.params[p.key]"
+                :placeholder="p.default || '请输入...'"
+                clearable
+                class="sxk-generate__form-full"
+              />
+              <el-input
+                v-else-if="p.type === 'textarea'"
+                v-model="form.params[p.key]"
+                type="textarea"
+                :autosize="{ minRows: 3, maxRows: 6 }"
+                :placeholder="p.default || '请输入...'"
+                class="sxk-generate__form-full"
+              />
+              <el-input
+                v-else
+                v-model="form.params[p.key]"
+                :placeholder="p.default || '请输入...'"
+                class="sxk-generate__form-full"
+              />
+            </el-form-item>
+          </div>
           <el-form-item v-if="form.params.prompt" label="提示词">
             <el-input
               v-model="form.params.prompt"
@@ -223,8 +238,8 @@
           </el-form-item>
         </template>
 
-        <!-- 4) 立即生成 -->
-        <el-form-item>
+        <!-- 4) 立即生成（底部居中） -->
+        <div class="sxk-generate__submit-area">
           <el-button
             type="primary"
             class="sxk-generate__submit"
@@ -237,12 +252,12 @@
           <div class="sxk-generate__submit-tip">
             生成后分三个阶段进行：选定初稿 → 改内容·选渠道 → 文生图·保存历史
           </div>
-        </el-form-item>
+        </div>
       </el-form>
     </basic-block>
 
-    <!-- ============================== 右栏：阶段化主体 ============================== -->
-    <basic-block class="sxk-generate__main" hover-shadow>
+    <!-- ============================== 右栏：阶段化主体（仅当有 currentDraft 时显示） ============================== -->
+    <basic-block v-if="currentDraft" class="sxk-generate__main" hover-shadow>
       <template #header>
         <div class="sxk-generate__main-title">
           <span class="sxk-generate__main-title-main">
@@ -251,6 +266,34 @@
           <span v-if="!currentDraft" class="sxk-generate__main-title-sub">
             待生成内容将在此处展示
           </span>
+        </div>
+        <!-- 阶段子标题（draft 存在时显示当前阶段的目标/操作） -->
+        <div v-if="currentDraft" class="sxk-generate__main-subtitle">
+          <el-icon class="sxk-generate__main-subtitle-icon"><Aim /></el-icon>
+          <span class="sxk-generate__main-subtitle-text">
+            {{ stageSubtitleText }}
+          </span>
+        </div>
+        <!-- 三阶段分段指示（segmented） -->
+        <div v-if="currentDraft" class="sxk-generate__main-segments">
+          <div
+            v-for="(s, i) in stepDefs"
+            :key="i"
+            class="sxk-generate__main-segment"
+            :class="{
+              'is-active': i === draftStep,
+              'is-done': i < draftStep || (i === 2 && stage2Completed),
+              'is-disabled': i > draftStep && !(i === 2 && stage2Completed)
+            }"
+            @click="onStepJump(i)"
+          >
+            <span class="sxk-generate__main-segment-no">
+              <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)"><CircleCheckFilled /></el-icon>
+              <span v-else>{{ i + 1 }}</span>
+            </span>
+            <span class="sxk-generate__main-segment-title">{{ s.title }}</span>
+            <span class="sxk-generate__main-segment-desc">{{ s.desc }}</span>
+          </div>
         </div>
       </template>
       <template #aside>
@@ -275,21 +318,77 @@
         </template>
       </template>
 
-      <!-- 空状态 -->
-      <div v-if="!currentDraft" class="sxk-generate__empty">
-        <el-empty description="尚未触发生成，请填写左侧表单后点击「立即生成」">
-          <template #image>
-            <div class="sxk-generate__empty-icon">
-              <el-icon :size="48" color="#9ca3af"><MagicStick /></el-icon>
+      <!-- 空状态：分步进度 + 智能提示（替代原空状态） -->
+      <div v-if="!currentDraft" class="sxk-generate__guide">
+        <!-- 顶部欢迎 -->
+        <div class="sxk-generate__guide-hero">
+          <el-icon :size="48" color="#1A56DB"><MagicStick /></el-icon>
+          <h3 class="sxk-generate__guide-title">AI 智能文案生成</h3>
+          <p class="sxk-generate__guide-subtitle">
+            填写左侧表单，AI 将自动生成多版本文案供您选择
+          </p>
+        </div>
+
+        <!-- 分步进度 -->
+        <div class="sxk-generate__guide-steps">
+          <div class="sxk-generate__guide-step is-active">
+            <div class="sxk-generate__guide-step-no">1</div>
+            <div class="sxk-generate__guide-step-body">
+              <div class="sxk-generate__guide-step-title">填写配置</div>
+              <div class="sxk-generate__guide-step-desc">选择产品和场景模板</div>
             </div>
-          </template>
-        </el-empty>
+          </div>
+          <div class="sxk-generate__guide-step">
+            <div class="sxk-generate__guide-step-no">2</div>
+            <div class="sxk-generate__guide-step-body">
+              <div class="sxk-generate__guide-step-title">智能生成</div>
+              <div class="sxk-generate__guide-step-desc">AI 一次产出 3 个版本</div>
+            </div>
+          </div>
+          <div class="sxk-generate__guide-step">
+            <div class="sxk-generate__guide-step-no">3</div>
+            <div class="sxk-generate__guide-step-body">
+              <div class="sxk-generate__guide-step-title">编辑发布</div>
+              <div class="sxk-generate__guide-step-desc">编辑选定，多渠道分发</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部小贴士 -->
+        <div class="sxk-generate__guide-tips">
+          <div class="sxk-generate__guide-tip-title">
+            <el-icon><InfoFilled /></el-icon>
+            <span>使用小贴士</span>
+          </div>
+          <ul class="sxk-generate__guide-tip-list">
+            <li>填写动态参数时，尽量详细描述目标受众</li>
+            <li>不同场景模板适配不同行业，优先选择匹配项</li>
+            <li>生成后可对比 3 个版本，选择最佳继续编辑</li>
+          </ul>
+        </div>
       </div>
 
       <!-- ============ 阶段 0：初稿多版本选择（卡片对比墙 + 整版预览）============ -->
       <div v-else-if="draftStep === 0" class="sxk-generate__stage">
+        <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
+        <!--
+        <div class="sxk-generate__stage-hero">
+          <div class="sxk-generate__stage-hero-no">1</div>
+          <div class="sxk-generate__stage-hero-info">
+            <div class="sxk-generate__stage-hero-title">{{ stepDefs[0].title }}</div>
+            <div class="sxk-generate__stage-hero-desc">{{ stepDefs[0].summary }}</div>
+          </div>
+        </div>
+        -->
+        <!-- 主体两栏：左侧 Agent 链路（窄/竖向） + 右侧 初稿对比 + 预览（主区） -->
+        <el-row :gutter="16" class="sxk-generate__stage0-row">
+          <el-col :xs="24" :sm="8" :md="7" :lg="6">
         <!-- Agent 执行链路（横向时间线 + 可点击节点详情） -->
-        <el-card class="sxk-generate__card sxk-generate__card-trace" shadow="never">
+        <el-card
+          class="sxk-generate__card sxk-generate__card-trace is-scrollable"
+          shadow="never"
+          :style="cardScrollStyle"
+        >
           <template #header>
             <div class="sxk-generate__card-head sxk-generate__trace-toggle">
               <div
@@ -304,11 +403,7 @@
                 >
                   <span class="sxk-generate__trace-stat is-success">
                     <el-icon><CircleCheckFilled /></el-icon>
-                    {{ agentSuccessCount }} / {{ currentDraft.agent_trace.length }} 成功
-                  </span>
-                  <span class="sxk-generate__trace-stat">
-                    <el-icon><Timer /></el-icon>
-                    总耗时 {{ agentTotalDuration }}ms
+                    {{ currentDraft.agent_trace.length }} 步
                   </span>
                 </span>
               </div>
@@ -318,7 +413,7 @@
                   :class="currentDraft.validation?.validated ? 'is-pass' : 'is-warn'"
                 >
                   <span class="sxk-generate__status-pill-dot" />
-                  {{ currentDraft.validation?.validated ? '校验通过' : '有待完善' }}
+                  {{ currentDraft.validation?.validated ? '已校验' : '待完善' }}
                 </span>
                 <span
                   class="sxk-generate__trace-toggle-btn"
@@ -445,9 +540,30 @@
             </el-link> -->
           </div>
         </el-card>
-
+          </el-col>
+          <el-col :xs="24" :sm="16" :md="17" :lg="18">
         <!-- 版本对比墙 + 当前预览 -->
-        <el-card class="sxk-generate__card" shadow="never">
+        <el-card
+          class="sxk-generate__card is-scrollable"
+          shadow="never"
+          :style="cardScrollStyle"
+        >
+          <template #footer>
+            <div class="sxk-generate__stage-foot">
+              <span class="sxk-generate__stage-foot-tip">
+                <el-icon><InfoFilled /></el-icon>
+                确认无误后点击「选定此版本」进入编辑与渠道适配
+              </span>
+              <el-button
+                type="primary"
+                size="small"
+                @click="onSelectDraftVersion(currentDraft.draft_versions.find(x => String(x.index) === draftVersionIndex))"
+                :loading="selectingDraft"
+              >
+                选定此版本 →
+              </el-button>
+            </div>
+          </template>
           <template #header>
             <div class="sxk-generate__card-head">
               <div class="sxk-generate__card-head-left">
@@ -532,30 +648,32 @@
                 </el-tag>
               </div>
             </div>
-            <div class="sxk-generate__stage-foot">
-              <span class="sxk-generate__stage-foot-tip">
-                <el-icon><InfoFilled /></el-icon>
-                确认无误后点击「选定此版本」进入编辑与渠道
-              </span>
-              <el-button
-                type="primary"
-                size="small"
-                @click="onSelectDraftVersion(v)"
-                :loading="selectingDraft"
-              >
-                选定此版本 →
-              </el-button>
-            </div>
           </div>
         </el-card>
+          </el-col>
+        </el-row>
       </div>
 
       <!-- ============ 阶段 1：编辑选定内容 + 多选渠道 ============ -->
       <div v-else-if="draftStep === 1" class="sxk-generate__stage">
-        <el-row :gutter="16">
+        <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
+        <!--
+        <div class="sxk-generate__stage-hero">
+          <div class="sxk-generate__stage-hero-no">2</div>
+          <div class="sxk-generate__stage-hero-info">
+            <div class="sxk-generate__stage-hero-title">{{ stepDefs[1].title }}</div>
+            <div class="sxk-generate__stage-hero-desc">{{ stepDefs[1].summary }}</div>
+          </div>
+        </div>
+        -->
+        <el-row :gutter="16" class="sxk-generate__stage1-row">
           <!-- 左侧：编辑选定内容 -->
           <el-col :span="16">
-            <el-card class="sxk-generate__card" shadow="never">
+            <el-card
+              class="sxk-generate__card is-scrollable"
+              shadow="never"
+              :style="cardScrollStyle"
+            >
               <template #header>
                 <div class="sxk-generate__card-head">
                   <b>编辑选定内容</b>
@@ -579,9 +697,9 @@
                   <span class="sxk-generate__edit-body-cnt">{{ bodyCharCount }} 字</span>
                 </div>
                 <el-input
+                  class="sxk-generate__edit-body-input"
                   type="textarea"
                   v-model="draftEditingVersion.body"
-                  :autosize="{ minRows: 16, maxRows: 26 }"
                   resize="vertical"
                 />
               </div>
@@ -600,7 +718,11 @@
 
           <!-- 右侧：渠道多选 -->
           <el-col :span="8">
-            <el-card class="sxk-generate__card sxk-generate__channel-pane" shadow="never">
+            <el-card
+              class="sxk-generate__card sxk-generate__channel-pane is-scrollable"
+              shadow="never"
+              :style="cardScrollStyle"
+            >
               <template #header>
                 <div class="sxk-generate__card-head">
                   <div class="sxk-generate__channel-pane-head">
@@ -661,7 +783,17 @@
 
       <!-- ============ 阶段 2：配图与保存（卡片对比墙 + 预览/编辑）============ -->
       <div v-else class="sxk-generate__stage">
-        <el-card class="sxk-generate__card" shadow="never">
+        <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
+        <!--
+        <div class="sxk-generate__stage-hero">
+          <div class="sxk-generate__stage-hero-no">3</div>
+          <div class="sxk-generate__stage-hero-info">
+            <div class="sxk-generate__stage-hero-title">{{ stepDefs[2].title }}</div>
+            <div class="sxk-generate__stage-hero-desc">{{ stepDefs[2].summary }}</div>
+          </div>
+        </div>
+        -->
+        <el-card class="sxk-generate__card is-scrollable sxk-generate__card-horizontal" :body-style="cardScrollStyle" shadow="never">
           <template #header>
             <div class="sxk-generate__card-head">
               <div class="sxk-generate__card-head-left">
@@ -739,15 +871,6 @@
                 <span class="sxk-generate__version-card-no">
                   {{ v.channel || `渠道 ${v.index}` }}
                 </span>
-                <span
-                  class="sxk-generate__version-card-tag"
-                  :class="versionStatusClass(v)"
-                >
-                  <el-icon v-if="v.images?.length > 0"><Picture /></el-icon>
-                  <el-icon v-else-if="finalizingDraft"><Loading /></el-icon>
-                  <el-icon v-else><Clock /></el-icon>
-                  {{ versionStatusText(v) }}
-                </span>
               </div>
               <div class="sxk-generate__version-card-meta">
                 <span class="sxk-generate__version-card-stat">
@@ -773,21 +896,8 @@
             :key="`preview-${v.index}`"
             class="sxk-generate__version-preview"
           >
-            <!-- 顶部工具栏 -->
+            <!-- 顶部工具栏：仅保留"预览/编辑"切换（左侧重复的渠道信息已在顶部卡墙显示，删除） -->
             <div class="sxk-generate__channel-toolbar">
-              <div class="sxk-generate__channel-toolbar-left">
-                <span class="sxk-generate__channel-name-lg">
-                  {{ v.channel || `渠道 ${v.index}` }}
-                </span>
-                <span class="sxk-generate__channel-meta-inline">
-                  <el-tag v-if="v.channel" size="small" effect="plain" type="info">
-                    {{ v.channel }}
-                  </el-tag>
-                  <span>{{ v.body?.length || 0 }} 字</span>
-                  <span>·</span>
-                  <span>{{ v.images?.length || 0 }} 图</span>
-                </span>
-              </div>
               <el-radio-group v-model="genEditMode" size="small" class="sxk-generate__mode-switch">
                 <el-radio-button :value="false">
                   <el-icon><View /></el-icon>
@@ -1213,12 +1323,18 @@ import {
   Download,
   Search,
   Picture,
-  Box,
-  TrendCharts,
-  Share,
-  Promotion,
-  Message,
-  Document,
+  PieChart,  // 备用：竞品对比（ICON_MAP）
+  Share,      // 备用：渠道适配（ICON_MAP）
+  Promotion,  // 备用：活动（ICON_MAP）
+  Message,    // 备用：邮件（ICON_MAP）
+  Document,   // 默认/产品介绍
+  // 智能匹配新增（与 templates 页面 SCENE_STYLE_RULES 一致）
+  Monitor,        // banner/官网/首页
+  Histogram,      // 产品介绍/产品功能/白皮书
+  TrendCharts,    // 竞品/对比/竞争
+  Medal,          // 案例/客户/成功
+  Film,           // ppt/演示/大纲/路演
+  ChatDotRound,   // 社交/媒体/帖子/传播
   Aim,
   CircleCheckFilled,
   Delete,
@@ -1263,6 +1379,8 @@ const finalizingDraft = ref(false)
 const regeneratingChannelIdx = ref(null)
 // 阶段 2 是否已完成（保存到历史后置 true，刷新"配图与保存"步骤状态为"完成"）
 const stage2Completed = ref(false)
+// 左栏配置卡显示控制：true = 显示（初始/开始新创作），false = 隐藏（生成后）
+const configPanelVisible = ref(true)
 
 // Agent 链路
 const showAgentTrace = ref(true)   // 默认展开（时间线节点本身已展示关键信息，详情按需展开）
@@ -1319,14 +1437,25 @@ const onGoHistory = () => {
   }
 }
 const onStartNew = () => {
+  // 关闭完成态弹窗
   doneDrawerVisible.value = false
+  // 弹一次确认窗（用户确认后直接重置状态，不再二次弹窗）
   ElMessageBox.confirm(
     '开始新创作将清空当前草稿与表单，确定继续？',
     '开始新创作',
     { type: 'warning', confirmButtonText: '开始新创作', cancelButtonText: '取消' }
   )
     .then(() => {
-      onDiscardDraft()
+      // 直接重置（不再调用 onDiscardDraft，避免二次弹窗）
+      currentDraft.value = null
+      draftEditingVersion.value = null
+      selectedChannels.value = []
+      stage2Completed.value = false
+      activeStep.value = -1
+      showAgentTrace.value = false
+      localStorage.removeItem(DRAFT_STORAGE_KEY)
+      // 恢复左栏配置卡（生成前显示，生成后隐藏）
+      configPanelVisible.value = true
     })
     .catch(() => {})
 }
@@ -1418,7 +1547,7 @@ const stepDefs = [
     summary: '选择 1 个最符合预期的初稿，进入下一步'
   },
   {
-    title: '编辑与渠道',
+    title: '编辑与渠道适配',
     desc: '改内容 · 选渠道',
     summary: '编辑选定初稿，并选择发布渠道'
   },
@@ -1445,10 +1574,38 @@ const canJumpTo = (i) => {
 }
 
 const onStepJump = (i) => {
-  if (!canJumpTo(i)) return
-  // 仅支持回退到阶段 0（已选定草稿进入 1/2 后，要回 0 需要保存当前版本）
-  ElMessage.info(`已切回：${stepDefs[i].title}`)
-  draftStep.value = i
+  // 禁用未达成的阶段
+  if (i > draftStep.value && !(i === 2 && stage2Completed.value)) {
+    ElMessage.info(`请先完成：${stepDefs[draftStep.value].title}`)
+    return
+  }
+  // 阶段 2 已完成时不允许再跳回
+  if (i === 2 && stage2Completed.value) {
+    ElMessage.info('已完成的工作不能修改')
+    return
+  }
+  // 向前跳（已完成 → 当前）：可点击
+  if (i < draftStep.value && currentDraft.value) {
+    // 回退到阶段 0：提示需保存当前编辑
+    if (i === 0) {
+      ElMessageBox.confirm(
+        '回到阶段 1/2 的编辑内容将不会保存，确定继续？',
+        '回到生成初稿',
+        { type: 'warning', confirmButtonText: '确定回到', cancelButtonText: '取消' }
+      )
+        .then(() => {
+          draftStep.value = i
+          ElMessage.info(`已切回：${stepDefs[i].title}`)
+        })
+        .catch(() => {})
+      return
+    }
+    // 阶段 0 → 1 之间回退
+    draftStep.value = i
+    ElMessage.info(`已切回：${stepDefs[i].title}`)
+    return
+  }
+  // 点击当前阶段无反应
 }
 
 const confirmDiscard = () => {
@@ -1461,15 +1618,63 @@ const confirmDiscard = () => {
     .catch(() => {})
 }
 
+// ========== 场景图标/配色：与 templates 页面完全一致 ==========
+// 参考：src/views/sxk/templates/index.vue 第 232-253 行
+
+// 内置场景 → 图标映射（按 scene_code 匹配）
 const SCENE_ICON_MAP = {
-  product_intro: Box,
-  competitor: TrendCharts,
+  product_intro: Document,
+  competitor: PieChart,
   channel_adapt: Share,
   email: Message,
   event: Promotion,
   other: Document
 }
+
+// 内置场景 → 配色（按 scene_code 匹配）
+const SCENE_COLOR_MAP = {
+  product_intro: { bg: '#eff6ff', color: '#2563eb' },
+  competitor:    { bg: '#fff7ed', color: '#ea580c' },
+  channel_adapt: { bg: '#f0fdf4', color: '#16a34a' },
+  email:         { bg: '#faf5ff', color: '#9333ea' },
+  event:         { bg: '#fee2e2', color: '#dc2626' }
+}
+
+// 按场景名称关键词匹配图标+配色（顺序优先）
+const SCENE_STYLE_RULES = [
+  { keywords: ['banner', '官网', '首页'],          icon: Monitor,      bg: '#eff6ff', color: '#2563eb' },  // 蓝
+  { keywords: ['产品介绍', '产品功能', '白皮书'],     icon: Histogram,    bg: '#f0fdf4', color: '#16a34a' },  // 绿
+  { keywords: ['竞品', '对比', '竞争'],              icon: TrendCharts,  bg: '#fff7ed', color: '#ea580c' },  // 橙
+  { keywords: ['案例', '客户', '成功'],              icon: Medal,        bg: '#faf5ff', color: '#9333ea' },  // 紫
+  { keywords: ['ppt', '演示', '大纲', '路演'],       icon: Film,         bg: '#fee2e2', color: '#dc2626' },  // 红
+  { keywords: ['社交', '媒体', '帖子', '传播'],       icon: ChatDotRound, bg: '#ecfdf5', color: '#059669' },  // 翠绿
+  { keywords: ['邮件', 'email', 'edm'],             icon: Message,      bg: '#fffbeb', color: '#d97706' },  // 琥珀
+  { keywords: ['活动', 'event', '推广'],            icon: Promotion,    bg: '#fef2f2', color: '#e11d48' }   // 玫红
+]
+
+const SCENE_FALLBACK_STYLE = { icon: Document, bg: '#f1f5f9', color: '#475569' }  // slate
+
+// 获取场景样式：先按 scene_code 匹配，再按名称关键词匹配，最后 fallback
+function getSceneStyle(sceneCode, sceneName = '') {
+  // 1) 先按 code 匹配
+  if (SCENE_ICON_MAP[sceneCode]) {
+    const c = SCENE_COLOR_MAP[sceneCode] || SCENE_FALLBACK_STYLE
+    return { icon: SCENE_ICON_MAP[sceneCode], bg: c.bg, color: c.color }
+  }
+  // 2) 按名称关键词匹配
+  const name = (sceneName || '').toLowerCase()
+  for (const rule of SCENE_STYLE_RULES) {
+    if (rule.keywords.some((kw) => name.includes(kw.toLowerCase()))) {
+      return { icon: rule.icon, bg: rule.bg, color: rule.color }
+    }
+  }
+  // 3) fallback
+  return { ...SCENE_FALLBACK_STYLE }
+}
+
+// 向后兼容：只获取图标
 function getSceneIcon(sceneCode) {
+  // 这里没有名称，需调用 getSceneStyle
   return SCENE_ICON_MAP[sceneCode] || Document
 }
 
@@ -1486,8 +1691,21 @@ const draftStep = computed(() => {
 })
 
 const stepTitle = computed(() => {
-  return ['生成初稿', '编辑与渠道', '配图与保存'][draftStep.value]
+  return ['生成初稿', '编辑与渠道适配', '配图与保存'][draftStep.value]
 })
+
+// el-card 整体样式：用 calc 锁死高度（不依赖父级传递，最稳）
+// element-plus el-card 默认 { display: flex; flex-direction: column; overflow: hidden }
+// el-card__body 默认 { flex-grow: 1; overflow: auto }
+// 锁死 el-card 高度后：body 自动撑满 + 滚动，footer 自动在底部
+const cardScrollStyle = computed(() => ({
+  height: 'calc(100vh - 200px)',  // 浏览器高度 - 顶部(100) - 右栏头(60) - 底部留白(40)
+  display: 'flex',
+  flexDirection: 'column'
+}))
+
+// 当前阶段的操作提示（与 stepDefs 的 summary 一致）
+const stageSubtitleText = computed(() => stepDefs[draftStep.value]?.summary || '')
 
 const bodyCharCount = computed(() => (draftEditingVersion.value?.body || '').length)
 
@@ -1742,6 +1960,8 @@ async function onTrigger() {
     activeStep.value = -1
     showAgentTrace.value = false
     localStorage.setItem(DRAFT_STORAGE_KEY, resp.data.id)
+    // 生成成功后，隐藏左栏配置卡（让右栏占满主区）
+    configPanelVisible.value = false
     ElMessage.success('已生成 ' + (resp.data.draft_versions?.length || 0) + ' 个初稿')
   } catch (e) {
     ElMessage.error('创建草稿失败：' + (e?.message || '未知错误'))
@@ -1781,7 +2001,7 @@ async function onSelectDraftVersion(v) {
     currentDraft.value = resp.data
     draftEditingVersion.value = JSON.parse(JSON.stringify(resp.data.selected_version || v))
     selectedChannels.value = []
-    ElMessage.success('已选定，进入编辑与渠道')
+    ElMessage.success('已选定，进入编辑与渠道适配')
   } catch (e) {
     ElMessage.error('选定失败：' + (e?.message || '未知错误'))
   } finally {
@@ -1897,6 +2117,8 @@ async function loadDraft(draftId) {
     throw new Error(resp.msg || '草稿不存在')
   }
   currentDraft.value = resp.data
+  // 加载草稿后，隐藏左栏配置卡（已进入阶段 0/1/2）
+  configPanelVisible.value = false
   if (resp.data.selected_version) {
     draftEditingVersion.value = JSON.parse(JSON.stringify(resp.data.selected_version))
   }
@@ -1931,6 +2153,8 @@ async function loadHistoryAsContext(gid) {
       validation: { validated: gen.validated, issues: [] },
       history_id: gid
     }
+    // 从历史记录恢复：隐藏左栏配置卡（已进入阶段 2）
+    configPanelVisible.value = false
     draftVersionIndex.value = '1'
     adaptVersionIndex.value = '1'
   } catch (e) {
@@ -2026,21 +2250,73 @@ void renderMarkdown
   display: flex;
   gap: $spacing-md;
   align-items: stretch;
+  // 高度 = 浏览器可用高度
+  // - 100px: 顶部 navbar + 面包屑 + 上 padding
+  // - 16px: 页面底部留白（紧凑）
+  // = 浏览器 - 116px
+  height: calc(100vh - 116px);
+  min-height: 520px; // 极小屏时仍保留可读性
+  max-height: calc(100vh - 100px); // 不超过浏览器可视区
+  overflow: hidden; // 防止整体页面滚动
 
   @media (max-width: 1100px) {
     flex-direction: column;
+    height: auto; // 移动端不锁高度
+    min-height: auto;
   }
 }
 
-// ---------- 左栏：生成配置 + 阶段指示 ----------
+// ---------- 左栏：生成配置 + 阶段指示（全宽撑满 + 固定高度 + 内部滚动） ----------
 .sxk-generate__config {
-  flex: 0 0 380px;
-  align-self: flex-start;
+  // 卡片宽度：撑满整个父容器（不限制最大宽度）
+  flex: 1 1 auto;
+  width: 100%;
+  // 关键：撑满父容器高度（让内部可滚动）
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  // 固定高度 = 父级（动态跟随浏览器尺寸变化）
+  height: 100%;
+  min-height: 0;
+  // 让 basic-block 自身撑满
+  :deep(.basic-block) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  :deep(.basic-block__body) {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0%;
+    min-height: 0;
+  }
+  // 关键：basic-block__body 内的 el-form 撑满 + 独立滚动
+  :deep(.basic-block__body) > .el-form {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    // 滚动条与文字保持距离
+    padding-right: 20px;
+    // 自定义滚动条（10px 深色）
+    &::-webkit-scrollbar {
+      width: 10px;
+      background-color: rgba(0, 0, 0, 0.04);
+    }
+    &::-webkit-scrollbar-thumb {
+      background: $text-placeholder;
+      border-radius: 5px;
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+  }
   @media (max-width: 1100px) {
-    flex: 1 1 auto;
+    max-width: 100%;
   }
   :deep(.basic-block__header) {
     padding-bottom: $spacing-md;
+    flex-shrink: 0;
   }
 }
 
@@ -2077,6 +2353,108 @@ void renderMarkdown
     color: $text-secondary;
     line-height: 1.4;
   }
+}
+
+// 右栏子标题（当前阶段操作提示）
+.sxk-generate__main-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  line-height: 1.5;
+}
+.sxk-generate__main-subtitle-icon {
+  color: $primary-color;
+  font-size: 14px;
+}
+
+// 右栏三阶段分段指示（segmented）
+.sxk-generate__main-segments {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  padding: 6px;
+  background: $bg-hover;
+  border-radius: $radius-md;
+}
+.sxk-generate__main-segment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: $bg-card;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  position: relative;
+  overflow: hidden;
+  &.is-active {
+    background: $primary-color;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(26, 86, 219, 0.18);
+    .sxk-generate__main-segment-no {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      border-color: transparent;
+    }
+    .sxk-generate__main-segment-title,
+    .sxk-generate__main-segment-desc {
+      color: #fff;
+    }
+  }
+  &.is-done:not(.is-active) {
+    .sxk-generate__main-segment-no {
+      background: $primary-color-light;
+      color: $primary-color;
+      border-color: $primary-color-light;
+    }
+  }
+  &.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  &:not(.is-disabled):hover {
+    background: $primary-color-light;
+  }
+  &.is-active:hover {
+    background: $primary-color;
+  }
+}
+.sxk-generate__main-segment-no {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: $bg-card;
+  border: 1px solid $border-base;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: $text-secondary;
+  transition: all 0.18s ease;
+  .el-icon {
+    font-size: 14px;
+  }
+}
+.sxk-generate__main-segment-title {
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: $text-primary;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.sxk-generate__main-segment-desc {
+  font-size: $font-size-xs;
+  color: $text-secondary;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 // ---------- 阶段指示器 ----------
@@ -2254,7 +2632,8 @@ void renderMarkdown
 // 场景网格（2 列卡片）
 .sxk-generate__scene-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  // 自适应列：最小 180px，最大自动填充
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: $spacing-sm;
   width: 100%;
 }
@@ -2273,10 +2652,27 @@ void renderMarkdown
   position: relative;
   overflow: hidden;
 
+  // 场景图标：与 templates 页面 tplColor 一致
+  // 圆形背景 + 主色（CSS 变量由 template 注入）
+  .sxk-generate__scene-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-round;
+    background: var(--scene-bg);        // 智能匹配的浅色背景
+    color: var(--scene-color);          // 智能匹配的主色
+    transition: all 0.18s ease;
+  }
+
   &:hover {
     border-color: $primary-color-light;
     background: $bg-hover;
     transform: translateY(-1px);
+    .sxk-generate__scene-icon {
+      transform: scale(1.08);
+    }
   }
   &.is-active {
     border-color: $primary-color;
@@ -2284,7 +2680,9 @@ void renderMarkdown
     color: #fff;
     box-shadow: 0 4px 12px rgba(26, 86, 219, 0.3);
 
+    // 选中态：图标背景白色半透，图标主色保持
     .sxk-generate__scene-icon {
+      background: rgba(255, 255, 255, 0.2);
       color: #fff !important;
     }
   }
@@ -2295,6 +2693,55 @@ void renderMarkdown
   text-align: center;
   line-height: 1.3;
   color: inherit;
+}
+
+// 表单整体（更紧凑、更专业）
+.sxk-generate__form {
+  // 表单行（横向布局）
+  &-row {
+    display: flex;
+    gap: $spacing-md;
+    margin-bottom: 0;
+    // 2 列布局（产品 + 模板）
+    &--2col > * {
+      flex: 1 1 0%;
+      min-width: 0;
+    }
+  }
+  // 全宽控件 class
+  &-full {
+    width: 100%;
+  }
+}
+// 动态参数 2 列网格
+.sxk-generate__params-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0 $spacing-md;
+  // 移动端：1 列
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+.sxk-generate__params-item {
+  // form-item 内部边距调整
+  margin-bottom: $spacing-md;
+  :deep(.el-form-item__label) {
+    font-weight: 500;
+  }
+}
+// 提交按钮区（居中）
+.sxk-generate__submit-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: $spacing-lg;
+  padding-top: $spacing-md;
+  border-top: 1px dashed $border-light;
+  .sxk-generate__submit-tip {
+    margin-top: $spacing-sm;
+    text-align: center;
+  }
 }
 
 .sxk-generate__params-title {
@@ -2367,36 +2814,261 @@ void renderMarkdown
 // ---------- 右栏：主区域 ----------
 .sxk-generate__main {
   flex: 1 1 auto;
-  min-height: 600px;
+  min-height: 0; // 关键：flex 子项可滚动
+  display: flex; // 让内部 stage 撑满
+  flex-direction: column;
+  // 减少 basic-block 内边距：让卡片与页面底部更紧凑
+  :deep(.basic-block) {
+    padding: $spacing-md $spacing-lg $spacing-sm; // 上 16 / 左右 24 / 下 8
+  }
+  // basic-block 内部 __body 撑满
+  :deep(.basic-block__body) {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  // 关键：basic-block__body 内的 el-form 撑满 + 独立滚动（初始页面）
+  :deep(.basic-block__body) > .el-form {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    // 美化滚动条
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-thumb {
+      background: $text-placeholder;
+      border-radius: $radius-sm;
+    }
+    &::-webkit-scrollbar-track { background: rgba(0,0,0,0.04); }
+  }
+  // 引导卡片（无 currentDraft）时，也支持滚动
+  :deep(.basic-block__body) > .sxk-generate__guide {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    &::-webkit-scrollbar { width: 8px; }
+  }
 }
 
-.sxk-generate__empty {
-  padding: 80px 0;
+// 引导卡片（替代原空状态）——分步进度 + 智能提示
+.sxk-generate__guide {
   display: flex;
   flex-direction: column;
-  align-items: center;
-}
-.sxk-generate__empty-icon {
-  width: 80px;
-  height: 80px;
-  border-radius: $radius-round;
-  background: $gray-100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: $spacing-lg;
+  padding: $spacing-lg 0;
+  // 顶部欢迎区
+  &-hero {
+    text-align: center;
+    padding: $spacing-md 0 $spacing-lg;
+    .el-icon {
+      background: rgba(26, 86, 219, 0.1);
+      padding: 16px;
+      border-radius: $radius-round;
+      margin-bottom: $spacing-md;
+    }
+  }
+  &-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: $text-primary;
+    margin: 0 0 $spacing-xs;
+    letter-spacing: 0.5px;
+  }
+  &-subtitle {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    margin: 0;
+    line-height: 1.6;
+  }
+  // 分步进度
+  &-steps {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    padding: 0 $spacing-md;
+  }
+  &-step {
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    padding: $spacing-md;
+    border-radius: $radius-md;
+    background: $gray-50;
+    transition: all 0.18s ease;
+    // 连接线（非最后一个）
+    &:not(:last-child)::after {
+      content: "";
+      position: absolute;
+      left: 32px;
+      top: 100%;
+      width: 2px;
+      height: $spacing-md;
+      background: $border-light;
+    }
+    position: relative;
+    &.is-active {
+      background: rgba(26, 86, 219, 0.08);
+      box-shadow: 0 0 0 1px rgba(26, 86, 219, 0.2);
+      .sxk-generate__guide-step-no {
+        background: #1A56DB;
+        color: #fff;
+        box-shadow: 0 0 0 4px rgba(26, 86, 219, 0.15);
+      }
+    }
+  }
+  &-step-no {
+    width: 28px;
+    height: 28px;
+    border-radius: $radius-round;
+    background: $gray-200;
+    color: $text-secondary;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    flex-shrink: 0;
+    transition: all 0.18s ease;
+  }
+  &-step-body {
+    flex: 1;
+    min-width: 0;
+  }
+  &-step-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: 2px;
+  }
+  &-step-desc {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+  // 底部小贴士
+  &-tips {
+    margin: 0 $spacing-md;
+    padding: $spacing-md;
+    background: linear-gradient(135deg, rgba(26, 86, 219, 0.04) 0%, rgba(26, 86, 219, 0.08) 100%);
+    border-radius: $radius-md;
+    border-left: 3px solid #1A56DB;
+  }
+  &-tip-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1A56DB;
+    margin-bottom: $spacing-sm;
+    .el-icon {
+      font-size: 14px;
+    }
+  }
+  &-tip-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    li {
+      position: relative;
+      padding-left: 16px;
+      font-size: 12px;
+      color: $text-secondary;
+      line-height: 1.8;
+      &::before {
+        content: "•";
+        position: absolute;
+        left: 4px;
+        color: #1A56DB;
+        font-weight: bold;
+      }
+    }
+  }
 }
 
 // ---------- 阶段化容器 ----------
 .sxk-generate__stage {
   display: flex;
   flex-direction: column;
+  flex: 1; // 占满 main 剩余高度
+  min-height: 0; // 关键：flex 子项可滚动
   gap: $spacing-md;
+  // 阶段顶部加视觉分隔（让用户知道进入了新阶段）
+  padding-top: 4px;
+}
+
+// 阶段 0 行布局：左 Agent 链路（窄/竖向） + 右 初稿对比（主区）
+// 两栏卡片占满父容器高度（动态跟随浏览器尺寸）
+// ★ 阶段 1（编辑与渠道适配）共用此布局：左侧编辑内容 + 右侧发布渠道
+.sxk-generate__stage0-row,
+.sxk-generate__stage1-row {
+  align-items: stretch;
+  height: 100%; // 跟随父级 stage
+  min-height: 0;
+  > [class*='el-col'] {
+    height: 100%; // 让 el-col 高度 = row 高度
+    .sxk-generate__card {
+      height: 100% !important; // 跟随 col（覆盖 inline style 的 calc）
+      min-height: 0;
+    }
+  }
+}
+
+// Agent 链路卡片（左侧窄栏专用）
+.sxk-generate__card-trace {
+  :deep(.el-card__header) {
+    padding: 12px 14px;
+  }
+  :deep(.el-card__body) {
+    padding: 8px 12px 14px;
+  }
+}
+.sxk-generate__stage-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(26, 86, 219, 0.04), rgba(26, 86, 219, 0.01));
+  border-left: 3px solid $primary-color;
+  border-radius: 0 $radius-md $radius-md 0;
+  &-no {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: $radius-round;
+    background: $primary-color;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  &-info {
+    flex: 1;
+    min-width: 0;
+  }
+  &-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    line-height: 1.4;
+  }
+  &-desc {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+    line-height: 1.4;
+    margin-top: 2px;
+  }
+  &-actions {
+    flex-shrink: 0;
+  }
 }
 
 .sxk-generate__card {
   border: 1px solid $border-base;
   border-radius: $radius-lg;
   transition: box-shadow 0.2s ease;
+  // 关键：保留底部边框线条 + 轻微阴影（让卡片"浮起"）
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   :deep(.el-card__header) {
     padding: 14px $spacing-md;
     border-bottom-color: $border-light;
@@ -2405,6 +3077,33 @@ void renderMarkdown
   }
   :deep(.el-card__body) {
     padding: $spacing-md;
+  }
+  // 可滚动卡片：固定高度 + 内部 body 滚动（body 样式由 :body-style 传递）
+  &.is-scrollable {
+    // 让 body 内部用 flex column：版本卡墙固定 + 预览区独立滚动
+    :deep(.el-card__body) {
+      display: flex !important;
+      flex-direction: column !important;
+      // 滚动条样式（10px 深色更醒目）
+      &::-webkit-scrollbar {
+        width: 10px;
+        background-color: rgba(0, 0, 0, 0.04);
+      }
+      &::-webkit-scrollbar-thumb {
+        background: $text-placeholder;
+        border-radius: 5px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+        &:hover {
+          background: $text-regular;
+          background-clip: padding-box;
+        }
+      }
+      &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 5px;
+      }
+    }
   }
   &.is-clean {
     border: none;
@@ -2416,6 +3115,38 @@ void renderMarkdown
     }
     :deep(.el-card__body) {
       padding: $spacing-sm 0 0;
+    }
+  }
+  // 阶段 2 横向布局：卡墙在左 + 文档在右
+  &.sxk-generate__card-horizontal {
+    :deep(.el-card__body) {
+      // 关键：横向 flex + 不换行
+      display: flex !important;
+      flex-direction: row !important;
+      // 关键：内部可滚动
+      min-height: 0;
+    }
+    // 渠道卡墙：左列，固定宽度
+    .sxk-generate__channel-wall {
+      flex: 0 0 280px;          // 固定 280px
+      flex-direction: column;   // 改为纵向（卡墙在左侧一列）
+      min-width: 0;
+      margin-right: $spacing-md;
+      margin-bottom: 0;
+      // 关键：加右边界作为分隔线（用户要求分隔左右两边）
+      padding-right: $spacing-md;
+      border-right: 1px solid $border-base;
+      // 内部卡片纵向排
+      .sxk-generate__version-card {
+        flex: 0 0 auto;         // 纵向时不展开
+      }
+    }
+    // 文档预览/编辑：右列，撑满剩余
+    .sxk-generate__version-preview {
+      flex: 1 1 0%;
+      min-width: 0;
+      min-height: 0;
+      // 内部还保持 flex column
     }
   }
 }
@@ -2449,10 +3180,14 @@ void renderMarkdown
   display: flex;
   align-items: center;
   gap: 10px;
-  flex: 1;
+  flex: 0 1 auto; // 允许收缩（让出空间给 stats）
   min-width: 0;
   cursor: pointer;
   user-select: none;
+  // 让内部 b 标题不换行
+  > b {
+    white-space: nowrap;
+  }
 }
 // 头部右侧
 .sxk-generate__trace-right {
@@ -2501,13 +3236,20 @@ void renderMarkdown
 
 // 链路统计胶囊
 .sxk-generate__trace-stats {
-  display: flex;
-  gap: 8px;
-  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin-left: auto; // 推到右侧（与"校验通过/有待完善"对齐）
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .sxk-generate__trace-stat {
   display: inline-flex;
   align-items: center;
+  flex-direction: row;
+  flex-wrap: nowrap;
   gap: 3px;
   padding: 2px 8px;
   font-size: 11px;
@@ -2515,6 +3257,8 @@ void renderMarkdown
   background: $gray-100;
   border-radius: 999px;
   font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
   .el-icon { font-size: 11px; }
   &.is-success {
     color: #047857;
@@ -2527,12 +3271,14 @@ void renderMarkdown
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 10px 2px 8px;
+  padding: 2px 8px;
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 500;
   line-height: 1.5;
   border: 1px solid transparent;
+  white-space: nowrap;
+  flex-shrink: 0;
 
   &-dot {
     width: 6px;
@@ -2553,83 +3299,169 @@ void renderMarkdown
   }
 }
 
-// ============ Agent 横向时间线 ============
+// ============ Agent 时间线（侧栏竖向布局：阶段 0 左栏用） ============
+// 时间线主容器：竖直排列节点
 .sxk-generate__timeline {
   display: flex;
-  align-items: flex-start;
-  padding: 4px 0 12px;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 6px 0 4px;
   gap: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow-x: visible;
 }
+// 每个节点：水平排列（圆点 + 文字）
 .sxk-generate__tl-node {
   position: relative;
-  flex: 1 1 0;
-  min-width: 90px;
+  flex: 0 0 auto;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  flex-direction: row;
+  align-items: flex-start; // 圆点与文字顶部对齐
+  gap: 12px;
   cursor: pointer;
-  padding: 4px 4px 0;
-  transition: all 0.18s ease;
+  padding: 12px 10px 32px 6px; // 加大底部 32px 给箭头充足空间（防止被下节点 hover 挡住）
+  border-radius: $radius-md;
+  transition: all 0.2s ease;
   user-select: none;
+  // 节点内部层级：让 line/箭头始终在最上层（不被 hover 背景覆盖）
+  > .sxk-generate__tl-line {
+    z-index: 2;
+  }
 
+  &:hover {
+    background: $primary-color-light;
+    transform: translateX(2px); // 节点 hover 轻微右移（动效）
+  }
   &:hover .sxk-generate__tl-dot {
-    transform: scale(1.08);
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px $primary-color, 0 4px 12px rgba(26, 86, 219, 0.3);
   }
   &:hover .sxk-generate__tl-info {
     color: $text-primary;
   }
 
-  &.is-active .sxk-generate__tl-info {
-    .sxk-generate__tl-name {
-      color: $primary-color;
-      font-weight: 600;
+  &.is-active {
+    background: $primary-color-light;
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 12px;
+      bottom: 20px;
+      width: 3px;
+      background: $primary-color;
+      border-radius: 0 2px 2px 0;
+    }
+    .sxk-generate__tl-info {
+      .sxk-generate__tl-name {
+        color: $primary-color;
+        font-weight: 600;
+      }
+    }
+    .sxk-generate__tl-dot {
+      box-shadow: 0 0 0 2px $primary-color, 0 0 0 6px rgba(26, 86, 219, 0.15);
     }
   }
 }
-// 连接线（节点之间的虚/实线）
+// 连接线 + 箭头（竖向布局：粗轨道 + 大箭头 + 完成段流动动画）
+@keyframes sxk-flow {
+  0%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+    filter: drop-shadow(0 2px 4px rgba(26, 86, 219, 0.6));
+  }
+  50% {
+    transform: translateX(-50%) scale(1.4);
+    opacity: 0.85;
+    filter: drop-shadow(0 3px 8px rgba(26, 86, 219, 0.8));
+  }
+}
 .sxk-generate__tl-line {
   position: absolute;
-  top: 17px;
-  left: calc(50% + 18px);
-  right: calc(-50% + 18px);
-  height: 2px;
-  z-index: 0;
+  top: 46px; // 圆点底部（12 padding + 40 圆点 = 52，调整到 46 让轨道更紧凑）
+  left: 23px; // 圆点 40px center = 20px + padding 6px - 3px(轨道宽 4 半) ≈ 23px
+  width: 4px; // 加粗轨道
+  height: 16px; // 轨道长度
+  z-index: 2; // 提高层级：不被下节点 hover 背景挡住
+  pointer-events: none; // 关键：不让箭头拦截鼠标事件，避免被点击/遮挡
+  background: $border-base; // 默认灰色
+  border-radius: 2px;
 
-  .is-success + &,
-  .is-success.is-active + & {
-    background: linear-gradient(
-      90deg,
-      $primary-color 0%,
-      $primary-color 100%
-    );
+  // 三角箭头 ▼（CSS border 技巧）—— 更大更明显
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%; // 紧贴轨道底部
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 9px solid transparent;    // 加大
+    border-right: 9px solid transparent;
+    border-top: 12px solid $border-base;  // 更高（12px）
+    transition: border-top-color 0.2s ease, transform 0.2s ease;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
   }
-  .is-warning + & {
+
+  // 节点 hover：箭头放大（高亮）
+  .sxk-generate__tl-node:hover > & {
+    &::after {
+      border-left-width: 11px;
+      border-right-width: 11px;
+      border-top-width: 14px;
+    }
+  }
+
+  // 成功状态：粗线 + 大箭头 + 流动动画（深蓝加强）
+  // 箭头颜色反映"包含它的节点"的状态（节点成功 → 之后箭头蓝色）
+  .is-success > &,
+  .is-success.is-active > & {
+    background: linear-gradient(180deg, #0c3a91 0%, #1a56db 100%); // 深蓝渐变
+    box-shadow: 0 0 8px rgba(12, 58, 145, 0.55);
+    &::after {
+      border-top-color: #0c3a91; // 深蓝
+      animation: sxk-flow 1.6s ease-in-out infinite; // 流动呼吸
+    }
+  }
+  // 警告状态
+  .is-warning > & {
     background: $warning-color;
-    opacity: 0.4;
+    &::after {
+      border-top-color: $warning-color;
+    }
   }
-  .is-error + & {
+  // 错误状态
+  .is-error > & {
     background: $danger-color;
-    opacity: 0.4;
+    &::after {
+      border-top-color: $danger-color;
+    }
   }
-  .is-wait + &, .is-pending + & {
+  // 等待/pending 状态：虚线
+  .is-wait > &, .is-pending > & {
     background: repeating-linear-gradient(
-      90deg,
+      180deg,
       $border-base 0,
       $border-base 4px,
       transparent 4px,
       transparent 8px
     );
+    &::after {
+      border-top-color: $border-base;
+    }
+  }
+
+  // 竖向布局：最后一个节点后不需要连接线
+  .sxk-generate__tl-node:last-child > & {
+    display: none;
   }
 }
-// 节点圆点
+// 节点圆点（带进度环 + 状态外圈）
 .sxk-generate__tl-dot {
   position: relative;
   z-index: 1;
-  width: 36px;
-  height: 36px;
+  width: 40px;             // 加大
+  height: 40px;            // 加大
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -2640,7 +3472,20 @@ void renderMarkdown
   background: $gray-100;
   color: $text-placeholder;
   border: 2px solid $bg-card;
-  box-shadow: 0 0 0 1px $border-base;
+  // 外环：默认 2px 灰色（未到达的步骤感）
+  box-shadow: 0 0 0 2px $border-base;
+  flex-shrink: 0;
+  // 中心环：进度感
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: inherit;
+    z-index: 0;
+  }
+  // 内部图标/数字层级
+  > * { position: relative; z-index: 1; }
 
   .is-success & {
     background: $primary-color;
@@ -2672,26 +3517,30 @@ void renderMarkdown
   font-weight: 600;
 }
 .sxk-generate__tl-info {
-  text-align: center;
+  text-align: left;
   transition: color 0.18s ease;
   max-width: 100%;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   overflow: hidden;
 }
 .sxk-generate__tl-name {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
   color: $text-regular;
-  line-height: 1.3;
+  line-height: 1.4;
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
-  max-width: 90px;
+  max-width: 100%;
 }
 .sxk-generate__tl-time {
-  font-size: 10.5px;
+  font-size: 11px;
   color: $text-placeholder;
   font-variant-numeric: tabular-nums;
-  margin-top: 1px;
 }
 
 // 折叠时摘要条
@@ -2810,6 +3659,8 @@ void renderMarkdown
   grid-template-columns: repeat(3, 1fr);
   gap: $spacing-md;
   margin-bottom: $spacing-lg;
+  // 关键：版本卡墙不滚动（始终显示）
+  flex-shrink: 0;
 
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
@@ -2930,7 +3781,20 @@ void renderMarkdown
   border: 1px dashed $border-light;
 }
 .sxk-generate__version-preview {
-  animation: fadeInUp 0.25s ease;
+  // 关键：去掉 fadeInUp 动画（用户要求点击卡墙时不要加载动画）
+  // 之前：animation: fadeInUp 0.25s ease;
+  // 关键：预览区独立滚动（仅此区，超出时滚动）
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  // 自定义滚动条
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-thumb {
+    background: $text-placeholder;
+    border-radius: $radius-sm;
+  }
+  &::-webkit-scrollbar-track { background: rgba(0,0,0,0.04); }
 }
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(8px); }
@@ -2988,16 +3852,24 @@ void renderMarkdown
 // ---------- Word 文档式展示 ----------
 .sxk-generate__doc-page {
   background: $bg-card;
-  max-width: 780px;
-  margin: 0 auto;
-  padding: 48px 56px;
+  // 关键：去除 max-width + 居中 → 撑满整行（不被裁切）
+  // 之前：max-width: 780px; margin: 0 auto; → 内容居中显示（用户希望填满整行）
+  // 关键：缩小四周缝隙（用户要求"缩小一点"）
+  margin: 6px;        // ← 从 10px 缩到 6px
+  padding: 24px 36px; // ← 从 32px 48px 缩到 24px 36px
+  // 关键：加深边框（用户要求"加上边框"）
   box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
-  border: 1px solid $border-light;
+  border: 1px solid $border-base;  // ← 从 light 改为 base（更深）
   border-radius: $radius-sm;
   font-family: Georgia, "Times New Roman", "宋体", SimSun, serif;
   color: #1a1a1a;
   line-height: 1.85;
   position: relative;
+  // 关键：flex 撑满 + 内部独立滚动
+  // flex: 1 1 auto + min-height: 0 让 margin 生效
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
   &::before {
     content: "";
     position: absolute;
@@ -3073,13 +3945,14 @@ void renderMarkdown
 }
 .sxk-generate__stage-foot {
   text-align: right;
-  margin-top: $spacing-md;
-  padding-top: $spacing-sm;
-  border-top: 1px dashed $border-light;
+  padding: $spacing-sm $spacing-md;
+  background: $bg-card; // 不透明背景，避免内容穿透
+  border-top: 1px solid $border-light;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   gap: $spacing-sm;
+  flex-shrink: 0; // 关键：不被压缩
   &-tip {
     margin-right: auto;
     font-size: 12px;
@@ -3119,36 +3992,95 @@ void renderMarkdown
 // ---------- 阶段 1：编辑区 + 渠道多选 ----------
 .sxk-generate__edit-title {
   margin-bottom: $spacing-md;
+  flex-shrink: 0; // 标题固定不滚
   :deep(.el-input__wrapper) {
     border-radius: $radius-md;
     background: $gray-50;
     transition: all 0.18s ease;
+    box-shadow: 0 0 0 1px transparent inset;
     &.is-focus {
       background: $bg-card;
-      box-shadow: 0 0 0 1px $primary-color inset !important;
+      box-shadow: 0 0 0 2px $primary-color inset !important;
+    }
+    &.is-hovering:not(.is-focus) {
+      box-shadow: 0 0 0 1px rgba(64, 158, 255, 0.4) inset;
     }
   }
   :deep(.el-input-group__prepend) {
-    background: $primary-color;
-    color: #fff;
+    // 蓝色实色 prepend（与"正文"head 标签的蓝色方条风格保持视觉一致）
+    background-color: #1A56DB !important;
+    color: #fff !important;
+    font-weight: 600;
+    font-size: 14px; // 与"正文"字号一致
+    border-color: #1A56DB !important;
+    padding: 0 18px;
+    letter-spacing: 1px; // 与"正文"字距一致
+    position: relative;
+    // 左侧加白色竖条强调（让 prepend 内部也有"方条装饰"）
+    box-shadow: inset 3px 0 0 rgba(255, 255, 255, 0.4);
+  }
+  :deep(.el-input__inner) {
+    font-size: 15px;
     font-weight: 500;
-    font-size: $font-size-sm;
-    border-color: $primary-color;
   }
 }
 .sxk-generate__edit-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%; // 撑满 body 剩余高度
+  min-height: 0; // flex 子项可滚动
+  // textarea 容器：固定 height（让卡片下方有留白），用户可拖拽
+  :deep(.el-textarea) {
+    flex: 0 1 auto;
+    display: flex;
+    min-height: 0;
+    // 关键：固定 height（让卡片下方有留白）
+    height: 480px;
+    overflow: hidden; // 容器内部滚动
+  }
   :deep(.el-textarea__inner) {
+    flex: 1 1 0%;
     font-size: $font-size-base;
-    line-height: 1.85;
-    font-family: Georgia, "宋体", serif;
+    line-height: 1.9;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Georgia, "宋体", serif;
     border-radius: $radius-md;
-    min-height: 360px;
     padding: $spacing-md;
     background: $gray-50;
     transition: all 0.18s ease;
+    border-color: transparent;
+    color: $text-primary;
+    overflow-y: auto !important;
+    // 用户可拖拽改变高度（不再 !important resize none）
+    resize: vertical;
+    &:hover {
+      border-color: rgba(64, 158, 255, 0.4);
+    }
     &:focus {
       background: $bg-card;
-      box-shadow: 0 0 0 1px $primary-color inset;
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.15), 0 0 0 1px $primary-color inset;
+    }
+  }
+}
+
+// tags 区与 textarea 间距（避免视觉粘连）
+.sxk-generate__edit-tags {
+  margin-top: $spacing-lg; // 与 textarea 拉开距离
+  padding-top: $spacing-md;
+  border-top: 1px solid $border-light;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex-shrink: 0;
+  // tags 区域加底色，与 textarea 区分
+  background: linear-gradient(180deg, transparent 0%, rgba(64, 158, 255, 0.02) 100%);
+  border-radius: 0 0 $radius-md $radius-md;
+  :deep(.el-tag) {
+    border-radius: $radius-sm;
+    transition: all 0.18s ease;
+    cursor: default;
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
     }
   }
 }
@@ -3156,38 +4088,49 @@ void renderMarkdown
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: $font-size-sm;
+  font-size: 14px; // 与"标题"字号一致
   color: $text-regular;
+  font-weight: 500;
   margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px dashed $border-light;
+  padding-bottom: 8px;
+  border-bottom: 1px solid $border-light;
+  // 左侧文字前加蓝色竖条（与"标题"prepend 风格保持一致）
+  & > span:first-child {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 600;
+    color: $text-primary;
+    letter-spacing: 1px; // 与"标题"字距一致
+    &::before {
+      content: "";
+      display: inline-block;
+      width: 3px;
+      height: 14px;
+      // 蓝色实色（与"标题"prepend 保持一致）
+      background: #1A56DB;
+      border-radius: 2px;
+      margin-right: 8px;
+    }
+  }
 }
 .sxk-generate__edit-body-cnt {
-  color: $text-placeholder;
+  color: $text-regular;
   font-size: $font-size-xs;
-  padding: 2px 8px;
-  background: $gray-100;
+  padding: 3px 10px;
+  background: rgba(64, 158, 255, 0.08);
+  color: $primary-color;
   border-radius: 999px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
-.sxk-generate__edit-tags {
-  margin-top: $spacing-sm;
-  padding-top: $spacing-sm;
-  border-top: 1px dashed $border-light;
-}
-
 // ============ 渠道多选（右栏固定高度 + 独立滚动）============
+// 发布渠道卡片（高度由 inline style 锁死，与阶段 0 一致）
 .sxk-generate__channel-pane {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  max-height: calc(100vh - 200px);
-  min-height: 480px;
-  // 让卡片 body 区成为 flex 容器，方便列表占满剩余空间
+  // body 区为 flex column：渠道列表固定 + 底部按钮固定
   :deep(.el-card__body) {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    min-height: 0; // flex 滚动必需
+    display: flex !important;
+    flex-direction: column !important;
     padding: 0;
   }
 }
@@ -3238,6 +4181,18 @@ void renderMarkdown
   display: flex;
   flex-direction: column;
   gap: 8px;
+  // 渠道列表：占满 body 剩余高度 + 独立滚动
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: $spacing-md;
+  // 滚动条
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-thumb {
+    background: $text-placeholder;
+    border-radius: $radius-sm;
+  }
+  &::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.04); }
 }
 
 // 底部 CTA（始终可见）
@@ -3370,6 +4325,8 @@ void renderMarkdown
   padding-top: $spacing-sm;
   margin-top: $spacing-md;
   flex-wrap: wrap;
+  // 关键：固定不滚动（始终可见）
+  flex-shrink: 0;
 }
 .sxk-generate__tools-tip {
   display: inline-flex;
@@ -3442,12 +4399,18 @@ void renderMarkdown
 
 // ---------- 渠道对比卡（阶段 2 横向）----------
 .sxk-generate__channel-wall {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  // 关键：flex 让卡片平分整行（无论几个卡片都填满整行）
+  display: flex;
   gap: 10px;
   margin-bottom: $spacing-md;
+  // 关键：不缩不增
+  flex-shrink: 0;
 }
 .sxk-generate__version-card {
+  // 卡片平分整行（默认）
+  flex: 1 1 0%;
+  min-width: 0;
+  max-width: none;
   padding: 10px 12px;
   border-radius: $radius-md;
   border: 1.5px solid $border-base;
@@ -3458,6 +4421,12 @@ void renderMarkdown
   display: flex;
   flex-direction: column;
   gap: 8px;
+
+  // 阶段 2 横向布局（卡墙在左）时：纵向排列，每张卡撑满
+  .sxk-generate__card-horizontal & {
+    flex: 0 0 auto;
+    width: 100%;
+  }
 
   &:hover {
     border-color: $primary-color-light;
@@ -3568,19 +4537,34 @@ void renderMarkdown
 // ---------- 当前渠道预览容器 ----------
 .sxk-generate__version-preview {
   margin-top: $spacing-sm;
-  animation: fadeInUp 0.25s ease;
+  // 关键：去掉 fadeInUp 动画（用户要求点击卡墙时不要加载动画，只让文档内容变化）
+  // 之前：animation: fadeInUp 0.25s ease;
+  // 关键：内部也是 flex column
+  // - 顶部工具栏 (__channel-toolbar) flex-shrink: 0 → 固定
+  // - 预览/编辑区 (.sxk-generate__doc-page / .sxk-generate__edit-area) flex: 1 + overflow-y: auto → 滚
+  display: flex;
+  flex-direction: column;
+  // 关键：让子元素可以滚
+  min-height: 0;
 }
 
-// 工具栏：渠道名 + 元信息 + 预览/编辑切换
+// 工具栏：仅保留"预览/编辑"切换（不滚动，固定）
 .sxk-generate__channel-toolbar {
   display: flex;
-  justify-content: space-between;
+  // 关键：右对齐（只剩"预览/编辑"切换时让它靠右）
+  justify-content: flex-end;
   align-items: center;
-  padding: 10px 12px;
-  background: $bg-hover;
-  border-radius: $radius-md $radius-md 0 0;
-  border: 1px solid $border-light;
-  border-bottom: none;
+  padding: 6px 12px;
+  // 关键：去掉灰色背景（用户要求）+ 透明背景
+  background: transparent;
+  // 关键：去掉圆角（无背景不需要圆角）
+  border-radius: 0;
+  // 关键：固定不滚动（始终可见）
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  // 关键：去掉边框（无背景 + 无边框更简洁）
+  border: none;
   gap: $spacing-md;
 }
 .sxk-generate__channel-toolbar-left {
@@ -3625,6 +4609,10 @@ void renderMarkdown
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
+  // 关键：flex 撑满 + 内部独立滚动
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
 }
 .sxk-generate__edit-title {
   :deep(.el-input-group__prepend) {

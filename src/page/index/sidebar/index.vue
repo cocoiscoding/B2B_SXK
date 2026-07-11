@@ -20,6 +20,7 @@
         :active-text-color="SIDEBAR_TEXT_ACTIVE"
         :unique-opened="true"
         router
+        @select="onMenuSelect"
       >
         <template v-for="item in menuList" :key="item.path">
           <!-- 单级菜单 -->
@@ -74,6 +75,16 @@ const SIDEBAR_TEXT_ACTIVE = '#ffffff'           // $sidebar-text-active
 const resolvePath = (basePath, childPath) => {
   if (childPath.startsWith('/')) return childPath
   return `/${basePath}/${childPath}`.replace(/\/+/g, '/')
+}
+
+// 菜单点击事件：从侧边栏点击"内容生成"时清空 localStorage 草稿，回到初始空白页
+// 用户场景：完成 3 阶段 → 查看历史 → 返回"内容生成"时，期望重新开始
+const onMenuSelect = (index) => {
+  // index 是菜单项的 :index（可能是完整路径，如 '/sxk/generate/index'）
+  if (typeof index === 'string' && index.includes('generate/index')) {
+    // 关键：清空草稿持久化（让"内容生成"页面重新初始化）
+    localStorage.removeItem('sxk-draft-id')
+  }
 }
 </script>
 
