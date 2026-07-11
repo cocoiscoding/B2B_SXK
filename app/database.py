@@ -13,6 +13,7 @@
 - @contextmanager：把"获取资源 + try/finally 释放资源"的样板代码封装成 with 语句
 - 全局单例连接池：整个应用共享一个连接池，避免反复创建
 """
+import os
 import psycopg2
 from psycopg2.extras import RealDictCursor, Json
 from psycopg2.pool import ThreadedConnectionPool
@@ -21,7 +22,7 @@ from typing import Any, Iterator
 # 从 config.py 导入数据库连接参数
 from config import (
     DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD,
-    DB_MIN_CONN, DB_MAX_CONN,
+    DB_CLIENT_ENCODING, DB_MIN_CONN, DB_MAX_CONN,
 )
 
 # 全局连接池实例，初始为 None，首次使用时才创建（懒加载）
@@ -38,13 +39,17 @@ def _get_pool() -> ThreadedConnectionPool:
     # global 关键字声明我们要修改模块级变量 _pool，而非创建局部变量
     global _pool
     if _pool is None:
+        # 强制设置客户端编码，避免数据库返回的中文错误信息被 psycopg2 以 UTF-8 解码失败
+        os.environ.setdefault("PGCLIENTENCODING", DB_CLIENT_ENCODING)
         # 创建连接池：
         # - DB_MIN_CONN：常驻连接数（启动时就创建）
         # - DB_MAX_CONN：最大连接数（按需扩容到此上限）
+        # - options：在连接上执行 SET client_encoding，确保中文错误信息可正确解码
         _pool = ThreadedConnectionPool(
             DB_MIN_CONN, DB_MAX_CONN,
             host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
             user=DB_USER, password=DB_PASSWORD,
+            options=f"-c client_encoding={DB_CLIENT_ENCODING}",
         )
     return _pool
 
@@ -203,6 +208,7 @@ def init_db() -> None:
                     validated     BOOLEAN      NOT NULL DEFAULT FALSE,
                     issues        JSONB        NOT NULL DEFAULT '[]'::jsonb,
                     feedback      VARCHAR(20),    -- 用户反馈：like / dislike / NULL
+                    feedback_voters JSONB      NOT NULL DEFAULT '{}'::jsonb,  -- 每个成员的反馈 {member_id: like/dislike}，per-user 不覆盖
                     created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 );
 
@@ -241,6 +247,10 @@ def init_db() -> None:
             cur.execute(
                 "ALTER TABLE history ADD COLUMN IF NOT EXISTS feedback VARCHAR(20)"
             )
+            # 团队协作：每个成员的反馈 {member_id: like/dislike}，per-user 不互相覆盖
+            cur.execute(
+                "ALTER TABLE history ADD COLUMN IF NOT EXISTS feedback_voters JSONB NOT NULL DEFAULT '{}'::jsonb"
+            )
             # 加分项：团队协作——产品与历史记录加"创建人"列
             cur.execute(
                 "ALTER TABLE products ADD COLUMN IF NOT EXISTS created_by VARCHAR(20)"
@@ -251,6 +261,10 @@ def init_db() -> None:
             )
             cur.execute(
                 "ALTER TABLE products ADD COLUMN IF NOT EXISTS documents JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+            # 竞品列表：供竞品分析 Agent 自动识别（docx 解析可抽取，前端可维护）
+            cur.execute(
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS competitors JSONB NOT NULL DEFAULT '[]'::jsonb"
             )
             cur.execute(
                 "ALTER TABLE history ADD COLUMN IF NOT EXISTS created_by VARCHAR(20)"
@@ -323,6 +337,21 @@ def init_db() -> None:
                 );
                 """
             )
+            # 竞品分析入库：按 (产品, 竞品) 缓存分析结果，避免每次生成重跑 Tavily+LLM
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS competitor_analyses (
+                    id              VARCHAR(20)  PRIMARY KEY,
+                    product_id      VARCHAR(20)  NOT NULL,
+                    competitor_name VARCHAR(200) NOT NULL,
+                    analysis        JSONB        NOT NULL,
+                    source          VARCHAR(50),
+                    created_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at      TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    UNIQUE (product_id, competitor_name)
+                );
+                """
+            )
         conn.commit()
 
 
@@ -355,7 +384,7 @@ def _parse_json_fields(row: dict, fields: list[str]) -> dict:
     # 这些字段是列表类型，如果为 None 则补成空列表
     list_fields = {"features", "target_customers", "category", "selling_points",
                    "parameters", "versions", "agent_trace", "issues",
-                   "tech_params", "images", "documents"}
+                   "competitors", "images", "documents"}
     for f in fields:
         val = d.get(f)
         if val is None:

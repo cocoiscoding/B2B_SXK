@@ -40,6 +40,10 @@ class AgentContext:
     competitor_info: dict[str, Any] = field(default_factory=dict)   # 竞品分析产物
     # 返工反馈：校验失败时由 orchestrator 写入上次的问题，供 GenerationAgent 下次生成时规避
     feedback_issues: list[str] = field(default_factory=list)
+    # 用户历史偏好：RetrievalAgent 从 history 表查询该产品的点赞/踩记录
+    # {"liked": [{title,body},...], "disliked": [{title,body},...]}
+    # GenerationAgent 据此在 prompt 中注入正例/反例，让 LLM 学习用户偏好
+    feedback_examples: dict[str, list] = field(default_factory=dict)
 
 class BaseAgent:
     """所有 Agent 的抽象基类。

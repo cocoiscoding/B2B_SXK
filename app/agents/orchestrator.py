@@ -14,9 +14,11 @@
 - 单例模式：整个应用只创建一个 Orchestrator 实例
 """
 import uuid
+from typing import Callable
 from psycopg2.extras import Json
-from app.agents.base import AgentContext
+from app.agents.base import AgentContext, BaseAgent
 from app.agents.retrieval_agent import RetrievalAgent
+from app.agents.competitor_agent import CompetitorAgent
 from app.agents.generation_agent import GenerationAgent
 from app.agents.channel_agent import ChannelAgent
 from app.agents.validation_agent import ValidationAgent
@@ -24,6 +26,7 @@ from app.agents.image_agent import ImageAgent
 from app.agents.llm_provider import get_provider
 from app.database import query_one, transaction, _parse_json_fields
 from app.models import GenerateResponse, VersionContent, AgentStep
+from app.seo_analyzer import analyze as seo_analyze
 
 
 class Orchestrator:
@@ -33,13 +36,14 @@ class Orchestrator:
         """初始化：创建 LLM Provider 和 5 个 Agent 实例。"""
         llm = get_provider()
         # 5 个 Agent：检索单跑；生成->渠道->校验可返工重试；文生图最后
-        self.retrieval = RetrievalAgent(llm)    # ① 产品信息检索
-        self.generation = GenerationAgent(llm)  # ② 内容生成
-        self.channel = ChannelAgent(llm)        # ③ 渠道适配
-        self.validation = ValidationAgent(llm)  # ④ 内容校验
-        self.image = ImageAgent(llm)            # ⑤ 文生图配图（加分项）
+        self.retrieval = RetrievalAgent(llm)        # ① 产品信息检索
+        self.competitor = CompetitorAgent(llm)      # ② 竞品分析（仅竞品场景激活）
+        self.generation = GenerationAgent(llm)      # ③ 内容生成
+        self.channel = ChannelAgent(llm)            # ④ 渠道适配
+        self.validation = ValidationAgent(llm)      # ⑤ 内容校验
+        self.image = ImageAgent(llm)                # ⑥ 文生图配图（加分项）
         # 保留 agents 列表便于外部遍历/展示
-        self.agents = [self.retrieval, self.generation, self.channel, self.validation, self.image]
+        self.agents = [self.retrieval, self.competitor, self.generation, self.channel, self.validation, self.image]
 
     def run(self, product_id: str, scenario_id: str, channel: str,
             style: str, params: dict, version_count: int = 3,
@@ -62,7 +66,7 @@ class Orchestrator:
         if not prod_row:
             raise ValueError(f"产品 {product_id} 不存在")
         # _parse_json_fields 处理 JSONB 字段的空值
-        product = _parse_json_fields(prod_row, ["features", "tech_params", "target_customers", "competitors", "selling_points"])
+        product = _parse_json_fields(prod_row, ["features", "target_customers", "selling_points", "competitors"])
 
         sce_row = query_one("SELECT * FROM scenarios WHERE id = %s", (scenario_id,))
         if not sce_row:
@@ -110,7 +114,10 @@ class Orchestrator:
         # ① 检索
         trace.append(self.retrieval.execute(ctx))
 
-        # ②③④ 生成 -> 渠道适配 -> 校验：校验失败则带反馈返工，最多重试 MAX_REGEN 次
+        # ② 竞品分析（仅竞品场景激活，其他场景跳过）
+        trace.append(self.competitor.execute(ctx))
+
+        # ③④⑤⑥ 生成 -> 渠道适配 -> 校验：校验失败则带反馈返工，最多重试 MAX_REGEN 次
         MAX_REGEN = 2    # 返工上限（总生成次数 = 1 + MAX_REGEN = 3）
         validated = False
         issues: list[str] = []
@@ -140,6 +147,19 @@ class Orchestrator:
         # ===== 第 5 步：提取最终版本内容 =====
         # 优先用适配后的 versions，没有则用初稿 draft_versions
         versions = ctx.versions or ctx.draft_versions or []
+
+        # SEO 分析（自动执行，不阻断流程）
+        self._enrich_seo(versions)
+        seo_scores = [v.get("seo", {}).get("score", 0) for v in versions if v.get("seo")]
+        if seo_scores:
+            trace.append({
+                "agent": "SEO 分析",
+                "status": "success",
+                "message": f"已完成 {len(seo_scores)} 个版本的 SEO 分析，评分：{'/'.join(str(s) for s in seo_scores)}",
+                "duration_ms": 0,
+                "output": {"scores": seo_scores},
+            })
+
         version_objs = [
             VersionContent(
                 index=v.get("index", i + 1),
@@ -150,6 +170,7 @@ class Orchestrator:
                 images=v.get("images", []),                                      # 全部配图（前端按小节穿插展示）
                 votes=v.get("votes", {"like": 0, "dislike": 0}),                # A/B 测试票数
                 voters=v.get("voters", {}),                                     # 已投票成员 {id: 方向}
+                seo=v.get("seo"),                                                # SEO 分析结果
             )
             for i, v in enumerate(versions)
         ]
@@ -192,6 +213,20 @@ class Orchestrator:
             issues=issues,
         )
 
+    # ===== SEO 分析富化（深度集成：自动执行，不阻断流程）=====
+
+    def _enrich_seo(self, versions: list[dict]) -> list[dict]:
+        """为每个版本计算 SEO 分析结果，写入 v['seo']。
+
+        纯规则引擎，无 LLM 调用，毫秒级完成。异常不阻断生成流程。
+        """
+        for v in versions:
+            try:
+                v["seo"] = seo_analyze(v.get("title", ""), v.get("body", ""))
+            except Exception:
+                v["seo"] = None
+        return versions
+
     # ===== 多阶段交互式流程（新流程）=====
     # 阶段1 run_draft：检索->生成->校验（只跑一次，不返工）
     # 阶段3 run_adapt：单版本->多渠道适配
@@ -204,7 +239,7 @@ class Orchestrator:
         if not row:
             raise ValueError(f"产品 {product_id} 不存在")
         return _parse_json_fields(
-            row, ["features", "tech_params", "target_customers", "competitors", "selling_points"]
+            row, ["features", "target_customers", "selling_points", "competitors"]
         )
 
     def _load_scenario(self, scenario_id: str, template_id: str | None) -> dict:
@@ -231,11 +266,16 @@ class Orchestrator:
         return scenario
 
     def run_draft(self, product_id: str, scenario_id: str, template_id: str | None,
-                  style: str, params: dict, version_count: int = 3) -> dict:
+                  style: str, params: dict, version_count: int = 3,
+                  on_step: Callable[[dict], None] | None = None) -> dict:
         """阶段1：检索 -> 生成 -> 校验（只跑一次，不返工）。
 
         渠道适配与文生图不在本阶段。校验问题交由前端展示，用户决定是否重新生成。
         返回 {retrieved_info, draft_versions, validation, agent_trace}。
+
+        on_step：可选的流式回调，每个 Agent 执行前/后各推送一次步骤事件
+        （执行前推 {agent, status:"running"}，执行后推完整 step dict）。
+        不传时按原同步行为执行，不影响调用方。
         """
         product = self._load_product(product_id)
         scenario = self._load_scenario(scenario_id, template_id)
@@ -249,20 +289,48 @@ class Orchestrator:
         )
 
         trace: list[dict] = []
+
+        def _emit(step: dict) -> None:
+            """把单个步骤事件推给流式订阅者（无订阅者时为空操作）。"""
+            if on_step:
+                try:
+                    on_step(step)
+                except Exception:
+                    pass    # 回调异常不得影响生成主流程
+
+        def _run(agent: BaseAgent) -> dict:
+            """执行一个 Agent：先推送 running，再执行，最后推送实际步骤。"""
+            _emit({"agent": agent.name, "status": "running"})
+            step = agent.execute(ctx)
+            trace.append(step)
+            _emit(step)
+            return step
+
         # ① 检索
-        trace.append(self.retrieval.execute(ctx))
+        _run(self.retrieval)
         if not ctx.retrieved_info:
             raise ValueError("产品信息检索失败，无法生成")
-        # ② 生成
-        trace.append(self.generation.execute(ctx))
+        # ② 竞品分析（仅竞品场景激活，其他场景跳过）
+        _run(self.competitor)
+        # ③④ 逐版本生成 + 单版本校验 + 重试（每版 1 初试 + 最多 2 次重试）
+        val_output = self._generate_versions_with_retry(ctx, trace, _emit)
         if not ctx.draft_versions:
             raise ValueError("内容生成失败，未产出任何版本")
-        # ③ 校验（只跑一次，不返工）
-        val_step = self.validation.execute(ctx)
-        trace.append(val_step)
-        val_output = val_step.get("output") or {}
-        if not isinstance(val_output, dict):
-            val_output = {"issues": [], "validated": False}
+
+        # SEO 分析（初稿阶段自动执行；纯规则引擎，毫秒级）
+        _emit({"agent": "SEO 分析", "status": "running"})
+        self._enrich_seo(ctx.draft_versions)
+        seo_scores = [v.get("seo", {}).get("score", 0) for v in ctx.draft_versions if v.get("seo")]
+        if seo_scores:
+            seo_step = {
+                "agent": "SEO 分析",
+                "status": "success",
+                "message": f"已完成 {len(seo_scores)} 个初稿版本的 SEO 分析，评分：{'/'.join(str(s) for s in seo_scores)}",
+                "duration_ms": 0,
+                "output": {"scores": seo_scores},
+            }
+            trace.append(seo_step)
+            _emit(seo_step)
 
         return {
             "retrieved_info": ctx.retrieved_info,
@@ -273,6 +341,55 @@ class Orchestrator:
             "scenario_name": scenario["name"],
             "template_name": scenario.get("template_name"),
         }
+
+    def _generate_versions_with_retry(self, ctx: AgentContext, trace: list, emit) -> dict:
+        """逐版本生成：每版独立 生成->校验->重试(最多2次)，结果累加到 ctx.draft_versions。
+
+        每版开始/完成各 emit 一次版本事件，供前端流式展示"版本N·特色 已生成"。
+        返回汇总 {"issues","validated"} 并把校验步骤写入 trace。
+        """
+        version_count = ctx.version_count or 1
+        all_issues: list[str] = []
+        all_validated = True
+        for i in range(version_count):
+            dim = self.generation.dim_for_version(ctx.scenario, i)
+            emit({"kind": "version_start", "index": i + 1, "dim": dim})
+            version, attempts, issues = self._gen_one_with_retry(ctx, i, emit)
+            ctx.draft_versions.append(version)
+            if issues:
+                all_validated = False
+                all_issues.extend(issues)
+            emit({
+                "kind": "version_done", "index": i + 1, "dim": dim,
+                "attempts": attempts, "validated": not issues, "issues": issues,
+            })
+        trace.append({
+            "agent": "内容校验 Agent",
+            "status": "success" if all_validated else "warning",
+            "message": "全部版本校验通过" if all_validated else f"发现 {len(all_issues)} 项需关注的问题",
+            "duration_ms": 0,
+            "output": {"issues": all_issues, "validated": all_validated},
+        })
+        return {"issues": all_issues, "validated": all_validated}
+
+    def _gen_one_with_retry(self, ctx: AgentContext, version_index: int, emit) -> tuple[dict, int, list[str]]:
+        """单个版本：生成->校验，失败带 feedback 重试，最多 3 次尝试（1 初试 + 2 重试）。
+
+        返回 (version, attempts, issues)；issues 为空表示该版本校验通过。
+        """
+        max_attempts = 3
+        last_issues: list[str] = []
+        version: dict = {}
+        for attempt in range(1, max_attempts + 1):
+            ctx.feedback_issues = list(last_issues) if attempt > 1 else []
+            if attempt > 1:
+                emit({"kind": "version_attempt", "index": version_index + 1, "attempt": attempt})
+            version = self.generation.generate_one(ctx, version_index)
+            result = self.validation.validate_single(version, ctx)
+            if result["validated"]:
+                return version, attempt, []
+            last_issues = result["issues"]
+        return version, max_attempts, last_issues
 
     def run_adapt(self, selected_version: dict, channels: list[str],
                   scenario_id: str, template_id: str | None) -> dict:
@@ -288,6 +405,8 @@ class Orchestrator:
         versions, skipped = self.channel.adapt_to_channels(selected_version, channels, scenario)
         if not versions:
             raise ValueError("渠道适配失败：所选渠道均无效")
+        # SEO 分析（适配后的各渠道版本重新评估：渠道适配改变了正文语气/排版，必须重算）
+        self._enrich_seo(versions)
         return {"versions": versions, "skipped": skipped}
 
     def run_images(self, versions: list[dict], scenario_id: str,

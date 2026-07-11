@@ -9,6 +9,7 @@ FastAPI 核心概念：
 - 启动/关闭事件：应用启动时初始化资源（如数据库），关闭时释放资源
 """
 from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -19,12 +20,27 @@ from config import APP_NAME, APP_VERSION, FRONTEND_DIR, LLM_ENABLED, DB_HOST, DB
 from app.database import init_db, close_pool
 # 从 seed_data.py 导入种子数据初始化函数
 from app.seed_data import seed_if_empty
+from app.auth import cleanup_expired_tokens
 # 从 routers 包导入 4 个路由模块
-from app.routers import products, scenarios, generate, history, members, seo, auth, channels, templates, drafts
+from app.routers import products, scenarios, generate, history, members, seo, auth, channels, templates, drafts, competitors
+
+# 应用生命周期：启动时初始化资源，关闭时释放。
+# lifespan 是 FastAPI 推荐方式，替代已废弃的 @app.on_event("startup"/"shutdown")。
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """启动：建表 + 灌种子 + 清理过期黑名单；关闭：释放连接池。"""
+    # ---- 启动 ----
+    init_db()                       # 创建数据库表（如果不存在）
+    seed_if_empty()                 # 如果表为空，插入示例数据
+    cleanup_expired_tokens()        # 清理已过期的 token 黑名单，避免表无限膨胀
+    yield
+    # ---- 关闭 ----
+    close_pool()
+
 
 # 创建 FastAPI 应用实例
 # title 和 version 会显示在自动生成的 API 文档（/docs）中
-app = FastAPI(title=APP_NAME, version=APP_VERSION)
+app = FastAPI(title=APP_NAME, version=APP_VERSION, lifespan=lifespan)
 
 # 添加 CORS 中间件：允许跨域请求
 # CORS = Cross-Origin Resource Sharing，跨域资源共享
@@ -48,22 +64,13 @@ app.include_router(members.router)     # 团队成员（加分项：团队协作
 app.include_router(seo.router)         # SEO 分析（加分项）
 app.include_router(auth.router)        # 用户鉴权（登录/注册/资料）
 app.include_router(channels.router)    # 渠道配置管理
+app.include_router(competitors.router)  # 竞品分析查看/删除（自动入库数据的出入口）
 app.include_router(templates._batch_router)  # 模板批量查询
 
 
 # @app.on_event("startup") 是 FastAPI 的启动事件装饰器
 # 应用启动时自动执行此函数
-@app.on_event("startup")
-def _startup():
-    """应用启动时：初始化数据库表 + 灌入种子数据。"""
-    init_db()           # 创建数据库表（如果不存在）
-    seed_if_empty()     # 如果表为空，插入示例数据
-
-
-@app.on_event("shutdown")
-def _shutdown():
-    """应用关闭时：释放数据库连接池。"""
-    close_pool()
+# ↑ 已迁移到上方 lifespan（on_event 在新版 FastAPI 已废弃）
 
 
 @app.get("/api/health")

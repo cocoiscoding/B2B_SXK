@@ -442,12 +442,20 @@ def _draw_centered(draw, text: str, cx: int, y: int, font, fill) -> None:
     draw.text((max(0, cx - tw // 2), y), text, font=font, fill=fill)
 
 
+# Provider 单例：整个应用共享一个实例，避免每次 embed/chat 新建 httpx.Client
+_provider_instance: LLMProvider | None = None
+
+
 def get_provider() -> LLMProvider:
     """根据配置选择 Provider（单例模式）。
 
     配置了 LLM_API_KEY → 返回真实 LLM Provider
     未配置             → 返回 Mock Provider
     """
-    if LLM_ENABLED:
-        return OpenAICompatibleProvider()
-    return MockLLMProvider()
+    global _provider_instance
+    if _provider_instance is None:
+        if LLM_ENABLED:
+            _provider_instance = OpenAICompatibleProvider()
+        else:
+            _provider_instance = MockLLMProvider()
+    return _provider_instance

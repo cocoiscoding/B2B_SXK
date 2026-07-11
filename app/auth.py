@@ -109,6 +109,15 @@ def revoke_token(token: str, user_id: str) -> None:
         pass  # token 无效则忽略
 
 
+def cleanup_expired_tokens() -> int:
+    """清理已过期的 token 黑名单记录，避免表无限膨胀拖慢每次鉴权的黑名单查询。
+
+    token 过期后本身已不可用，黑名单里留着纯属浪费——每次鉴权都要在这张表上
+    查一次 jti。应用启动时调用一次，返回已清理的行数。
+    """
+    return execute("DELETE FROM token_blacklist WHERE expires_at < NOW()")
+
+
 def get_current_user(token: str = Depends(oauth2_scheme)) -> dict:
     """依赖：从 token 取当前登录用户。
 

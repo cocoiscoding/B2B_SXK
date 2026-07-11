@@ -17,6 +17,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from app.agents.base import BaseAgent, AgentContext
 from app.agents.llm_provider import LLMProvider
+from app.agents.validation_agent import SENSITIVE_WORDS_HINT
 
 
 class GenerationAgent(BaseAgent):
@@ -140,6 +141,123 @@ class GenerationAgent(BaseAgent):
         items = "\n".join(f"- {i}" for i in issues)
         return "【上次生成存在以下问题，本次务必避免】\n" + items + "\n\n"
 
+    def _format_user_feedback(self, ctx: AgentContext) -> str:
+        """构造用户历史偏好反馈段：注入点赞/踩样本，让 LLM 学习用户偏好。
+
+        - 点赞的内容作为正例，引导 LLM 向其风格/结构靠拢
+        - 踩的内容作为反例，提示 LLM 避免类似风格
+        无反馈数据时返回空串，不影响生成。
+        """
+        examples = ctx.feedback_examples or {}
+        liked = examples.get("liked", [])
+        disliked = examples.get("disliked", [])
+        if not liked and not disliked:
+            return ""
+        parts = ["【用户历史偏好参考】（基于该产品过往生成的点赞/踩反馈，请学习用户偏好）"]
+        if liked:
+            parts.append("用户认可的范例（请在风格、结构、语气上参考借鉴，勿照抄内容）：")
+            for i, ex in enumerate(liked, 1):
+                body = (ex.get("body") or "")[:200]
+                parts.append(f"  范例{i} 标题：{ex.get('title', '')}\n  范例{i} 正文：{body}...")
+        if disliked:
+            parts.append("用户不认可的反例（请避免类似风格和写法）：")
+            for i, ex in enumerate(disliked, 1):
+                body = (ex.get("body") or "")[:150]
+                parts.append(f"  反例{i} 标题：{ex.get('title', '')}\n  反例{i} 正文：{body}...")
+        parts.append("")
+        return "\n".join(parts) + "\n"
+
+    def _format_competitor_block(self, ctx: AgentContext) -> str:
+        """构造竞品分析信息段（仅竞品场景有值，其他场景返回空串）。
+
+        供 _build_batch_prompt 与 _build_llm_prompt 共用，避免逻辑重复。
+        """
+        comp = ctx.competitor_info or {}
+        if not comp.get("competitor_name"):
+            return ""
+        comp_lines = [f"竞品名称：{comp.get('competitor_name','')}"]
+        if comp.get("competitor_positioning"):
+            comp_lines.append(f"竞品定位：{comp['competitor_positioning']}")
+        if comp.get("source_note"):
+            comp_lines.append(f"信息来源：{comp['source_note']}")
+        if comp.get("comparison_table"):
+            comp_lines.append("对比表：")
+            for row in comp["comparison_table"]:
+                dim = row.get("dimension", "")
+                us = row.get("us", "")
+                them = row.get("them", "")
+                adv = row.get("advantage", "")
+                comp_lines.append(f"  - {dim}：我方={us}，竞品={them}，优势方={adv}")
+        if comp.get("our_advantages"):
+            comp_lines.append(f"我方优势：{'、'.join(comp['our_advantages'])}")
+        if comp.get("their_advantages"):
+            comp_lines.append(f"竞品优势：{'、'.join(comp['their_advantages'])}")
+        if comp.get("swot"):
+            swot = comp["swot"]
+            comp_lines.append(f"SWOT-优势：{'、'.join(swot.get('strengths',[]))}")
+            comp_lines.append(f"SWOT-劣势：{'、'.join(swot.get('weaknesses',[]))}")
+        if comp.get("sales_tips"):
+            comp_lines.append("销售话术建议：")
+            for tip in comp["sales_tips"]:
+                comp_lines.append(f"  - {tip}")
+        return "\n".join(comp_lines) + "\n\n"
+
+    def _format_hard_requirements(self, ctx: AgentContext) -> str:
+        """把校验 Agent 的校验项转成生成时的硬性要求，前置注入 prompt。
+
+        与 ValidationAgent 的校验逻辑一一对应：让 LLM 在生成阶段就知晓所有硬性
+        边界（产品名/定价/敏感词/卖点覆盖/模板字数与参数约束），显著提高一次校验
+        通过率，避免"待完善"反复返工。
+        注意：敏感词列表须与 validation_agent.SENSITIVE_WORDS 保持一致。
+        """
+        info = ctx.retrieved_info
+        params = ctx.params
+        constraints = ctx.scenario.get("template_constraints") or {}
+        lines: list[str] = []
+
+        product_name = info.get("product_name", "")
+        if product_name:
+            lines.append(f"正文或标题中必须出现正确的产品名称「{product_name}」")
+
+        pricing = info.get("pricing", "")
+        if pricing:
+            lines.append(f"定价须与知识库一致（{pricing}），不得编造或出现其他价格数字")
+
+        # 敏感/绝对化用词（广告法违禁），与 validation_agent.SENSITIVE_PATTERNS 同步
+        lines.append(f"严禁使用绝对化/违禁用词：{SENSITIVE_WORDS_HINT}")
+
+        sp = info.get("selling_points", [])
+        if sp:
+            min_sp = constraints.get("min_selling_points")
+            need = min_sp if isinstance(min_sp, int) and min_sp > 0 else 1
+            lines.append(f"必须原样包含以下核心卖点中的至少 {need} 个（照搬原词，不得改写）：{'、'.join(sp)}")
+
+        title_max = constraints.get("title_max_chars")
+        if isinstance(title_max, int) and title_max > 0:
+            lines.append(f"标题不超过 {title_max} 字")
+
+        body_range = constraints.get("body_chars")
+        if isinstance(body_range, list) and len(body_range) == 2:
+            lo, hi = body_range
+            parts = []
+            if isinstance(lo, int) and lo > 0:
+                parts.append(f"不少于 {lo}")
+            if isinstance(hi, int) and hi > 0:
+                parts.append(f"不超过 {hi}")
+            if parts:
+                lines.append(f"正文纯文字字数{'、'.join(parts)} 字（不含 markdown 符号与空白）")
+
+        must_params = constraints.get("must_include_params", [])
+        if must_params and params:
+            for name in must_params:
+                val = params.get(name)
+                if val and len(str(val)) <= 50:
+                    lines.append(f"必须原样包含用户指定的「{name}」：{val}")
+
+        if not lines:
+            return ""
+        return "【硬性要求（必须全部满足，否则校验不通过）】\n" + "\n".join(f"- {l}" for l in lines) + "\n\n"
+
     def _build_batch_prompt(self, ctx: AgentContext, version_count: int) -> str:
         """构造单次批量生成多版本的提示词。"""
         info = ctx.retrieved_info
@@ -158,6 +276,9 @@ class GenerationAgent(BaseAgent):
         )
         params_text = json.dumps(params, ensure_ascii=False) if params else "无"
 
+        # 竞品分析信息（仅竞品场景有值，其他场景为空）
+        comp_block = self._format_competitor_block(ctx)
+
         # 多版本差异化维度：优先用模板指定，否则回退默认风格锚点
         dims = scenario.get("template_diff_dims") or []
         if not dims:
@@ -170,14 +291,19 @@ class GenerationAgent(BaseAgent):
 
         extras = self._format_prompt_extras(scenario)
         feedback = self._format_feedback(ctx)
+        user_fb = self._format_user_feedback(ctx)
+        hard_req = self._format_hard_requirements(ctx)
         return (
             f"场景：{scenario.get('name','')}\n"
             f"渠道：{ctx.channel}\n"
             f"风格：{ctx.style}\n\n"
             f"【产品信息】\n{product_info}\n"
             f"【用户填写的参数】\n{params_text}\n\n"
+            f"{comp_block}"
             f"【模板要求】\n{template_prompt}\n\n"
+            f"{hard_req}"
             f"{extras}"
+            f"{user_fb}"
             f"{feedback}"
             f"【需生成 {version_count} 个差异化版本，各版本差异化方向如下】\n{style_block}\n\n"
             "各版本必须在标题切入角度、行文语气、结构侧重上形成明显差异，不得雷同。"
@@ -232,6 +358,27 @@ class GenerationAgent(BaseAgent):
         result["index"] = version_index + 1
         return result
 
+    def generate_one(self, ctx: AgentContext, version_index: int = 0) -> dict:
+        """生成单个版本（含特色 feature 字段），供 orchestrator 逐版本调用。
+
+        根据是否启用 LLM 选择真实生成或 Mock，并把该版本的差异化特色（dim）
+        写入返回结果的 feature 字段，供前端展示。
+        """
+        if self._llm and self._llm.name != "mock-engine":
+            version = self._generate_with_llm(ctx, version_index)
+        else:
+            version = self._generate_mock(ctx, version_index)
+        version["feature"] = self.dim_for_version(ctx.scenario, version_index)
+        return version
+
+    @staticmethod
+    def dim_for_version(scenario: dict, version_index: int) -> str:
+        """取指定版本的差异化特色：优先用模板 template_diff_dims，否则回退默认风格锚点。"""
+        dims = scenario.get("template_diff_dims") or []
+        if not dims:
+            dims = ["专业严谨", "活泼有趣", "情感共鸣", "创新独特"]
+        return dims[version_index] if version_index < len(dims) else dims[-1]
+
     def _build_llm_prompt(self, ctx: AgentContext, version_index: int = 0) -> str:
         """构造发给 LLM 的提示词。"""
         info = ctx.retrieved_info
@@ -254,22 +401,25 @@ class GenerationAgent(BaseAgent):
         params_text = json.dumps(params, ensure_ascii=False) if params else "无"
 
         # 多版本差异化提示：优先用模板指定维度，否则回退默认风格
-        dims = scenario.get("template_diff_dims") or []
-        if not dims:
-            dims = ["专业严谨", "活泼有趣", "情感共鸣", "创新独特"]
-        dim = dims[version_index] if version_index < len(dims) else dims[-1]
+        dim = self.dim_for_version(scenario, version_index)
         version_hint = f"这是第 {version_index + 1} 个版本，请侧重「{dim}」，与前面版本形成差异。"
 
         extras = self._format_prompt_extras(scenario)
         feedback = self._format_feedback(ctx)
+        user_fb = self._format_user_feedback(ctx)
+        comp_block = self._format_competitor_block(ctx)
+        hard_req = self._format_hard_requirements(ctx)
         return (
             f"场景：{scenario.get('name','')}\n"
             f"渠道：{ctx.channel}\n"
             f"风格：{ctx.style}\n\n"
             f"【产品信息】\n{product_info}\n"
             f"【用户填写的参数】\n{params_text}\n\n"
+            f"{comp_block}"
             f"【模板要求】\n{template_prompt}\n\n"
+            f"{hard_req}"
             f"{extras}"
+            f"{user_fb}"
             f"{feedback}"
             f"【版本要求】\n{version_hint}\n\n"
             "请严格按照模板要求生成内容，输出 JSON 格式：{\"title\":\"...\",\"body\":\"...\",\"tags\":[\"...\"]}。"

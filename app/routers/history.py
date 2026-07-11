@@ -5,7 +5,7 @@
 每次调用 /api/generate 生成的内容都会保存到 history 表，
 用户可以回看历史、编辑内容、导出为 Markdown/TXT 文件。
 """
-from fastapi import APIRouter, HTTPException, Response, Depends
+from fastapi import APIRouter, HTTPException, Response, Depends, Query
 from psycopg2.extras import Json
 import base64
 import io
@@ -13,19 +13,54 @@ import re
 from app.database import query, query_one, transaction, _parse_json_fields
 from app.models import HistoryItem, HistoryUpdate, FeedbackRequest, VoteRequest
 from app.auth import get_current_user, is_owner_or_admin
+from app.seo_analyzer import analyze as seo_analyze
 
 router = APIRouter(prefix="/api/history", tags=["生成历史"])
 
 # history 表中的 JSONB 字段
-JSON_FIELDS = ["params", "versions", "agent_trace", "issues"]
+JSON_FIELDS = ["params", "versions", "agent_trace", "issues", "feedback_voters"]
+
+
+def _inject_current_feedback(rows, user_id: str):
+    """把 feedback_voters 中当前用户的态度回填到 feedback 字段（前端零改动）。
+
+    feedback 单值会被多人覆盖，改用 feedback_voters 记录每个成员的态度；
+    返回前用当前用户的态度回填 feedback，前端读 row.feedback 仍是当前用户视角。
+    支持单条 dict 或列表。
+    """
+    if isinstance(rows, dict):
+        rows = [rows]
+    for r in rows:
+        voters = r.get("feedback_voters") or {}
+        if isinstance(voters, dict) and voters:
+            r["feedback"] = voters.get(user_id)
+    return rows
 
 
 @router.get("", response_model=list[HistoryItem])
 @router.get("/", response_model=list[HistoryItem], include_in_schema=False)
-def list_history(user: dict = Depends(get_current_user)):
-    """查询历史记录列表（按时间倒序）。全员可见（共享）。"""
-    rows = query("SELECT * FROM history ORDER BY created_at DESC")
-    return [_parse_json_fields(r, JSON_FIELDS) for r in rows]
+def list_history(
+    member: str | None = Query(None, description="按创建人(member id)筛选"),
+    limit: int = Query(200, ge=1, le=500, description="返回条数上限（默认 200，避免历史积压后全表加载）"),
+    offset: int = Query(0, ge=0, description="偏移量，用于分页"),
+    user: dict = Depends(get_current_user),
+):
+    """查询历史记录列表（按时间倒序）。全员可见（共享），可按创建人筛选。
+
+    默认返回最近 200 条，避免历史积压后全表加载拖慢响应；可用 limit/offset 翻页。
+    """
+    if member:
+        rows = query(
+            "SELECT * FROM history WHERE created_by = %s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            (member, limit, offset),
+        )
+    else:
+        rows = query(
+            "SELECT * FROM history ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            (limit, offset),
+        )
+    rows = [_parse_json_fields(r, JSON_FIELDS) for r in rows]
+    return _inject_current_feedback(rows, user["id"])
 
 
 @router.get("/{history_id}", response_model=HistoryItem)
@@ -34,7 +69,9 @@ def get_history(history_id: str, user: dict = Depends(get_current_user)):
     row = query_one("SELECT * FROM history WHERE id = %s", (history_id,))
     if not row:
         raise HTTPException(404, f"历史记录 {history_id} 不存在")
-    return _parse_json_fields(row, JSON_FIELDS)
+    row = _parse_json_fields(row, JSON_FIELDS)
+    _inject_current_feedback(row, user["id"])
+    return row
 
 
 @router.put("/{history_id}", response_model=HistoryItem)
@@ -49,12 +86,15 @@ def update_history(history_id: str, body: HistoryUpdate, user: dict = Depends(ge
     if not is_owner_or_admin(user, existing.get("created_by")):
         raise HTTPException(403, "无权编辑他人的历史记录")
     if body.versions is not None:
+        # 内容可能被用户编辑过，服务端重新计算 SEO（纯规则引擎，毫秒级）
+        for v in body.versions:
+            v.seo = seo_analyze(v.title, v.body)
         with transaction() as cur:
             cur.execute(
                 "UPDATE history SET versions = %s WHERE id = %s",
                 (Json([v.model_dump() for v in body.versions]), history_id),
             )
-    return get_history(history_id)
+    return get_history(history_id, user)
 
 
 @router.delete("/{history_id}")
@@ -83,19 +123,6 @@ def _parse_data_url(data_url: str):
         return m.group(1), base64.b64decode(m.group(2))
     except Exception:
         return None, None
-
-
-def _svg_to_png(svg_bytes: bytes):
-    """SVG 转 PNG（svglib+reportlab），失败返回 None。"""
-    try:
-        from svglib.svglib import svg2rlg
-        from reportlab.graphics import renderPM
-        drawing = svg2rlg(io.BytesIO(svg_bytes))
-        png_io = io.BytesIO()
-        renderPM.drawToFile(drawing, png_io, fmt="PNG")
-        return png_io.getvalue()
-    except Exception:
-        return None
 
 
 def _build_docx(data: dict) -> bytes:
@@ -191,7 +218,7 @@ def _build_docx(data: dict) -> bytes:
 
 
 def _insert_docx_image(doc, url: str, caption: str = "") -> None:
-    """把一张配图插入 docx：data URL 直接解析，http(s) URL 下载后插入；SVG 转 PNG；失败静默跳过。"""
+    """把一张配图插入 docx：data URL 直接解析，http(s) URL 下载后插入；SVG 跳过；失败静默跳过。"""
     img_bytes = None
     mime = None
     if url.startswith("data:"):
@@ -208,11 +235,11 @@ def _insert_docx_image(doc, url: str, caption: str = "") -> None:
     if not img_bytes:
         return
     from docx.shared import Inches
-    insert = _svg_to_png(img_bytes) if (mime and "svg" in mime) else img_bytes
-    if not insert:
+    # python-docx 不支持 SVG（曾用 svglib 转换，但依赖未安装且配图已改 PNG 生成，这里直接跳过）
+    if mime and "svg" in mime:
         return
     try:
-        doc.add_picture(io.BytesIO(insert), width=Inches(5.5))
+        doc.add_picture(io.BytesIO(img_bytes), width=Inches(5.5))
         if caption:
             cap_p = doc.add_paragraph(caption)
             if cap_p.runs:
@@ -309,7 +336,7 @@ def set_feedback(history_id: str, body: FeedbackRequest, user: dict = Depends(ge
     {"feedback": "dislike"}   → 踩
     {"feedback": ""}          → 取消标记
     """
-    existing = query_one("SELECT id FROM history WHERE id = %s", (history_id,))
+    existing = query_one("SELECT id, feedback_voters FROM history WHERE id = %s", (history_id,))
     if not existing:
         raise HTTPException(404, f"历史记录 {history_id} 不存在")
 
@@ -318,14 +345,21 @@ def set_feedback(history_id: str, body: FeedbackRequest, user: dict = Depends(ge
     if fb and fb not in ("like", "dislike"):
         raise HTTPException(400, "feedback 取值需为 like / dislike / 空字符串")
     # 空字符串 → 写入 NULL（数据库里用 NULL 表示"未标记"）
-    value = fb if fb else None
+    # per-user 改票/取消：更新 feedback_voters 中当前用户的态度（互不覆盖）
+    voters = existing.get("feedback_voters") or {}
+    if not isinstance(voters, dict):
+        voters = {}
+    if fb:
+        voters[user["id"]] = fb
+    else:
+        voters.pop(user["id"], None)
 
     with transaction() as cur:
         cur.execute(
-            "UPDATE history SET feedback = %s WHERE id = %s",
-            (value, history_id),
+            "UPDATE history SET feedback_voters = %s WHERE id = %s",
+            (Json(voters), history_id),
         )
-    return get_history(history_id)
+    return get_history(history_id, user)
 
 
 # ===== 加分项：A/B 测试（按版本投票，对比哪个版本更受欢迎）=====
@@ -380,4 +414,4 @@ def vote_version(history_id: str, body: VoteRequest, user: dict = Depends(get_cu
             "UPDATE history SET versions = %s WHERE id = %s",
             (Json(versions), history_id),
         )
-    return get_history(history_id)
+    return get_history(history_id, user)

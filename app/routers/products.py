@@ -17,12 +17,13 @@ import uuid
 import os
 import shutil
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Depends
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from psycopg2.extras import Json
 from app.database import query, query_one, transaction, _parse_json_fields
 from app.models import ProductCreate, Product, ImportDocxResponse
 from app.vector_search import embed_product, search_products_by_text
-from app.docx_parser import parse_product_from_docx
+from app.docx_parser import parse_product_from_manual
 from app.auth import get_current_user, is_owner_or_admin, require_admin
 
 # 创建路由器实例
@@ -42,7 +43,7 @@ MAX_DOCUMENT_SIZE = 50 * 1024 * 1024  # 文档最大 50MB
 
 # JSON_FIELDS 是产品表中的 JSONB 字段列表
 # 这些字段在数据库中是 JSONB 类型，读取后需要做空值处理
-JSON_FIELDS = ["category", "features", "target_customers", "selling_points", "images", "documents"]
+JSON_FIELDS = ["category", "features", "target_customers", "selling_points", "competitors", "images", "documents"]
 
 
 # ===== F1-2: 产品列表查询（含关键词检索 F1-3）=====
@@ -54,9 +55,14 @@ JSON_FIELDS = ["category", "features", "target_customers", "selling_points", "im
 def list_products(
     keyword: str | None = Query(None, description="按名称/类别关键词检索"),
     member: str | None = Query(None, description="按创建人(member id)筛选（加分项：团队协作）"),
+    limit: int = Query(200, ge=1, le=500, description="返回条数上限（默认 200）"),
+    offset: int = Query(0, ge=0, description="偏移量，用于分页"),
     user: dict = Depends(get_current_user),
 ):
-    """查询产品列表，支持关键词检索 + 按创建人筛选，两个条件可叠加。"""
+    """查询产品列表，支持关键词检索 + 按创建人筛选，两个条件可叠加。
+
+    默认返回最近 200 条；可用 limit/offset 翻页。
+    """
     # 动态拼 WHERE：避免无筛选时带空 WHERE
     conds, args = [], []
     if keyword:
@@ -68,9 +74,10 @@ def list_products(
         conds.append("created_by = %s")
         args.append(member)
     where = ("WHERE " + " AND ".join(conds)) if conds else ""
+    args.extend([limit, offset])
     rows = query(
-        f"SELECT * FROM products {where} ORDER BY created_at DESC",
-        tuple(args) or None,
+        f"SELECT * FROM products {where} ORDER BY created_at DESC LIMIT %s OFFSET %s",
+        tuple(args),
     )
     return [_parse_json_fields(r, JSON_FIELDS) for r in rows]
 
@@ -121,8 +128,8 @@ def create_product(body: ProductCreate, user: dict = Depends(get_current_user)):
         cur.execute(
             """INSERT INTO products
             (id, name, category, description, features, target_customers,
-             pricing, selling_points, images, documents, embedding, created_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+             pricing, selling_points, competitors, images, documents, embedding, created_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (
                 pid, body.name,
                 Json(body.category),
@@ -131,6 +138,7 @@ def create_product(body: ProductCreate, user: dict = Depends(get_current_user)):
                 Json(body.target_customers),
                 body.pricing,
                 Json(body.selling_points),
+                Json(body.competitors),
                 Json([img.model_dump() for img in body.images]),
                 Json([doc.model_dump() for doc in body.documents]),
                 Json(embedding),
@@ -172,7 +180,7 @@ def update_product(product_id: str, body: ProductCreate, user: dict = Depends(ge
         cur.execute(
             """UPDATE products SET
             name=%s, category=%s, description=%s, features=%s,
-            target_customers=%s, pricing=%s, selling_points=%s,
+            target_customers=%s, pricing=%s, selling_points=%s, competitors=%s,
             images=%s, documents=%s, embedding=%s, updated_at=NOW()
             WHERE id=%s""",
             (
@@ -181,6 +189,7 @@ def update_product(product_id: str, body: ProductCreate, user: dict = Depends(ge
                 Json(body.target_customers),
                 body.pricing,
                 Json(body.selling_points),
+                Json(body.competitors),
                 Json([img.model_dump() for img in body.images]),
                 Json([doc.model_dump() for doc in body.documents]),
                 Json(embedding),
@@ -297,27 +306,28 @@ def reindex_products(user: dict = Depends(require_admin)):
     return {"message": f"已重建 {count} 个产品的向量嵌入", "count": count}
 
 
-# ===== 加分项：上传产品手册（Word）自动解析建库 =====
+# ===== 加分项：上传产品手册（PDF/Word）自动解析建库 =====
 
 @router.post("/import-docx", response_model=ImportDocxResponse)
 async def import_docx(
-    file: UploadFile = File(..., description="上传 .docx 产品手册"),
+    file: UploadFile = File(..., description="上传 PDF 或 Word(.docx) 产品手册"),
     user: dict = Depends(get_current_user),
 ):
-    """上传 Word 产品手册，自动解析为结构化产品草稿。
+    """上传产品手册（PDF/Word），自动解析为结构化产品草稿。
 
     流程：
-    1. 接收 .docx 文件（multipart/form-data 上传）
-    2. 用 python-docx 读取段落+表格，拼成纯文本
+    1. 接收 .pdf / .docx 文件（multipart/form-data 上传）
+    2. 根据扩展名选择解析器：PDF 用 pdfplumber，Word 用 python-docx
     3. LLM 启用 → 大模型抽取；否则 → 启发式规则抽取
     4. 返回产品草稿（不入库），前端加载到编辑弹窗供用户核对后保存
 
     注意：本接口不直接写库，因为自动抽取不一定准确，需人工确认。
     """
-    # 校验文件扩展名（防误传 .doc/.pdf 等暂不支持的格式）
-    filename = (file.filename or "").lower()
-    if not filename.endswith(".docx"):
-        raise HTTPException(400, "仅支持 .docx 格式（旧版 .doc 请另存为 .docx 后上传）")
+    # 校验文件扩展名（仅支持 .pdf 和 .docx）
+    filename = file.filename or ""
+    ext = os.path.splitext(filename)[1].lower()
+    if ext not in (".pdf", ".docx"):
+        raise HTTPException(400, "仅支持 .pdf 和 .docx 格式（旧版 .doc 请另存为 .docx 后上传）")
 
     # 读取文件字节流（UploadFile.read 是异步方法，需 await）
     data = await file.read()
@@ -325,8 +335,10 @@ async def import_docx(
         raise HTTPException(400, "文件内容为空")
 
     # 解析（可能抛异常，如文件损坏）
+    # pdfplumber/python-docx 解析 + 可能的 LLM 调用是同步重负载，放到线程池执行，
+    # 避免阻塞主事件循环导致其他请求卡住（async def 默认在事件循环上同步跑）
     try:
-        result = parse_product_from_docx(data)
+        result = await run_in_threadpool(parse_product_from_manual, data, filename=filename)
     except Exception as e:
         raise HTTPException(400, f"解析失败：{type(e).__name__}: {e}")
 

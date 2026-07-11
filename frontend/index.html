@@ -52,6 +52,37 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
 .version-tools { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--border-light); padding-top: 8px; margin-top: 6px; }
 .seo-score { font-size: 48px; font-weight: 700; line-height: 1; }
 .seo-item { padding: 8px 0; display: flex; align-items: flex-start; gap: 6px; }
+/* ===== SEO 分析弹窗 ===== */
+.seo-panel { padding: 0 2px; }
+.seo-hero { display: flex; align-items: center; gap: 22px; padding: 20px 24px; background: linear-gradient(135deg, #f7faff, #eef3fb); border-radius: 10px; border: 1px solid var(--border-light); margin-bottom: 18px; }
+.seo-hero-score { display: flex; align-items: baseline; gap: 4px; }
+.seo-panel .seo-score { font-size: 56px; font-weight: 800; line-height: 1; }
+.seo-score-max { font-size: 16px; color: var(--text-muted); font-weight: 600; }
+.seo-hero-info { flex: 1; min-width: 0; }
+.seo-progress { height: 8px; background: #e6ecf3; border-radius: 5px; overflow: hidden; margin: 10px 0 6px; }
+.seo-progress-bar { height: 100%; border-radius: 5px; transition: width .5s ease; }
+.seo-hero-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+.seo-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 8px; margin-bottom: 18px; }
+.seo-stat { background: #fafbfc; border: 1px solid var(--border-light); border-radius: 8px; padding: 10px 4px; text-align: center; }
+.seo-stat-val { font-size: 17px; font-weight: 700; color: var(--text-primary); line-height: 1.2; }
+.seo-stat-val.on { color: #52c41a; }
+.seo-stat-val.off { color: #c0c4cc; }
+.seo-stat-label { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.seo-section { margin-bottom: 16px; }
+.seo-section-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+.seo-section-count { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.seo-keywords { display: flex; flex-wrap: wrap; gap: 6px; }
+.seo-sugg { display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; border-radius: 6px; margin-bottom: 6px; font-size: 13px; line-height: 1.6; border-left: 3px solid var(--border); background: #fafbfc; }
+.seo-sugg.good { border-color: #52c41a; background: #f6ffed; }
+.seo-sugg.warning { border-color: #faad14; background: #fffbe6; }
+.seo-sugg.error { border-color: #ff4d4f; background: #fff2f0; }
+.seo-sugg-icon { font-weight: 700; flex: 0 0 auto; width: 14px; text-align: center; }
+.seo-sugg.good .seo-sugg-icon { color: #52c41a; }
+.seo-sugg.warning .seo-sugg-icon { color: #faad14; }
+.seo-sugg.error .seo-sugg-icon { color: #ff4d4f; }
+.seo-sugg-type { flex: 0 0 auto; font-size: 11px; color: var(--text-muted); background: #fff; border: 1px solid var(--border-light); padding: 1px 6px; border-radius: 3px; }
+.seo-sugg-msg { flex: 1; color: var(--text-secondary); }
+.seo-meta { font-size: 13px; color: var(--text-secondary); background: #fafbfc; border: 1px dashed var(--border-light); border-radius: 6px; padding: 10px 12px; line-height: 1.7; }
 .agent-step { padding: 12px 14px; border-left: 3px solid var(--border); margin-bottom: 8px; background: #fafbfc; border-radius: 0 4px 4px 0; }
 .agent-step.success { border-color: #52c41a; background: #f6ffed; }
 .agent-step.warning { border-color: #faad14; background: #fffbe6; }
@@ -60,6 +91,14 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
 .agent-step .step-name { font-weight: 600; font-size: 14px; color: var(--text-primary); }
 .agent-step .step-msg { font-size: 13px; color: var(--text-secondary); }
 .agent-step .step-time { font-size: 12px; color: var(--text-muted); }
+/* 生成中实时状态：主色左边框 + 名前转圈 */
+.agent-step.running { border-color: var(--primary, #1e3a5f); background: rgba(30,58,95,.04); }
+.agent-step.running .step-name::before {
+  content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px;
+  border: 2px solid var(--primary, #1e3a5f); border-top-color: transparent;
+  border-radius: 50%; vertical-align: middle; animation: sx-spin .8s linear infinite;
+}
+@keyframes sx-spin { to { transform: rotate(360deg); } }
 .product-form .el-form-item { margin-bottom: 14px; }
 .feature-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
 .feature-row .el-input { flex: 1; }
@@ -214,6 +253,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
         {{ currentUser.name }}
         <el-tag v-if="currentUser.is_admin" size="small" effect="dark" style="margin-left:2px;background:var(--accent);border-color:var(--accent)">管理员</el-tag>
       </span>
+      <el-button v-if="currentUser.is_admin" text size="small" @click="openMemberManage" style="color:#ffffffcc">成员管理</el-button>
       <el-button text size="small" @click="openProfile" style="color:#ffffffcc">个人资料</el-button>
       <el-button text size="small" @click="logout" style="color:#ffffffcc">退出</el-button>
     </div>
@@ -317,6 +357,45 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
           <el-button v-if="currentDraft" size="small" style="margin-left:auto" @click="discardDraft">放弃草稿，重新配置</el-button>
         </div>
 
+        <!-- Agent 工作状态（生成中实时显示，SSE 流式推送）-->
+        <el-card v-if="currentDraft && generating && (liveSteps.length || liveVersions.length)" class="page-card" style="margin-bottom:12px">
+          <template #header>
+            <div style="display:flex;align-items:center;gap:10px">
+              <b style="color:var(--text-primary)">Agent 工作中</b>
+              <el-tag size="small" type="primary" effect="plain">
+                {{ liveSteps.filter(s => s.status !== 'running').length }} / {{ liveSteps.length }} 完成
+              </el-tag>
+            </div>
+          </template>
+          <div>
+            <div v-for="(step,i) in liveSteps" :key="i" class="agent-step" :class="step.status">
+              <div class="step-head">
+                <span class="step-name">{{ step.agent }}</span>
+                <el-tag v-if="step.status==='running'" size="small" type="primary">执行中</el-tag>
+                <el-tag v-else-if="step.status==='success'" size="small" type="success">成功</el-tag>
+                <el-tag v-else-if="step.status==='warning'" size="small" type="warning">告警</el-tag>
+                <el-tag v-else size="small" type="danger">失败</el-tag>
+              </div>
+              <div class="step-msg">{{ step.message }}</div>
+              <div class="step-time" v-if="step.duration_ms != null">耗时 {{ step.duration_ms }}ms</div>
+            </div>
+            <!-- 版本生成进度 -->
+            <div v-if="liveVersions.length" style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
+              <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">版本生成</div>
+              <div v-for="v in liveVersions" :key="v.index" class="agent-step" :class="v.status==='done'?(v.validated?'success':'warning'):'running'">
+                <div class="step-head">
+                  <span class="step-name">版本{{ v.index }} · {{ v.dim || '生成中' }}</span>
+                  <el-tag v-if="v.status==='running'" size="small" type="primary">第 {{ v.attempts || 1 }} 次生成中</el-tag>
+                  <el-tag v-else-if="v.validated" size="small" type="success">已生成 · 校验通过</el-tag>
+                  <el-tag v-else size="small" type="warning">已生成 · 待完善</el-tag>
+                </div>
+                <div class="step-msg" v-if="v.status==='done'">尝试 {{ v.attempts }} 次{{ v.validated ? '' : '：' + (v.issues||[]).join('；') }}</div>
+                <div class="step-msg" v-else>正在生成...</div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
         <!-- 无草稿：配置表单 -->
         <el-row v-if="!currentDraft" :gutter="16">
           <!-- 左：配置表单 -->
@@ -367,7 +446,44 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
           </el-col>
           <!-- 右：结果展示 -->
           <el-col :span="16" class="gen-layout-right">
-            <div v-if="!genResult" class="empty-state" style="padding:80px 0">
+            <!-- 生成中：Agent 工作状态（置于配置右侧）-->
+            <el-card v-if="generating && (liveSteps.length || liveVersions.length)" class="page-card" style="margin-bottom:12px">
+              <template #header>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <b style="color:var(--text-primary)">Agent 工作中</b>
+                  <el-tag size="small" type="primary" effect="plain">
+                    {{ liveSteps.filter(s => s.status !== 'running').length }} / {{ liveSteps.length }} 完成
+                  </el-tag>
+                </div>
+              </template>
+              <div>
+                <div v-for="(step,i) in liveSteps" :key="i" class="agent-step" :class="step.status">
+                  <div class="step-head">
+                    <span class="step-name">{{ step.agent }}</span>
+                    <el-tag v-if="step.status==='running'" size="small" type="primary">执行中</el-tag>
+                    <el-tag v-else-if="step.status==='success'" size="small" type="success">成功</el-tag>
+                    <el-tag v-else-if="step.status==='warning'" size="small" type="warning">告警</el-tag>
+                    <el-tag v-else size="small" type="danger">失败</el-tag>
+                  </div>
+                  <div class="step-msg">{{ step.message }}</div>
+                  <div class="step-time" v-if="step.duration_ms != null">耗时 {{ step.duration_ms }}ms</div>
+                </div>
+                <div v-if="liveVersions.length" style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
+                  <div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px">版本生成</div>
+                  <div v-for="v in liveVersions" :key="v.index" class="agent-step" :class="v.status==='done'?(v.validated?'success':'warning'):'running'">
+                    <div class="step-head">
+                      <span class="step-name">版本{{ v.index }} · {{ v.dim || '生成中' }}</span>
+                      <el-tag v-if="v.status==='running'" size="small" type="primary">第 {{ v.attempts || 1 }} 次生成中</el-tag>
+                      <el-tag v-else-if="v.validated" size="small" type="success">已生成 · 校验通过</el-tag>
+                      <el-tag v-else size="small" type="warning">已生成 · 待完善</el-tag>
+                    </div>
+                    <div class="step-msg" v-if="v.status==='done'">尝试 {{ v.attempts }} 次{{ v.validated ? '' : '：' + (v.issues||[]).join('；') }}</div>
+                    <div class="step-msg" v-else>正在生成...</div>
+                  </div>
+                </div>
+              </div>
+            </el-card>
+            <div v-else-if="!genResult" class="empty-state" style="padding:80px 0">
               <el-icon size="48" color="#ddd"><Document/></el-icon>
               <p style="margin-top:16px">选择产品与场景后点击「开始生成」</p>
             </div>
@@ -418,7 +534,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                   </div>
                 </template>
                 <el-tabs v-model="activeVersion" type="card" class="version-tabs">
-                  <el-tab-pane v-for="v in genResult.versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index + '  👍' + (v.votes?.like||0) + '/👎' + (v.votes?.dislike||0)">
+                  <el-tab-pane v-for="v in genResult.versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index + '  👍' + (v.votes?.like||0) + '/👎' + (v.votes?.dislike||0) + (v.seo ? ' · SEO '+v.seo.score : '')">
                     <div class="version-tab-pane">
                       <div style="text-align:right;margin-bottom:8px">
                         <el-button size="small" @click="genEditMode = !genEditMode">{{ genEditMode ? '预览' : '编辑' }}</el-button>
@@ -453,7 +569,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                       <div class="version-tools">
                         <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(genResult.history_id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
                         <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(genResult.history_id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
-                        <el-button text size="small" @click="analyzeSeo(v.title, v.body)">🔍 SEO 分析</el-button>
+                        <el-button text size="small" @click="analyzeSeo(v)">🔍 SEO 分析</el-button>
                       </div>
                     </div>
                   </el-tab-pane>
@@ -515,16 +631,19 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                 </div>
               </template>
               <el-tabs v-model="draftVersionIndex" type="card" class="version-tabs">
-                <el-tab-pane v-for="v in currentDraft.draft_versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index">
+                <el-tab-pane v-for="v in currentDraft.draft_versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index + (v.seo ? ' · SEO '+v.seo.score : '')">
                   <div class="version-tab-pane">
                     <div class="doc-page">
                       <h1 class="doc-title">{{ v.title }}</h1>
                       <div class="doc-content markdown-body" v-html="renderArticle(v.body, v.images, v.title)"></div>
                     </div>
                     <div style="margin:10px 0 8px">
+                      <el-tag v-if="v.feature" size="small" type="primary" effect="plain" style="margin:2px">特色：{{ v.feature }}</el-tag>
                       <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
+                      <el-tag v-if="v.seo" size="small" effect="plain" :style="{color: seoColor(v.seo.score), borderColor: seoColor(v.seo.score)}">SEO {{ v.seo.score }}</el-tag>
                     </div>
                     <div style="text-align:right">
+                      <el-button text size="small" @click="analyzeSeo(v)">🔍 SEO 分析</el-button>
                       <el-button type="primary" size="small" style="background:var(--primary);border-color:var(--primary)" @click="selectDraftVersion(v)">选定此版本</el-button>
                     </div>
                   </div>
@@ -595,7 +714,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                 </div>
               </template>
               <el-tabs v-model="adaptVersionIndex" type="card" class="version-tabs">
-                <el-tab-pane v-for="v in currentDraft.versions" :key="v.index" :name="String(v.index)" :label="v.channel || ('版本'+v.index)">
+                <el-tab-pane v-for="v in currentDraft.versions" :key="v.index" :name="String(v.index)" :label="(v.channel || ('版本'+v.index)) + (v.seo ? ' · SEO '+v.seo.score : '')">
                   <div class="version-tab-pane">
                     <div class="doc-page">
                       <h1 class="doc-title">{{ v.title }}</h1>
@@ -604,6 +723,8 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                     <div style="margin:10px 0 8px">
                       <el-tag size="small" type="info" style="margin:2px">渠道：{{ v.channel }}</el-tag>
                       <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
+                      <el-tag v-if="v.seo" size="small" effect="plain" :style="{color: seoColor(v.seo.score), borderColor: seoColor(v.seo.score)}">SEO {{ v.seo.score }}</el-tag>
+                      <el-button text size="small" style="margin-left:8px" @click="analyzeSeo(v)">🔍 SEO 分析</el-button>
                     </div>
                   </div>
                 </el-tab-pane>
@@ -680,7 +801,11 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
 
       <!-- ===== 生成历史 ===== -->
       <div v-if="activeTab==='history'">
-        <div class="section-title">生成历史 <el-tag size="small">{{ history.length }} 条</el-tag></div>
+        <div class="section-title">生成历史 <el-tag size="small">{{ history.length }} 条</el-tag>
+          <el-select v-model="historyMemberFilter" size="small" style="margin-left:auto;width:130px" placeholder="全部成员" clearable @change="reloadHistory">
+            <el-option v-for="m in members" :key="m.id" :label="m.name" :value="m.id"/>
+          </el-select>
+        </div>
         <div v-if="history.length===0" class="empty-state">暂无生成记录</div>
         <div v-else class="history-list">
           <div v-for="row in history" :key="row.id" class="history-card" :class="{'is-valid':row.validated}" @click="viewHistory(row)">
@@ -691,6 +816,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                 <el-tag size="small" type="info" effect="plain">{{ row.scenario_name }}</el-tag>
                 <el-tag v-for="ch in (row.channel||'').split(',').filter(Boolean)" :key="ch" size="small" type="success" effect="light">{{ ch }}</el-tag>
                 <el-tag size="small" :type="row.validated?'success':'warning'">{{ row.validated?'校验通过':'待完善' }}</el-tag>
+                    <el-tag v-if="bestSeoScore(row.versions) != null" size="small" effect="plain" :style="{color: seoColor(bestSeoScore(row.versions)), borderColor: seoColor(bestSeoScore(row.versions))}">SEO {{ bestSeoScore(row.versions) }}</el-tag>
               </div>
               <div class="hc-meta">
                 <span>版本 {{ row.versions.length }} 个</span>
@@ -739,7 +865,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
               <el-button v-if="historyEditMode" size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="saveHistoryDetail">保存修改</el-button>
             </div>
             <el-tabs type="card">
-              <el-tab-pane v-for="v in currentHistory.versions" :key="v.index" :label="'版本 '+v.index+' (👍'+(v.votes?.like||0)+'/👎'+(v.votes?.dislike||0)+')'">
+              <el-tab-pane v-for="v in currentHistory.versions" :key="v.index" :label="'版本 '+v.index+' (👍'+(v.votes?.like||0)+'/👎'+(v.votes?.dislike||0)+')' + (v.seo ? ' · SEO '+v.seo.score : '')">
                 <template v-if="historyEditMode">
                   <el-input v-model="v.title" style="margin-bottom:8px"><template #prepend>标题</template></el-input>
                   <div class="version-body-input"><el-input type="textarea" :rows="8" v-model="v.body"/></div>
@@ -759,7 +885,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                 <div class="version-tools" style="margin-top:8px">
                   <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(currentHistory.id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
                   <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(currentHistory.id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
-                  <el-button text size="small" @click="analyzeSeo(v.title, v.body)">🔍 SEO 分析</el-button>
+                  <el-button text size="small" @click="analyzeSeo(v)">🔍 SEO 分析</el-button>
                 </div>
               </el-tab-pane>
             </el-tabs>
@@ -911,28 +1037,95 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
   </template>
 </el-dialog>
 
+<!-- 成员管理弹窗（管理员） -->
+<el-dialog v-model="memberManageVisible" title="成员管理" width="740px">
+  <div style="margin-bottom:12px;text-align:right">
+    <el-button type="primary" size="small" @click="openMemberCreate" style="background:var(--primary);border-color:var(--primary)">+ 新增成员</el-button>
+  </div>
+  <el-table :data="members" size="small" border>
+    <el-table-column label="昵称" prop="name" width="120"/>
+    <el-table-column label="用户名" prop="username" width="140"/>
+    <el-table-column label="邮箱" prop="email" show-overflow-tooltip/>
+    <el-table-column label="角色" width="80">
+      <template #default="{row}">
+        <el-tag size="small" :type="row.is_admin?'danger':'info'">{{ row.is_admin?'管理员':'成员' }}</el-tag>
+      </template>
+    </el-table-column>
+    <el-table-column label="操作" width="140">
+      <template #default="{row}">
+        <el-button text size="small" @click="openMemberEdit(row)">编辑</el-button>
+        <el-button text size="small" type="danger" :disabled="row.id===currentUser.id" @click="deleteMember(row)">删除</el-button>
+      </template>
+    </el-table-column>
+  </el-table>
+
+  <!-- 内嵌：创建/编辑表单 -->
+  <el-dialog v-model="memberFormVisible" :title="memberForm.id?'编辑成员':'新增成员'" width="460px" append-to-body>
+    <el-form label-width="80px" v-if="memberForm">
+      <el-form-item label="用户名"><el-input v-model="memberForm.username" :disabled="!!memberForm.id"/></el-form-item>
+      <el-form-item label="昵称"><el-input v-model="memberForm.name"/></el-form-item>
+      <el-form-item label="邮箱"><el-input v-model="memberForm.email"/></el-form-item>
+      <el-form-item label="头像色"><el-color-picker v-model="memberForm.color"/></el-form-item>
+      <el-form-item label="管理员"><el-switch v-model="memberForm.is_admin"/></el-form-item>
+      <el-divider>{{ memberForm.id?'重置密码（留空则不修改）':'登录密码' }}</el-divider>
+      <el-form-item label="密码"><el-input type="password" v-model="memberForm.new_password" show-password :placeholder="memberForm.id?'留空不修改':'至少 6 位'"/></el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="memberFormVisible=false">取消</el-button>
+      <el-button type="primary" @click="saveMember" style="background:var(--primary);border-color:var(--primary)">保存</el-button>
+    </template>
+  </el-dialog>
+</el-dialog>
+
 <!-- SEO 分析弹窗（加分项）-->
-<el-dialog v-model="seoVisible" title="SEO 分析" width="560px">
-  <div v-if="seoResult">
-    <div style="text-align:center;margin-bottom:16px">
-      <div class="seo-score" :style="{color: seoScoreColor}">{{ seoResult.score }}</div>
-      <div style="color:#999;font-size:13px">SEO 评分（满分 100）</div>
+<el-dialog v-model="seoVisible" title="SEO 分析" width="640px">
+  <div v-if="seoResult" class="seo-panel">
+    <!-- 评分头部 -->
+    <div class="seo-hero">
+      <div class="seo-hero-score">
+        <div class="seo-score" :style="{color: seoScoreColor}">{{ seoResult.score }}</div>
+        <div class="seo-score-max">/ 100</div>
+      </div>
+      <div class="seo-hero-info">
+        <el-tag :type="seoLevelType" effect="dark">{{ seoLevelText }}</el-tag>
+        <div class="seo-progress"><div class="seo-progress-bar" :style="{width: seoResult.score + '%', background: seoScoreColor}"></div></div>
+        <div class="seo-hero-desc">{{ seoLevelDesc }}</div>
+      </div>
     </div>
-    <div v-if="seoResult.keywords.length" style="margin-bottom:12px">
-      <span style="font-size:13px;color:#666">关键词：</span>
-      <el-tag v-for="k in seoResult.keywords" :key="k" size="small" style="margin:2px">{{ k }}</el-tag>
+
+    <!-- 统计概览 -->
+    <div class="seo-stats">
+      <div class="seo-stat"><div class="seo-stat-val">{{ seoResult.stats.title_length||0 }}</div><div class="seo-stat-label">标题字数</div></div>
+      <div class="seo-stat"><div class="seo-stat-val">{{ seoResult.stats.body_length||0 }}</div><div class="seo-stat-label">正文字数</div></div>
+      <div class="seo-stat"><div class="seo-stat-val">{{ seoResult.stats.headings||0 }}</div><div class="seo-stat-label">小标题</div></div>
+      <div class="seo-stat"><div class="seo-stat-val">{{ seoResult.stats.avg_sentence_length||0 }}</div><div class="seo-stat-label">平均句长</div></div>
+      <div class="seo-stat"><div class="seo-stat-val">{{ seoResult.stats.keyword_density!=null ? seoResult.stats.keyword_density+'%' : '—' }}</div><div class="seo-stat-label">关键词密度</div></div>
+      <div class="seo-stat"><div class="seo-stat-val" :class="seoResult.stats.has_cta?'on':'off'">{{ seoResult.stats.has_cta?'有':'无' }}</div><div class="seo-stat-label">行动号召</div></div>
+      <div class="seo-stat"><div class="seo-stat-val" :class="seoResult.stats.has_data?'on':'off'">{{ seoResult.stats.has_data?'有':'无' }}</div><div class="seo-stat-label">量化数据</div></div>
     </div>
-    <el-divider/>
-    <div v-for="(s,i) in seoResult.suggestions" :key="i" class="seo-item">
-      <el-tag :type="s.level==='good'?'success':s.level==='warning'?'warning':'danger'" size="small" style="flex:0 0 auto">{{ s.type }}</el-tag>
-      <span style="margin-left:8px;font-size:13px;line-height:1.6">{{ s.message }}</span>
+
+    <!-- 核心关键词 -->
+    <div v-if="seoResult.keywords.length" class="seo-section">
+      <div class="seo-section-title">核心关键词</div>
+      <div class="seo-keywords">
+        <el-tag v-for="(k,i) in seoResult.keywords" :key="k" :type="i===0?'primary':'info'" :effect="i===0?'dark':'plain'" size="small">{{ k }}</el-tag>
+      </div>
     </div>
-    <el-divider/>
-    <div style="font-size:12px;color:#999">
-      标题 {{ seoResult.stats.title_length }} 字 · 正文 {{ seoResult.stats.body_length }} 字 · 小标题 {{ seoResult.stats.headings||0 }} · 平均句长 {{ seoResult.stats.avg_sentence_length||0 }} 字
+
+    <!-- 优化建议 -->
+    <div class="seo-section">
+      <div class="seo-section-title">优化建议 <span class="seo-section-count">{{ seoResult.suggestions.length }} 项</span></div>
+      <div v-for="(s,i) in seoResult.suggestions" :key="i" class="seo-sugg" :class="s.level">
+        <span class="seo-sugg-icon">{{ s.level==='good'?'✓':s.level==='warning'?'⚠':'✕' }}</span>
+        <span class="seo-sugg-type">{{ seoTypeLabel(s.type) }}</span>
+        <span class="seo-sugg-msg">{{ s.message }}</span>
+      </div>
     </div>
-    <div v-if="seoResult.stats.meta_description" style="font-size:12px;color:#999;margin-top:6px">
-      建议 Meta：{{ seoResult.stats.meta_description }}
+
+    <!-- Meta 描述建议 -->
+    <div v-if="seoResult.stats.meta_description" class="seo-section">
+      <div class="seo-section-title">建议 Meta 描述</div>
+      <div class="seo-meta">{{ seoResult.stats.meta_description }}</div>
     </div>
   </div>
 </el-dialog>
@@ -965,6 +1158,8 @@ const app = createApp({
     const activeVersion = ref('1');
     const showAgentTrace = ref(false);
     const genEditMode = ref(false);     // 生成结果：预览（文章式）/ 编辑 切换，默认预览
+    const liveSteps = ref([]);          // 生成中实时 Agent 步骤（SSE 流式推送，完成后清空）
+    const liveVersions = ref([]);       // 生成中逐版本进度（SSE version_* 事件，{index,dim,status,attempts,validated,issues}）
 
     // 多阶段草稿流程（新流程：检索-生成-校验 -> 选版改内容 -> 多渠道适配 -> 文生图）
     const currentDraft = ref(null);            // 当前草稿对象（含 stage/draft_versions/versions...）
@@ -1000,6 +1195,7 @@ const app = createApp({
     // 团队成员（用于展示创建人）
     const members = ref([]);
     const productMemberFilter = ref('');    // 产品列表按成员筛选
+    const historyMemberFilter = ref('');    // 历史列表按成员筛选
     // SEO 分析（加分项）
     const seoVisible = ref(false);
     const seoResult = ref(null);
@@ -1012,6 +1208,10 @@ const app = createApp({
     const registerForm = reactive({ username: '', name: '', password: '', email: '' });
     const profileVisible = ref(false);
     const profileForm = reactive({ name: '', email: '', color: '#409eff', old_password: '', new_password: '' });
+    // 成员管理（管理员）
+    const memberManageVisible = ref(false);
+    const memberFormVisible = ref(false);
+    const memberForm = reactive({ id: '', username: '', name: '', email: '', color: '#409eff', is_admin: false, new_password: '' });
 
     // 计算属性
     const channelOptions = ref([]);        // 渠道列表（从 API 加载）
@@ -1035,11 +1235,35 @@ const app = createApp({
     const memberMap = computed(() => Object.fromEntries(members.value.map(m => [m.id, m])));
     const memberName = (id) => memberMap.value[id]?.name || '';
     const memberColor = (id) => memberMap.value[id]?.color || '#bbb';
+    // SEO 评分颜色（可用于任意 score，不依赖 seoResult）
+    const seoColor = (score) => {
+      if (score == null) return '#bbb';
+      return score >= 80 ? '#67c23a' : score >= 60 ? '#e6a23c' : '#f56c6c';
+    };
+    // 取一组版本中的最高 SEO 评分（用于历史卡片概览）
+    const bestSeoScore = (versions) => {
+      const scores = (versions || []).map(v => v.seo?.score).filter(s => s != null);
+      return scores.length ? Math.max(...scores) : null;
+    };
     // SEO 评分颜色：≥80 绿 / ≥60 橙 / 否则红
     const seoScoreColor = computed(() => {
       const s = seoResult.value?.score ?? 0;
       return s >= 80 ? '#67c23a' : s >= 60 ? '#e6a23c' : '#f56c6c';
     });
+    // SEO 等级标签/类型/描述（与 seoScoreColor 同阈值）
+    const seoLevelType = computed(() => {
+      const s = seoResult.value?.score ?? 0;
+      return s >= 80 ? 'success' : s >= 60 ? 'warning' : 'danger';
+    });
+    const seoLevelText = computed(() => {
+      const s = seoResult.value?.score ?? 0;
+      return s >= 80 ? '优秀' : s >= 60 ? '良好' : '待优化';
+    });
+    const seoLevelDesc = computed(() => {
+      const s = seoResult.value?.score ?? 0;
+      return s >= 80 ? 'SEO 表现优异，可保持当前策略' : s >= 60 ? '基础达标，仍有优化空间' : 'SEO 偏弱，建议按下方建议优化';
+    });
+    const seoTypeLabel = (t) => ({ title: '标题', content: '内容', structure: '结构', keyword: '关键词', readability: '可读性' }[t] || t);
 
     // 统一 API 助手：自动带 Authorization 头；401 → 自动刷新令牌并重试
     const api = async (url, opts = {}) => {
@@ -1091,6 +1315,109 @@ const app = createApp({
       return response.ok ? response.json() : response.json().then(e => { throw new Error(e.detail || '请求失败'); });
     };
 
+    // SSE 流式读取：生成时实时接收 Agent 步骤（不走 api()，需手动解析 event-stream）
+    const streamDraft = async (url, body, { onStep, onDone, onError }) => {
+      const doFetch = (token) => fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
+        body: JSON.stringify(body)
+      });
+      let accessToken = localStorage.getItem('sx_access_token');
+      let resp = await doFetch(accessToken);
+      // 401：刷新令牌后重试一次（与 api() 行为一致）
+      if (resp.status === 401) {
+        const refreshToken = localStorage.getItem('sx_refresh_token');
+        if (!refreshToken) throw new Error('登录已失效，请重新登录');
+        const rr = await fetch('/api/auth/refresh', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken })
+        });
+        if (!rr.ok) {
+          localStorage.removeItem('sx_access_token'); localStorage.removeItem('sx_refresh_token');
+          currentUser.value = null; throw new Error('登录已失效，请重新登录');
+        }
+        accessToken = (await rr.json()).access_token;
+        localStorage.setItem('sx_access_token', accessToken);
+        resp = await doFetch(accessToken);
+      }
+      if (!resp.ok) {
+        let msg = '请求失败';
+        try { msg = (await resp.json()).detail || msg; } catch (e) {}
+        throw new Error(msg);
+      }
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx;
+        while ((idx = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          let event = 'message', dataStr = '';
+          for (const line of chunk.split('\n')) {
+            if (line.startsWith('event:')) event = line.slice(6).trim();
+            else if (line.startsWith('data:')) dataStr += (dataStr ? '\n' : '') + line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+          let data;
+          try { data = JSON.parse(dataStr); } catch (e) { continue; }
+          if (event === 'step') { onStep && onStep(data); }
+          else if (event === 'done') { onDone && onDone(data); return; }
+          else if (event === 'error') {
+            if (onError) { onError(data); return; }
+            throw new Error(data.message || '生成失败');
+          }
+        }
+      }
+    };
+
+    // 把一个 SSE step 事件合并进 liveSteps：running 追加，终态替换同名 running 项
+    const pushLiveStep = (step) => {
+      const arr = liveSteps.value;
+      if (step.status === 'running') {
+        arr.push({ agent: step.agent, status: 'running', message: '执行中...', duration_ms: null });
+      } else {
+        let replaced = false;
+        for (let i = arr.length - 1; i >= 0; i--) {
+          if (arr[i].agent === step.agent && arr[i].status === 'running') {
+            arr[i] = { agent: step.agent, status: step.status, message: step.message || '', duration_ms: step.duration_ms ?? null };
+            replaced = true; break;
+          }
+        }
+        if (!replaced) arr.push({ agent: step.agent, status: step.status, message: step.message || '', duration_ms: step.duration_ms ?? null });
+      }
+      liveSteps.value = [...arr];
+    };
+
+    // SSE 事件分发：agent 步骤进 liveSteps，版本事件进 liveVersions
+    const handleLiveStep = (data) => {
+      if (data.kind === 'version_start' || data.kind === 'version_attempt' || data.kind === 'version_done') {
+        pushVersionEvent(data);
+      } else {
+        pushLiveStep(data);
+      }
+    };
+
+    // 把版本事件合并进 liveVersions：start/attempt 标进行中，done 标完成
+    const pushVersionEvent = (ev) => {
+      const idx = ev.index - 1;
+      const arr = [...liveVersions.value];
+      while (arr.length < ev.index) arr.push(null);
+      let cur = arr[idx] || { index: ev.index, dim: '', status: 'pending', attempts: 1, validated: false, issues: [] };
+      if (ev.kind === 'version_start') {
+        cur = { ...cur, dim: ev.dim, status: 'running', attempts: 1 };
+      } else if (ev.kind === 'version_attempt') {
+        cur = { ...cur, status: 'running', attempts: ev.attempt };
+      } else {  // version_done
+        cur = { index: ev.index, dim: ev.dim, status: 'done', attempts: ev.attempts, validated: ev.validated, issues: ev.issues || [] };
+      }
+      arr[idx] = cur;
+      liveVersions.value = arr;
+    };
+
     // 带鉴权的文件下载（导出 docx）：fetch 拿 blob 再触发下载
     const downloadExport = (url) => {
       const accessToken = localStorage.getItem('sx_access_token');
@@ -1126,7 +1453,7 @@ const app = createApp({
         members.value = mb;
         channelOptions.value = ch;
         templates.value = tms;
-        history.value = await api('/api/history');
+        await reloadHistory();
       } catch (e) { ElementPlus.ElMessage.error('加载失败: ' + e.message); }
     };
 
@@ -1139,6 +1466,14 @@ const app = createApp({
     };
 
     // 生成
+    // 按筛选重新拉取历史列表（带成员筛选）
+    const reloadHistory = async () => {
+      const url = historyMemberFilter.value
+        ? `/api/history?member=${encodeURIComponent(historyMemberFilter.value)}`
+        : '/api/history';
+      history.value = await api(url);
+    };
+
     const onProductChange = () => {};
     const onScenarioChange = () => {
       genForm.params = {};
@@ -1169,7 +1504,7 @@ const app = createApp({
           }
         });
         activeVersion.value = '1';
-        history.value = await api('/api/history');
+        await reloadHistory();
         ElementPlus.ElMessage.success('生成完成');
       } catch (e) {
         ElementPlus.ElMessage.error('生成失败: ' + e.message);
@@ -1191,7 +1526,7 @@ const app = createApp({
             }))
           }
         });
-        history.value = await api('/api/history');
+        await reloadHistory();
         ElementPlus.ElMessage.success('编辑已保存到历史记录');
       } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
     };
@@ -1210,23 +1545,27 @@ const app = createApp({
         ElementPlus.ElMessage.warning('请选择产品和场景'); return;
       }
       generating.value = true;
+      liveSteps.value = [];
+      liveVersions.value = [];
       try {
-        const draft = await api('/api/drafts', {
-          method: 'POST',
-          body: {
-            product_id: genForm.product_id,
-            scenario_id: genForm.scenario_id,
-            template_id: genForm.template_id,
-            style: genForm.style,
-            params: genForm.params,
-            version_count: 3
-          }
+        await streamDraft('/api/drafts/stream', {
+          product_id: genForm.product_id,
+          scenario_id: genForm.scenario_id,
+          template_id: genForm.template_id,
+          style: genForm.style,
+          params: genForm.params,
+          version_count: 3
+        }, {
+          onStep: handleLiveStep,
+          onDone: (draft) => {
+            currentDraft.value = draft;
+            draftVersionIndex.value = '1';
+            showAgentTrace.value = false;
+            localStorage.setItem('sx_draft_id', draft.id);
+            ElementPlus.ElMessage.success('已生成 ' + draft.draft_versions.length + ' 个初稿');
+          },
+          onError: (data) => { ElementPlus.ElMessage.error('生成失败: ' + (data.message || '未知错误')); }
         });
-        currentDraft.value = draft;
-        draftVersionIndex.value = '1';
-        showAgentTrace.value = false;
-        localStorage.setItem('sx_draft_id', draft.id);
-        ElementPlus.ElMessage.success('已生成 ' + draft.draft_versions.length + ' 个初稿');
       } catch (e) {
         ElementPlus.ElMessage.error('生成失败: ' + e.message);
       } finally {
@@ -1238,13 +1577,18 @@ const app = createApp({
     const regenerateDraft = async () => {
       if (!currentDraft.value) return;
       generating.value = true;
+      liveSteps.value = [];
+      liveVersions.value = [];
       try {
-        const draft = await api(`/api/drafts/${currentDraft.value.id}/regenerate`, {
-          method: 'POST', body: {}
+        await streamDraft(`/api/drafts/${currentDraft.value.id}/regenerate/stream`, {}, {
+          onStep: handleLiveStep,
+          onDone: (draft) => {
+            currentDraft.value = draft;
+            draftVersionIndex.value = '1';
+            ElementPlus.ElMessage.success('已重新生成初稿');
+          },
+          onError: (data) => { ElementPlus.ElMessage.error('重新生成失败: ' + (data.message || '未知错误')); }
         });
-        currentDraft.value = draft;
-        draftVersionIndex.value = '1';
-        ElementPlus.ElMessage.success('已重新生成初稿');
       } catch (e) {
         ElementPlus.ElMessage.error('重新生成失败: ' + e.message);
       } finally {
@@ -1309,7 +1653,7 @@ const app = createApp({
           method: 'POST', body: {}
         });
         currentDraft.value = draft;
-        history.value = await api('/api/history');
+        await reloadHistory();
         ElementPlus.ElMessage.success('配图完成，已保存到历史记录');
       } catch (e) {
         ElementPlus.ElMessage.error('配图失败: ' + e.message);
@@ -1531,7 +1875,7 @@ const app = createApp({
       try {
         await ElementPlus.ElMessageBox.confirm('确认删除该历史记录？', '提示', { type: 'warning' });
         await api(`/api/history/${row.id}`, { method: 'DELETE' });
-        history.value = await api('/api/history');
+        await reloadHistory();
         ElementPlus.ElMessage.success('已删除');
       } catch (e) { if (e !== 'cancel') ElementPlus.ElMessage.error('删除失败'); }
     };
@@ -1545,7 +1889,7 @@ const app = createApp({
           method: 'PUT', body: { feedback: next }
         });
         Object.assign(row, updated);
-        history.value = await api('/api/history');   // 同步列表中的反馈状态
+        await reloadHistory();   // 同步列表中的反馈状态
         ElementPlus.ElMessage.success(next ? (next === 'like' ? '已点赞' : '已踩') : '已取消标记');
       } catch (e) { ElementPlus.ElMessage.error('操作失败: ' + e.message); }
     };
@@ -1561,7 +1905,7 @@ const app = createApp({
             image: v.image, images: v.images, votes: v.votes, voters: v.voters
           })) }
         });
-        history.value = await api('/api/history');
+        await reloadHistory();
         ElementPlus.ElMessage.success('已保存修改');
       } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
     };
@@ -1665,9 +2009,16 @@ const app = createApp({
     };
 
     // SEO 分析（加分项）
-    const analyzeSeo = async (title, body) => {
+    const analyzeSeo = async (v) => {
+      // 优先用随版本持久化的 SEO 结果（无需 API 调用）
+      if (v?.seo) {
+        seoResult.value = v.seo;
+        seoVisible.value = true;
+        return;
+      }
+      // 回退：实时调 API 分析（兼容老数据或编辑后未保存的场景）
       try {
-        seoResult.value = await api('/api/seo/analyze', { method: 'POST', body: { title, body } });
+        seoResult.value = await api('/api/seo/analyze', { method: 'POST', body: { title: v.title, body: v.body } });
         seoVisible.value = true;
       } catch (e) { ElementPlus.ElMessage.error('SEO 分析失败: ' + e.message); }
     };
@@ -1710,12 +2061,15 @@ const app = createApp({
 
     const logout = async () => {
       try {
-        // 调用后端 API 撤销 token，加入黑名单
+        // 调用后端 API 撤销 access token + refresh token，加入黑名单
+        const refreshToken = localStorage.getItem('sx_refresh_token');
         await fetch('/api/auth/logout', {
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('sx_access_token')
-          }
+            'Authorization': 'Bearer ' + localStorage.getItem('sx_access_token'),
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(refreshToken ? { refresh_token: refreshToken } : {})
         });
       } catch (e) {
         console.error('退出登录失败:', e);
@@ -1747,6 +2101,47 @@ const app = createApp({
         profileVisible.value = false;
         profileForm.old_password = ''; profileForm.new_password = '';
         ElementPlus.ElMessage.success('已保存');
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    };
+
+    // ===== 成员管理（管理员）=====
+    const openMemberManage = () => { memberManageVisible.value = true; };
+    const openMemberCreate = () => {
+      Object.assign(memberForm, { id: '', username: '', name: '', email: '', color: '#409eff', is_admin: false, new_password: '' });
+      memberFormVisible.value = true;
+    };
+    const openMemberEdit = (row) => {
+      Object.assign(memberForm, { id: row.id, username: row.username || '', name: row.name, email: row.email || '', color: row.color || '#409eff', is_admin: row.is_admin, new_password: '' });
+      memberFormVisible.value = true;
+    };
+    const saveMember = async () => {
+      try {
+        if (memberForm.id) {
+          // 编辑：username 不可改
+          const body = { name: memberForm.name, email: memberForm.email, color: memberForm.color, is_admin: memberForm.is_admin };
+          if (memberForm.new_password) body.new_password = memberForm.new_password;
+          await api(`/api/members/${memberForm.id}`, { method: 'PUT', body });
+        } else {
+          // 新增
+          if (!memberForm.username || !memberForm.new_password) { ElementPlus.ElMessage.warning('用户名和密码必填'); return; }
+          await api('/api/members', { method: 'POST', body: {
+            username: memberForm.username, password: memberForm.new_password,
+            name: memberForm.name, email: memberForm.email, is_admin: memberForm.is_admin
+          }});
+        }
+        members.value = await api('/api/members');   // 刷新成员表
+        memberFormVisible.value = false;
+        ElementPlus.ElMessage.success('已保存');
+      } catch (e) { ElementPlus.ElMessage.error(e.message); }
+    };
+    const deleteMember = async (row) => {
+      try {
+        await ElementPlus.ElMessageBox.confirm(`确认删除成员「${row.name}」？其产品与历史的创建人标记将清空，草稿将被清理。`, '删除成员', { type: 'warning' });
+      } catch (e) { return; }   // 用户取消
+      try {
+        await api(`/api/members/${row.id}`, { method: 'DELETE' });
+        members.value = await api('/api/members');
+        ElementPlus.ElMessage.success('已删除');
       } catch (e) { ElementPlus.ElMessage.error(e.message); }
     };
 
@@ -1852,7 +2247,7 @@ const app = createApp({
 
     return {
       activeTab, collapsed, llmEnabled, products, scenarios, history,
-      genForm, generating, genResult, activeVersion, showAgentTrace, genEditMode,
+      genForm, generating, genResult, activeVersion, showAgentTrace, genEditMode, liveSteps, liveVersions,
       productDialogVisible, editingProduct,
       scenarioDialogVisible, editingScenario,
       templateDialogVisible, editingTemplate,
@@ -1872,11 +2267,13 @@ const app = createApp({
       viewHistory, exportHistory, deleteHistory, renderMarkdown, renderArticle,
       setFeedback, saveHistoryDetail, triggerUpload, handleUpload,
       members, memberName, memberColor, productMemberFilter, reloadProducts,
+      historyMemberFilter, reloadHistory,
       castVote, votedDir, leadingVersion,
-      seoVisible, seoResult, seoScoreColor, analyzeSeo,
+      seoVisible, seoResult, seoScoreColor, seoLevelType, seoLevelText, seoLevelDesc, seoTypeLabel, analyzeSeo, seoColor, bestSeoScore,
       // 鉴权
       currentUser, loggedIn, authView, authLoading, loginForm, registerForm,
-      profileVisible, profileForm, doLogin, doRegister, logout, openProfile, saveProfile, downloadExport
+      profileVisible, profileForm, doLogin, doRegister, logout, openProfile, saveProfile, downloadExport,
+      memberManageVisible, memberFormVisible, memberForm, openMemberManage, openMemberCreate, openMemberEdit, saveMember, deleteMember,
     };
   }
 });

@@ -7,6 +7,7 @@
 """
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, status, Request
+from pydantic import BaseModel
 from app.database import query_one, transaction
 from app.models import RegisterRequest, LoginRequest, TokenResponse, User, UserUpdate
 from app.auth import (
@@ -66,18 +67,19 @@ def login(req: LoginRequest):
     return TokenResponse(access_token=access_token, refresh_token=refresh_token, user=User(**_to_user(row)))
 
 
+class RefreshRequest(BaseModel):
+    """刷新令牌请求体。"""
+    refresh_token: str
+
+
 @router.post("/refresh")
-def refresh(req: dict):
+def refresh(req: RefreshRequest):
     """刷新 access token：用 refresh token 换取新的 access token。
 
     前端收到 401 时自动调用此接口，用 refresh token 换新 access token，然后重试原请求。
     """
-    refresh_token = req.get("refresh_token")
-    if not refresh_token:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "缺少 refresh_token")
-    
     # 解码 refresh token（expected_type="refresh" 防止用 access token 刷新）
-    payload = decode_token(refresh_token, expected_type="refresh")
+    payload = decode_token(req.refresh_token, expected_type="refresh")
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "refresh token 无效")
@@ -92,18 +94,29 @@ def refresh(req: dict):
     return {"access_token": new_access_token}
 
 
-@router.post("/logout")
-def logout(request: Request, user: dict = Depends(get_current_user)):
-    """退出登录：将当前 access token 加入黑名单。
+class LogoutRequest(BaseModel):
+    """退出登录请求体：可选携带 refresh_token 一并撤销。"""
+    refresh_token: str | None = None
 
-    前端调用此接口后，当前 token 立即失效，即使未过期也无法再使用。
+
+@router.post("/logout")
+def logout(request: Request, body: LogoutRequest | None = None, user: dict = Depends(get_current_user)):
+    """退出登录：将 access token 与 refresh token 一并加入黑名单。
+
+    前端退出时应同时提交 refresh_token（请求体），后端撤销两者，
+    避免退出后 refresh token 仍可换发新 access token（旧实现只拉黑 access token，
+    refresh token 最长 7 天内仍可用，登出形同虚设）。
+    body 可选，保持对旧前端（不传 body）的兼容。
     """
-    # 从 Authorization 头提取 token
+    # 从 Authorization 头提取 access token 并拉黑
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split(" ")[1]
         revoke_token(token, user["id"])
-    
+    # 同时拉黑 refresh token（前端退出时提交）
+    if body and body.refresh_token:
+        revoke_token(body.refresh_token, user["id"])
+
     return {"message": "退出成功"}
 
 

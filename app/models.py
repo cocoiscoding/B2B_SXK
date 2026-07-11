@@ -63,6 +63,7 @@ class ProductBase(BaseModel):
     target_customers: list[str] = Field(default_factory=list)      # 目标客户行业列表
     pricing: str = ""                                    # 定价信息
     selling_points: list[str] = Field(default_factory=list)        # 核心卖点列表
+    competitors: list[str] = Field(default_factory=list)           # 竞品名称列表（供竞品分析 Agent 自动识别）
     images: list[ImageItem] = Field(default_factory=list)          # 产品图片列表
     documents: list[DocumentItem] = Field(default_factory=list)    # 产品文档列表
     # 注意：created_by 不在请求模型里——它由后端从登录令牌取，不信任前端传入
@@ -184,6 +185,8 @@ class VersionContent(BaseModel):
     tags: list[str] = Field(default_factory=list)  # 标签列表
     # 渠道归属：多渠道适配后标识该版本属于哪个渠道；初稿阶段为空字符串
     channel: str = ""
+    # 版本特色：该版本的差异化方向（如"专业严谨"/"活泼有趣"），供前端展示对比
+    feature: str = ""
     image: str | None = None    # 文生图配图（首图，向后兼容；SVG data URL 或图片 URL，加分项）
     # 全部配图列表（1-5 张）：每张 {url, caption, theme, type}，前端按小节穿插展示
     images: list[dict[str, Any]] = Field(default_factory=list)
@@ -191,6 +194,10 @@ class VersionContent(BaseModel):
     votes: dict[str, int] = Field(default_factory=lambda: {"like": 0, "dislike": 0})
     # 已投票成员及其方向 {member_id: 'like'|'dislike'}，用于防重复投票 / 改票 / 取消
     voters: dict[str, str] = Field(default_factory=dict)
+    # SEO 分析结果（深度集成：生成流程自动计算，随版本持久化）
+    # 结构同 SeoAnalyzeResponse：{score, suggestions, keywords, stats}
+    # None 表示尚未分析（老数据兼容）；dict 表示已分析
+    seo: dict[str, Any] | None = None
 
 
 class AgentStep(BaseModel):
@@ -237,7 +244,11 @@ class HistoryItem(BaseModel):
     created_at: datetime
     # 用户反馈：'like'（赞）/ 'dislike'（踩）/ None（未标记）
     # 对应加分项「引入用户反馈机制，根据点赞/踩标记优化生成质量」
+    # 注意：feedback 单值会被多人覆盖，仅作向后兼容；明细见 feedback_voters
     feedback: str | None = None
+    # 每个成员对该记录的反馈 {member_id: "like"/"dislike"}，per-user 不互相覆盖
+    # 路由层返回时用 feedback_voters.get(当前用户id) 回填 feedback 字段，前端零改动
+    feedback_voters: dict = Field(default_factory=dict)
     created_by: str | None = None    # 生成人（团队成员 id，加分项：团队协作）
 
 
@@ -290,6 +301,24 @@ class Member(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class MemberUpdate(BaseModel):
+    """管理员修改成员资料请求体（改他人）。所有字段可选。"""
+    name: str | None = None
+    email: str | None = None
+    color: str | None = None
+    is_admin: bool | None = None
+    new_password: str | None = None    # 重置密码（管理员无需旧密码）
+
+
+class MemberCreate(BaseModel):
+    """管理员创建成员请求体。"""
+    username: str = Field(..., min_length=3, max_length=50)
+    password: str = Field(..., min_length=6, max_length=100)
+    name: str = Field(..., min_length=1, max_length=50)
+    email: str = ""
+    is_admin: bool = False
 
 
 # ===== 用户鉴权 =====
