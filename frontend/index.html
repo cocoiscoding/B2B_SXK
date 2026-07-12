@@ -316,9 +316,9 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
             <el-option v-for="m in members" :key="m.id" :label="m.name" :value="m.id"/>
           </el-select>
           <el-button type="primary" size="small" @click="openProductDialog()" style="background:var(--primary);border-color:var(--primary)">+ 新增产品</el-button>
-          <el-button size="small" :loading="uploading" @click="triggerUpload">上传 Word 建库</el-button>
+          <el-button size="small" :loading="uploading" @click="triggerUpload">上传 word/pdf 建库</el-button>
         </div>
-        <input type="file" ref="uploadInput" accept=".docx" style="display:none" @change="handleUpload"/>
+        <input type="file" ref="uploadInput" accept=".pdf,.docx" style="display:none" @change="handleUpload"/>
         <el-row :gutter="16">
           <el-col :span="8" v-for="p in products" :key="p.id" style="margin-bottom:16px">
             <el-card shadow="never" class="page-card">
@@ -530,6 +530,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                     <div>
                       <el-button size="small" @click="exportResult">导出 Word</el-button>
                       <el-button size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="saveToHistory">保存</el-button>
+                      <el-button size="small" @click="genResult = null">返回生成界面</el-button>
                     </div>
                   </div>
                 </template>
@@ -707,6 +708,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                   <b style="color:var(--text-primary)">多渠道版本（{{ currentDraft.versions.length }} 个渠道）</b>
                   <div>
                     <el-button v-if="currentDraft.history_id" size="small" @click="exportDraftResult">导出 Word</el-button>
+                    <el-button v-if="currentDraft.history_id" size="small" @click="discardDraft">返回生成界面</el-button>
                     <el-button size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="doFinalize" :loading="finalizingDraft" :disabled="currentDraft.history_id">
                       {{ currentDraft.history_id ? '已保存' : (finalizingDraft ? '文生图中...' : '生成配图并保存') }}
                     </el-button>
@@ -1910,7 +1912,7 @@ const app = createApp({
       } catch (e) { ElementPlus.ElMessage.error('保存失败: ' + e.message); }
     };
 
-    // 上传 Word 手册建库 —— G3a
+    // 上传 Word/PDF 手册建库 —— G3a
     const triggerUpload = () => {
       if (uploadInput.value) uploadInput.value.click();
     };
