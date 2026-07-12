@@ -27,6 +27,8 @@
  *   // ...
  *   sse.abort()                       // 主动中断
  */
+import { getToken } from '@/util/auth'
+import { baseUrl, env } from '@/config/env'
 export class SSEClient {
   /**
    * @param {Object} opts
@@ -54,9 +56,16 @@ export class SSEClient {
     this.controller = new AbortController()
 
     try {
-      // 拼接 baseURL：与 axios.js 一致
-      const baseURL = (import.meta.env.VITE_APP_BASE_API || '').replace(/\/$/, '')
-      const fullUrl = baseURL + this.opts.url
+      // 拼接 fullUrl：dev 模式直接连真实后端，绕过 Vite proxy 的 SSE 缓冲问题
+      // - dev: ${VITE_API_TARGET}${url}  （如 http://localhost:8000/api/drafts/stream）
+      // - prod: baseUrl + url  （同源部署）
+      let fullUrl
+      if (env.DEV) {
+        const apiTarget = (env.VITE_API_TARGET || 'http://localhost:8000').replace(/\/$/, '')
+        fullUrl = apiTarget + baseUrl + this.opts.url
+      } else {
+        fullUrl = baseUrl + this.opts.url
+      }
 
       const res = await fetch(fullUrl, {
         method: this.opts.method || 'POST',
@@ -106,9 +115,10 @@ export class SSEClient {
   // ========== 私有方法 ==========
 
   _authHeader() {
-    // 与 axios.js 一致：从 localStorage 读 sx-access-token
+    // 与 axios.js 完全一致：调 getToken() 从 cookie 读 sxk-access-token
+    // 后端 FastAPI 用 OAuth2PasswordBearer，依赖 Authorization: Bearer <token>
     try {
-      const token = localStorage.getItem('sx-access-token')
+      const token = getToken()
       return token ? { Authorization: `Bearer ${token}` } : {}
     } catch {
       return {}
