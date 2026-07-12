@@ -136,7 +136,7 @@
               :key="img.id"
               class="image-card"
             >
-              <img :src="img.dataUrl" :alt="img.name" />
+              <img :src="img.dataUrl || img.url" :alt="img.name" />
               <div v-if="editing" class="image-card__mask">
                 <button type="button" class="image-card__del" title="删除" @click="removeImage(img.id)">
                   <el-icon><Close /></el-icon>
@@ -301,7 +301,9 @@ const handleImageFiles = (fileList) => {
         name: file.name,
         size: file.size,
         type: file.type,
-        dataUrl: e.target.result
+        dataUrl: e.target.result,
+        // 真实后端链路需要原始 File 对象做 multipart 上传（仅内存中，不入 mock）
+        file: file
       })
     }
     reader.readAsDataURL(file)
@@ -377,7 +379,9 @@ const resetUploadBuffer = () => {
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   productId: { type: String, default: null },
-  readonly: { type: Boolean, default: false }
+  readonly: { type: Boolean, default: false },
+  // Word 建库预填数据（真实后端 import-docx 返回的 product 草稿）
+  prefillData: { type: Object, default: null }
 })
 const emit = defineEmits(['update:modelValue', 'saved'])
 
@@ -434,6 +438,16 @@ const initForm = async () => {
   resetUploadBuffer()
   // readonly 模式 → 初始不可编辑；否则 → 可编辑
   editing.value = !props.readonly
+  // Word 建库预填：真实后端 import-docx 返回 product 草稿，直接预填
+  if (props.prefillData) {
+    Object.assign(form, {
+      ...props.prefillData,
+      features: props.prefillData.features?.length
+        ? props.prefillData.features
+        : [{ name: '', description: '' }]
+    })
+    return
+  }
   if (!props.productId) return
   loading.value = true
   const res = await sxkApi.getProduct(props.productId)
@@ -454,7 +468,8 @@ const initForm = async () => {
           name: im.name,
           size: im.size || 0,
           type: im.type || 'image/png',
-          dataUrl: im.dataUrl || ''
+          dataUrl: im.dataUrl || '',
+          url: im.url || ''  // 真实后端返回的 URL（无 dataUrl）
         }))
       }
       if (Array.isArray(att.docs)) {
@@ -514,11 +529,16 @@ const submit = async () => {
     }
   }
   saving.value = true
+  // 真实后端链路需要 File 对象做 multipart 上传；mock 链路不需要（dataUrl 已存 buffer）
+  const withFiles = {
+    images: imageBuffer.value,
+    docs: docBuffer.value
+  }
   let res
   if (isEdit.value) {
-    res = await sxkApi.updateProduct(props.productId, payload)
+    res = await sxkApi.updateProduct(props.productId, payload, withFiles)
   } else {
-    res = await sxkApi.createProduct(payload)
+    res = await sxkApi.createProduct(payload, withFiles)
   }
   saving.value = false
   if (res.code === 0) {

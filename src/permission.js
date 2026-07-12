@@ -7,6 +7,7 @@ import { useCommonStore } from './store/modules/common'
 import { useTagsStore } from './store/modules/tags'
 import { validatenull } from './util/validate'
 import { getToken } from './util/auth'
+import { ElMessage } from 'element-plus'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 
@@ -38,6 +39,12 @@ router.beforeEach((to, from, next) => {
           next({ path: '/login' })
         })
       } else {
+        // 管理员路由守卫：requiresAdmin 标记的路由仅管理员可访问
+        if (meta.requiresAdmin && !userStore.userInfo?.is_admin) {
+          ElMessage({ message: '该页面仅管理员可访问', type: 'error' })
+          next({ path: '/dashboard/index' })
+          return
+        }
         // 添加标签页
         const tagsStore = useTagsStore()
         const value = to.query.src || to.fullPath

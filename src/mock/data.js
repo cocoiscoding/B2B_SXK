@@ -26,6 +26,38 @@ export const mockCurrentUser = {
   avatar: ''
 }
 
+// ---------- 1.5 团队成员（对应 4.x Phase C） ----------
+// mock 阶段使用；真实链路（USE_MOCK_BIZ=false）会跳过此数据
+export const mockMembers = [
+  {
+    id: 'm_001',
+    username: 'admin',
+    nickname: '系统管理员',
+    email: 'admin@sxk.example.com',
+    color: '#ef4444',
+    is_admin: true,
+    created_at: '2026-01-10T09:00:00+08:00'
+  },
+  {
+    id: 'm_002',
+    username: 'alice.li',
+    nickname: '李知微',
+    email: 'alice@sxk.example.com',
+    color: '#3b82f6',
+    is_admin: false,
+    created_at: '2026-04-12T10:08:31+08:00'
+  },
+  {
+    id: 'm_003',
+    username: 'bob.wang',
+    nickname: '王运营',
+    email: 'bob@sxk.example.com',
+    color: '#10b981',
+    is_admin: false,
+    created_at: '2026-05-08T14:22:18+08:00'
+  }
+]
+
 // ---------- 2. 产品知识库（对应 4.3 接口域） ----------
 // 来源：神行库_数据库设计文档 6.5/6.6/6.7/6.8 测试数据；features 与标签分离
 export const mockProducts = [

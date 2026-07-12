@@ -32,9 +32,14 @@
     <!-- ========== 搜索 + 分类 ========== -->
     <basic-block>
       <div class="search-bar">
+        <el-radio-group v-model="searchMode" size="small" @change="search">
+          <el-radio-button label="keyword">关键词</el-radio-button>
+          <el-radio-button label="semantic">语义</el-radio-button>
+        </el-radio-group>
+
         <el-input
           v-model="filters.keyword"
-          placeholder="按名称 / 分类 / 描述 / 卖点搜索（回车触发）"
+          :placeholder="searchMode === 'semantic' ? '语义搜索：用自然语言描述需求' : '按名称 / 分类 / 描述 / 卖点搜索（回车触发）'"
           clearable
           style="max-width: 420px"
           @keyup.enter="search"
@@ -205,7 +210,17 @@
       v-model="editVisible"
       :product-id="editTargetId"
       :readonly="editReadonly"
+      :prefill-data="importPrefill"
       @saved="loadList"
+    />
+
+    <!-- ========== 隐藏的 Word 建库 input ========== -->
+    <input
+      ref="importFileInput"
+      type="file"
+      accept=".docx,.pdf"
+      hidden
+      @change="onImportFileChange"
     />
   </div>
 </template>
@@ -228,6 +243,11 @@ const stats = ref(null)
 const editVisible = ref(false)
 const editTargetId = ref(null)
 const editReadonly = ref(false)
+const importPrefill = ref(null)  // Word 建库：后端返回的 product 草稿
+const importFileInput = ref(null)
+const importing = ref(false)
+// 搜索模式：keyword（默认关键词）/ semantic（语义搜索，调用 /api/products/search）
+const searchMode = ref('keyword')
 
 // ========== 分类 → 图标 / 配色映射 ==========
 // 每个分类对应独特图标和主题色，让统计卡片有视觉区分度
@@ -281,6 +301,28 @@ const highlight = (text) => {
 const loadList = async () => {
   loading.value = true
   try {
+    // 语义搜索模式：调 /api/products/search（真实后端）
+    if (searchMode.value === 'semantic' && filters.keyword) {
+      const res = await sxkApi.searchProducts({
+        query: filters.keyword,
+        top_k: pager.size
+      })
+      if (res.code === 0) {
+        // 语义搜索返回 { items, total } —— 把 items 映射为产品卡片格式
+        list.value = (res.data?.items || []).map((p) => ({
+          product_id: p.product_id,
+          name: p.product_name,
+          category: p.category,
+          description: p.description,
+          // 语义搜索结果不含分类/卖点，回填空
+          selling_points: [],
+          _score: p.score
+        }))
+        total.value = res.data?.total || list.value.length
+      }
+      return
+    }
+    // 关键词搜索模式
     const res = await sxkApi.listProducts({
       page: pager.page,
       size: pager.size,
@@ -357,8 +399,35 @@ const onDelete = async (item) => {
 }
 
 const onImport = () => {
-  // US018：批量导入。mock 阶段提示后端待联调，避免误操作
-  ElMessage.info('批量导入功能将在后端就绪后开放（US018）')
+  // US018 / Word 建库：触发隐藏的 file input
+  importFileInput.value?.click()
+}
+
+// 真实后端链路：选择 Word/PDF → 上传 → 用返回的 product 草稿预填到编辑弹窗
+const onImportFileChange = async (e) => {
+  const file = e.target.files?.[0]
+  e.target.value = ''  // 允许同名文件重复选择
+  if (!file) return
+  importing.value = true
+  try {
+    const res = await sxkApi.importDocx(file)
+    importing.value = false
+    if (res.code === 0 && res.data && res.data.product) {
+      // 预填到 product-edit-modal（编辑模式 + readonly=false）
+      importPrefill.value = res.data.product
+      editTargetId.value = null  // 新增模式
+      editReadonly.value = false
+      editVisible.value = true
+      ElMessage.success(
+        `Word 解析成功（${res.data.extractor || '启发式'}，字符数 ${res.data.char_count || 0}），请核对后保存`
+      )
+    } else {
+      ElMessage.error(res.msg || 'Word 解析失败')
+    }
+  } catch (err) {
+    importing.value = false
+    ElMessage.error('Word 上传失败：' + (err.message || err))
+  }
 }
 
 onMounted(() => {

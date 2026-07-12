@@ -81,6 +81,32 @@ export default [
       }
     ]
   },
+  {
+    path: '/members',
+    component: Layout,
+    redirect: '/members/index',
+    children: [
+      {
+        path: 'index',
+        name: '成员管理',
+        meta: { keepAlive: false, isTab: true, title: '成员管理', requiresAdmin: true },
+        component: () => import('@/views/sxk/members/index.vue')
+      }
+    ]
+  },
+  {
+    path: '/competitors',
+    component: Layout,
+    redirect: '/competitors/index',
+    children: [
+      {
+        path: 'index',
+        name: '竞品分析',
+        meta: { keepAlive: false, isTab: true, title: '竞品分析' },
+        component: () => import('@/views/sxk/competitors/index.vue')
+      }
+    ]
+  },
 
   // ============ 旧业务页（保留） ============
   {

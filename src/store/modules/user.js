@@ -385,6 +385,7 @@ export const useUserStore = defineStore('user', {
      *   children
      */
     initSxkMenu() {
+      const isAdmin = !!this.userInfo?.is_admin
       const sxkMenu = [
         {
           path: '/dashboard/index',
@@ -415,8 +416,23 @@ export const useUserStore = defineStore('user', {
           name: '场景模板管理',
           source: 'Files',
           children: []
+        },
+        {
+          path: '/competitors/index',
+          name: '竞品分析',
+          source: 'Aim',
+          children: []
         }
       ]
+      // 成员管理仅管理员可见
+      if (isAdmin) {
+        sxkMenu.push({
+          path: '/members/index',
+          name: '成员管理',
+          source: 'UserFilled',
+          children: []
+        })
+      }
       this.menuAll = sxkMenu
       this.menu = sxkMenu
       setStore({ name: 'menu', content: sxkMenu })

@@ -23,7 +23,8 @@ import {
   mockValidationIssues,
   mockDashboardStats,
   mockProductStats,
-  mockSceneNameMap
+  mockSceneNameMap,
+  mockMembers
 } from './data'
 
 // 业务域 Mock 开关：由 .env.dev 中 VITE_APP_USE_MOCK_BIZ 控制
@@ -32,6 +33,57 @@ const USE_MOCK_BIZ = import.meta.env.VITE_APP_USE_MOCK_BIZ !== 'false'
 // 真实链路统一封装：request() 返回 axios response { status, data: {code,msg,data} }，
 // 此处提取 res.data，使其与 Mock 的 ok() 返回形态完全一致，调用方无感知切换。
 const real = (config) => request(config).then((res) => res.data)
+
+/**
+ * 真实链路辅助：批量上传产品文件
+ * @param {string} productId
+ * @param {Object} withFiles - { images: [...], docs: [...] }，每项可能含 file 对象
+ * @returns {Promise<{images: [], documents: []}>}
+ *
+ * 关键：每项只上传"有 file 对象的项"（即用户本次新选的），
+ *      已有 url 的项（从后端 loadProduct 取回）直接保留。
+ */
+const uploadAllFiles = (productId, withFiles) => {
+  const images = withFiles.images || []
+  const docs = withFiles.docs || []
+
+  const uploadImageTasks = images
+    .filter((im) => im.file)  // 只上传有 file 的
+    .map((im) =>
+      real({
+        url: `/api/products/${productId}/upload-image`,
+        method: 'post',
+        data: (() => {
+          const fd = new FormData()
+          fd.append('file', im.file)
+          return fd
+        })(),
+        meta: { isSerialize: false }
+      }).then((raw) => ({ url: raw.url, name: raw.name, size: raw.size }))
+    )
+
+  const uploadDocTasks = docs
+    .filter((d) => d.file)
+    .map((d) =>
+      real({
+        url: `/api/products/${productId}/upload-document`,
+        method: 'post',
+        data: (() => {
+          const fd = new FormData()
+          fd.append('file', d.file)
+          return fd
+        })(),
+        meta: { isSerialize: false }
+      }).then((raw) => ({ url: raw.url, name: raw.name, size: raw.size }))
+    )
+
+  return Promise.all(uploadImageTasks).then((uploadedImages) =>
+    Promise.all(uploadDocTasks).then((uploadedDocs) => ({
+      images: uploadedImages,
+      documents: uploadedDocs
+    }))
+  )
+}
 
 // ----------------- 工具：模拟延迟 -----------------
 const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -155,6 +207,14 @@ const adaptProduct = (p) => {
 const adaptProductToBackend = (payload) => {
   const attachments = payload.attachments || { images: [], docs: [] }
   const cat = payload.category
+  // 真实链路过滤：剔除 dataUrl（前端 buffer 标记），保留 url 项（已上传资源）
+  // 后端 ImageItem/DocumentItem 必填 url 字段，dataUrl 会被后端拒绝
+  const cleanImages = (attachments.images || []).filter(
+    (im) => im && (im.url || im.name) && !im.dataUrl
+  )
+  const cleanDocs = (attachments.docs || []).filter(
+    (d) => d && (d.url || d.name) && !d.dataUrl
+  )
   return {
     name: payload.name,
     category: Array.isArray(cat)
@@ -165,8 +225,8 @@ const adaptProductToBackend = (payload) => {
     features: payload.features || [],
     target_customers: payload.target_customers || [],
     selling_points: payload.selling_points || [],
-    images: attachments.images || [],
-    documents: attachments.docs || []
+    images: cleanImages,
+    documents: cleanDocs
   }
 }
 
@@ -402,15 +462,37 @@ export const sxkApi = {
 
   /**
    * 4.3.3 新增产品 POST /api/products
+   *
+   * @param {Object} payload - 产品数据
+   * @param {Object} [withFiles] - 真实后端链路中，附加待上传的 file 对象
+   *   { images: [{id, name, size, type, dataUrl, file}], docs: [{id, name, size, type, ext, file}] }
+   *   只有 file 字段存在的项会被真实上传
    */
-  createProduct: (payload) => {
+  createProduct: (payload, withFiles) => {
     if (!USE_MOCK_BIZ) {
-      // 后端路径：POST /api/products
+      // 真实链路：先 POST 产品（不传 dataUrl），拿到 productId 后循环 upload
       return real({
         url: '/api/products',
         method: 'post',
         data: adaptProductToBackend(payload)
-      }).then((raw) => ok({ product_id: raw.id }))
+      }).then((raw) => {
+        const productId = raw.id
+        // 真实链路：上传文件（如果有 file 对象）
+        if (withFiles && productId) {
+          return uploadAllFiles(productId, withFiles).then((uploaded) => {
+            // 把上传结果写回 product.images/documents（用 PUT 增量更新）
+            return real({
+              url: `/api/products/${productId}`,
+              method: 'put',
+              data: {
+                images: uploaded.images,
+                documents: uploaded.documents
+              }
+            }).then(() => ok({ product_id: productId }))
+          })
+        }
+        return ok({ product_id: productId })
+      })
     }
     return delay().then(() => {
       // BR-K-03 业务校验：必填字段
@@ -449,15 +531,35 @@ export const sxkApi = {
 
   /**
    * 4.3.4 修改产品 PUT /api/products/{productId}
+   *
+   * @param {string} productId
+   * @param {Object} payload
+   * @param {Object} [withFiles] - 同 createProduct
    */
-  updateProduct: (productId, payload) => {
+  updateProduct: (productId, payload, withFiles) => {
     if (!USE_MOCK_BIZ) {
-      // 后端路径：PUT /api/products/{product_id}
+      // 真实链路：先 PUT 产品（不传 dataUrl），再上传新文件
+      const backendPayload = adaptProductToBackend(payload)
       return real({
         url: `/api/products/${productId}`,
         method: 'put',
-        data: adaptProductToBackend(payload)
-      }).then(() => ok(null))
+        data: backendPayload
+      }).then(() => {
+        if (withFiles && productId) {
+          return uploadAllFiles(productId, withFiles).then((uploaded) => {
+            // 合并到原 images/documents 再 PUT 一次
+            return real({
+              url: `/api/products/${productId}`,
+              method: 'put',
+              data: {
+                images: [...(backendPayload.images || []), ...uploaded.images],
+                documents: [...(backendPayload.documents || []), ...uploaded.documents]
+              }
+            }).then(() => ok(null))
+          })
+        }
+        return ok(null)
+      })
     }
     return delay().then(() => {
       const idx = mockProducts.findIndex((p) => p.product_id === productId)
@@ -525,6 +627,129 @@ export const sxkApi = {
       })
     }
     return delay(150).then(() => ok(mockProductStats))
+  },
+
+  /**
+   * 语义搜索（真实后端链路）
+   * POST /api/products/search
+   * 请求体：{ query: string, top_k?: number, threshold?: number }
+   * 响应：{ items: [{product_id, product_name, category, score, description}], total }
+   *
+   * Mock 阶段：按名称/描述包含 query 简单模拟
+   */
+  searchProducts: ({ query, top_k = 10, threshold = 0.5 } = {}) => {
+    if (USE_MOCK_BIZ) {
+      return delay(200).then(() => {
+        const q = (query || '').trim().toLowerCase()
+        if (!q) return ok({ items: [], total: 0 })
+        const items = mockProducts
+          .filter((p) => !p.is_deleted)
+          .filter((p) => {
+            const name = (p.name || '').toLowerCase()
+            const desc = (p.description || '').toLowerCase()
+            const cats = Array.isArray(p.category) ? p.category.join(',') : (p.category || '')
+            return name.includes(q) || desc.includes(q) || cats.toLowerCase().includes(q)
+          })
+          .slice(0, top_k)
+          .map((p) => ({
+            product_id: p.product_id,
+            product_name: p.name,
+            category: p.category || [],
+            score: 0.9,
+            description: (p.description || '').slice(0, 200)
+          }))
+        return ok({ items, total: items.length })
+      })
+    }
+    return real({
+      url: '/api/products/search',
+      method: 'post',
+      data: { query, top_k, threshold }
+    }).then((raw) => ok(raw))
+  },
+
+  /**
+   * 重建产品向量索引（真实后端链路，仅管理员）
+   * POST /api/products/reindex
+   * 响应：{ message, count }
+   *
+   * Mock 阶段不实现
+   */
+  reindexProducts: () => {
+    if (USE_MOCK_BIZ) {
+      return delay().then(() => ok({ message: 'Mock 阶段不重建向量', count: 0 }))
+    }
+    return real({
+      url: '/api/products/reindex',
+      method: 'post'
+    }).then((raw) => ok(raw))
+  },
+
+  /**
+   * 产品资源上传（真实后端链路）
+   *
+   * - 上传图片：POST /api/products/{id}/upload-image（multipart/form-data）
+   *   返回 { url, name, size }
+   * - 上传文档：POST /api/products/{id}/upload-document（multipart/form-data）
+   *   返回 { url, name, size }
+   *
+   * Mock 阶段不实现（保持原有 dataUrl 缓冲机制）
+   */
+  uploadProductImage: (productId, file) => {
+    if (USE_MOCK_BIZ) {
+      return delay().then(() =>
+        ok({ url: `mock://upload-image/${file.name}`, name: file.name, size: file.size })
+      )
+    }
+    const fd = new FormData()
+    fd.append('file', file)
+    return real({
+      url: `/api/products/${productId}/upload-image`,
+      method: 'post',
+      data: fd,
+      meta: { isSerialize: false }  // 关键：禁止 serialize（multipart 用 FormData）
+    }).then((raw) => ok({ url: raw.url, name: raw.name, size: raw.size }))
+  },
+
+  uploadProductDocument: (productId, file) => {
+    if (USE_MOCK_BIZ) {
+      return delay().then(() =>
+        ok({ url: `mock://upload-document/${file.name}`, name: file.name, size: file.size })
+      )
+    }
+    const fd = new FormData()
+    fd.append('file', file)
+    return real({
+      url: `/api/products/${productId}/upload-document`,
+      method: 'post',
+      data: fd,
+      meta: { isSerialize: false }
+    }).then((raw) => ok({ url: raw.url, name: raw.name, size: raw.size }))
+  },
+
+  /**
+   * Word 建库（真实后端链路）
+   * POST /api/products/import-docx（multipart/form-data）
+   * 返回 { product: ProductCreate, char_count, extractor, note }
+   *
+   * Mock 阶段不实现
+   */
+  importDocx: (file) => {
+    if (USE_MOCK_BIZ) {
+      return delay().then(() => ({
+        code: 6001,
+        msg: 'Mock 阶段不支持 Word 建库',
+        data: null
+      }))
+    }
+    const fd = new FormData()
+    fd.append('file', file)
+    return real({
+      url: '/api/products/import-docx',
+      method: 'post',
+      data: fd,
+      meta: { isSerialize: false }
+    }).then((raw) => ok(raw))
   },
 
   // ----------------- 模板域（4.5） -----------------
@@ -1693,38 +1918,185 @@ export const sxkApi = {
   /** 简单 Markdown 渲染（前端工具方法，方便调用） */
   renderMarkdown: (md) => md || '',
 
-  /** 导出 docx 触发下载（mock：用 text/markdown blob 代替） */
-  exportDocx: (generationId) => {
+  /**
+   * 导出历史内容（支持 docx / markdown / txt 三种格式）
+   * GET /api/history/{id}/export?format=docx|markdown|txt
+   * - 真实链路：responseType: blob，由后端生成文件
+   * - Mock 阶段：按 format 生成本地 blob 触发下载
+   */
+  exportHistory: (generationId, format = 'docx') => {
     if (!USE_MOCK_BIZ) {
       return real({
-        url: `/api/history/${generationId}/export?format=docx`,
+        url: `/api/history/${generationId}/export?format=${format}`,
         method: 'get',
         responseType: 'blob'
       })
     }
     return delay(200).then(() => {
       const gen = mockGenerations.find((g) => g.generation_id === generationId)
-      const text = gen
+      const baseName = gen?.product?.name || 'content'
+      const mdText = gen
         ? gen.versions
             .map((v) => `# ${v.name}\n\n${v.content_html || v.content_markdown || v.body || ''}`)
             .join('\n\n---\n\n')
         : ''
-      // 关键修复：必须把 <a> 元素挂到 DOM 上，再 click，再移除。
-      // 否则部分浏览器（尤其 iframe / sandbox 环境）会静默拦截下载。
-      const blob = new Blob([text || '# 空内容\n'], { type: 'text/markdown;charset=utf-8' })
+      // mock 阶段统一按 format 生成本地文件
+      let blob, ext, mime
+      if (format === 'txt') {
+        // txt 去掉 markdown 标记
+        const txtText = (mdText || '').replace(/[#*`_>\-]/g, '').trim() || '空内容'
+        blob = new Blob([txtText], { type: 'text/plain;charset=utf-8' })
+        ext = 'txt'
+        mime = 'text/plain'
+      } else if (format === 'markdown') {
+        blob = new Blob([mdText || '# 空内容\n'], { type: 'text/markdown;charset=utf-8' })
+        ext = 'md'
+        mime = 'text/markdown'
+      } else {
+        // docx 真实后端响应；mock 用 markdown 替代
+        blob = new Blob([mdText || '# 空内容\n'], { type: 'text/markdown;charset=utf-8' })
+        ext = 'docx'
+        mime = 'application/octet-stream'
+      }
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${gen?.product?.name || 'content'}_${generationId}.md`
+      a.download = `${baseName}_${generationId}.${ext}`
       a.style.display = 'none'
       document.body.appendChild(a)
       a.click()
-      // 给浏览器一点时间处理下载
       setTimeout(() => {
         document.body.removeChild(a)
         URL.revokeObjectURL(url)
       }, 100)
-      return ok({ filename: a.download, size: blob.size })
+      return ok({ filename: a.download, size: blob.size, format, mime })
+    })
+  },
+
+  // 别名：保留向后兼容（Phase F 前历史页面调 exportDocx）
+  exportDocx: (generationId) => sxkApi.exportHistory(generationId, 'docx'),
+  exportMarkdown: (generationId) => sxkApi.exportHistory(generationId, 'markdown'),
+  exportTxt: (generationId) => sxkApi.exportHistory(generationId, 'txt'),
+
+  // ============== Phase C: 成员管理 ==============
+
+  /**
+   * 4.x.1 列出成员 GET /api/members
+   * 真实后端响应：[{id, username, nickname, email, color, is_admin, created_at}, ...]
+   */
+  listMembers: () => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: '/api/members', method: 'get' })
+        .then((raw) => ok(raw))
+    }
+    return delay(200).then(() => ok(mockMembers || []))
+  },
+
+  /**
+   * 4.x.2 创建成员 POST /api/members
+   * 请求：{username, password, nickname, email, color, is_admin}
+   */
+  createMember: (payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: '/api/members', method: 'post', data: payload })
+        .then((raw) => ok(raw))
+    }
+    return delay().then(() => {
+      const list = mockMembers || []
+      if (list.some((m) => m.username === payload.username)) {
+        return { code: 4091, msg: '用户名已存在', data: null }
+      }
+      const newM = {
+        id: `m_${Date.now()}`,
+        username: payload.username,
+        nickname: payload.nickname || payload.username,
+        email: payload.email || '',
+        color: payload.color || '#3b82f6',
+        is_admin: !!payload.is_admin,
+        created_at: new Date().toISOString()
+      }
+      list.push(newM)
+      return ok(newM)
+    })
+  },
+
+  /**
+   * 4.x.3 更新成员 PUT /api/members/{id}
+   * 请求：{nickname?, email?, color?, is_admin?, password?}
+   */
+  updateMember: (id, payload) => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: `/api/members/${id}`, method: 'put', data: payload })
+        .then((raw) => ok(raw))
+    }
+    return delay().then(() => {
+      const list = mockMembers || []
+      const idx = list.findIndex((m) => m.id === id)
+      if (idx < 0) return { code: 4041, msg: '成员不存在', data: null }
+      list[idx] = { ...list[idx], ...payload, id }
+      return ok(list[idx])
+    })
+  },
+
+  /**
+   * 4.x.4 删除成员 DELETE /api/members/{id}
+   */
+  removeMember: (id) => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: `/api/members/${id}`, method: 'delete' })
+        .then(() => ok(null))
+    }
+    return delay().then(() => {
+      const list = mockMembers || []
+      const idx = list.findIndex((m) => m.id === id)
+      if (idx < 0) return { code: 4041, msg: '成员不存在', data: null }
+      list.splice(idx, 1)
+      return ok(null)
+    })
+  },
+
+  // ============== Phase D: 竞品分析 ==============
+
+  /**
+   * 4.x.5 列出竞品 GET /api/products/{pid}/competitors
+   * 真实后端响应：[{name, score, summary, source, last_updated}]
+   */
+  listCompetitors: (productId) => {
+    if (!USE_MOCK_BIZ) {
+      return real({ url: `/api/products/${productId}/competitors`, method: 'get' })
+        .then((raw) => ok(raw))
+    }
+    return delay(200).then(() => {
+      // mock：从产品的 competitors 字段构造
+      const p = (mockProducts || []).find((x) => x.product_id === productId)
+      if (!p) return ok([])
+      const list = (p.competitors || []).map((name, i) => ({
+        name,
+        score: 4.2 - i * 0.1,
+        summary: `${name} 是与本产品具有相似定位的竞品。`,
+        source: 'heuristic',
+        last_updated: new Date().toISOString()
+      }))
+      return ok(list)
+    })
+  },
+
+  /**
+   * 4.x.6 删除竞品 DELETE /api/products/{pid}/competitors/{name}
+   */
+  removeCompetitor: (productId, name) => {
+    if (!USE_MOCK_BIZ) {
+      return real({
+        url: `/api/products/${productId}/competitors/${encodeURIComponent(name)}`,
+        method: 'delete'
+      }).then(() => ok(null))
+    }
+    return delay().then(() => {
+      const p = (mockProducts || []).find((x) => x.product_id === productId)
+      if (p && Array.isArray(p.competitors)) {
+        p.competitors = p.competitors.filter((n) => n !== name)
+      }
+      return ok(null)
     })
   }
 }

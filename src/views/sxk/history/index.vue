@@ -144,7 +144,18 @@
                 <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
               </svg>
             </button>
-            <el-button text size="small" @click="onExport(row)">导出</el-button>
+            <el-dropdown trigger="click" @command="(fmt) => onExport(row, fmt)">
+              <el-button text size="small">
+                导出 <el-icon><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="docx">Word (.docx)</el-dropdown-item>
+                  <el-dropdown-item command="markdown">Markdown (.md)</el-dropdown-item>
+                  <el-dropdown-item command="txt">纯文本 (.txt)</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <el-button text size="small" type="danger" @click="onDelete(row)">
               删除
             </el-button>
@@ -172,7 +183,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search,
   Loading,
-  Refresh
+  Refresh,
+  ArrowDown
 } from '@element-plus/icons-vue'
 import BasicBlock from '@/components/basic-block/main.vue'
 import { sxkApi } from '@/mock/sxkApi'
@@ -399,10 +411,13 @@ const onView = (row) => {
   detailVisible.value = true
 }
 
-const onExport = async (row) => {
+const onExport = async (row, format = 'docx') => {
+  // 真实链路：responseType=blob 直接由浏览器下载
+  // Mock 阶段：sxkApi.exportHistory 会本地生成 blob 触发下载
   try {
-    await sxkApi.exportDocx(row.generation_id)
-    ElMessage.success('已开始导出')
+    await sxkApi.exportHistory(row.generation_id, format)
+    const labelMap = { docx: 'Word', markdown: 'Markdown', txt: '纯文本' }
+    ElMessage.success(`已开始导出 ${labelMap[format] || format}`)
   } catch (e) {
     ElMessage.error('导出失败：' + (e?.message || '未知错误'))
   }
