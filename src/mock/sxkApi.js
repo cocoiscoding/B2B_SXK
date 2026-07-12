@@ -734,14 +734,21 @@ export const sxkApi = {
    * POST /api/products/import-docx（multipart/form-data）
    * 返回 { product: ProductCreate, char_count, extractor, note }
    *
-   * Mock 阶段不实现
+   * Mock 阶段：返回友好提示，让前端 UI 决定如何引导用户
+   * （不弹错误码，让前端能用 ElMessage.warning 区别对待）
    */
   importDocx: (file) => {
     if (USE_MOCK_BIZ) {
-      return delay().then(() => ({
-        code: 6001,
-        msg: 'Mock 阶段不支持 Word 建库',
-        data: null
+      return delay(200).then(() => ({
+        code: 0,
+        msg: 'mock 链路不支持',
+        data: {
+          product: null,
+          char_count: 0,
+          extractor: 'mock',
+          note: 'Word 建库功能需要在真实后端环境（USE_MOCK_BIZ=false）下使用，mock 阶段请用"添加产品"按钮手动录入。',
+          mock_unavailable: true  // 关键：让前端判断是 mock 不支持
+        }
       }))
     }
     const fd = new FormData()

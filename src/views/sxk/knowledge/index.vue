@@ -17,9 +17,13 @@
           <p>上传并解析产品文档，为 AI Agent 提供精准的事实依据</p>
         </div>
         <div class="page-header__actions">
+          <el-button v-if="isAdmin" @click="onReindex" :loading="reindexing">
+            <el-icon><Refresh /></el-icon>
+            <span>重建向量索引</span>
+          </el-button>
           <el-button @click="onImport">
             <el-icon><Upload /></el-icon>
-            <span>批量导入</span>
+            <span>Word 建库</span>
           </el-button>
           <el-button type="primary" @click="onAdd">
             <el-icon><Plus /></el-icon>
@@ -227,9 +231,10 @@
 
 <script setup>
 import { computed, markRaw, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Plus, Upload, Search, Loading, Box, TrendCharts, Connection, Promotion, MoreFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Upload, Search, Loading, Box, TrendCharts, Connection, Promotion, MoreFilled, Refresh } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
+import { useUserStore } from '@/store/modules/user'
 import ProductEditModal from './components/product-edit-modal.vue'
 
 // ========== 状态 ==========
@@ -248,6 +253,11 @@ const importFileInput = ref(null)
 const importing = ref(false)
 // 搜索模式：keyword（默认关键词）/ semantic（语义搜索，调用 /api/products/search）
 const searchMode = ref('keyword')
+// 管理员判断：用于显示"重建向量索引"按钮
+const userStore = useUserStore()
+const isAdmin = computed(() => !!userStore.userInfo?.is_admin)
+// 重建向量加载状态
+const reindexing = ref(false)
 
 // ========== 分类 → 图标 / 配色映射 ==========
 // 每个分类对应独特图标和主题色，让统计卡片有视觉区分度
@@ -404,6 +414,7 @@ const onImport = () => {
 }
 
 // 真实后端链路：选择 Word/PDF → 上传 → 用返回的 product 草稿预填到编辑弹窗
+// Mock 链路：友好提示用户用"添加产品"手动录入
 const onImportFileChange = async (e) => {
   const file = e.target.files?.[0]
   e.target.value = ''  // 允许同名文件重复选择
@@ -413,20 +424,57 @@ const onImportFileChange = async (e) => {
     const res = await sxkApi.importDocx(file)
     importing.value = false
     if (res.code === 0 && res.data && res.data.product) {
-      // 预填到 product-edit-modal（编辑模式 + readonly=false）
+      // 真实链路：预填到 product-edit-modal
       importPrefill.value = res.data.product
-      editTargetId.value = null  // 新增模式
+      editTargetId.value = null
       editReadonly.value = false
       editVisible.value = true
       ElMessage.success(
         `Word 解析成功（${res.data.extractor || '启发式'}，字符数 ${res.data.char_count || 0}），请核对后保存`
       )
+    } else if (res.data?.mock_unavailable) {
+      // mock 链路：友好提示（不弹错误）
+      ElMessage({
+        message: 'Word 建库需要真实后端支持。Mock 阶段请使用"添加产品"按钮手动录入产品信息。',
+        type: 'warning',
+        duration: 5000
+      })
     } else {
       ElMessage.error(res.msg || 'Word 解析失败')
     }
   } catch (err) {
     importing.value = false
     ElMessage.error('Word 上传失败：' + (err.message || err))
+  }
+}
+
+// 重建向量索引（仅管理员可见，Phase B-4）
+const onReindex = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '重建向量索引可能需要数分钟，期间会阻塞搜索功能，确认执行？',
+      '重建向量索引',
+      { type: 'warning', confirmButtonText: '确认重建', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  reindexing.value = true
+  try {
+    const res = await sxkApi.reindexProducts()
+    reindexing.value = false
+    if (res.code === 0) {
+      ElMessage.success(
+        res.data?.count !== undefined
+          ? `重建完成，已索引 ${res.data.count} 个产品`
+          : '重建完成'
+      )
+    } else {
+      ElMessage.error(res.msg || '重建失败')
+    }
+  } catch (e) {
+    reindexing.value = false
+    // axios 拦截器已提示
   }
 }
 

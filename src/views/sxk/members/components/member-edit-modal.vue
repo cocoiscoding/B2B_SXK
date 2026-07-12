@@ -37,8 +37,14 @@
         <el-input v-model="form.username" :disabled="isEdit" placeholder="登录用户名（仅新增时设置）" maxlength="32" />
       </el-form-item>
 
-      <el-form-item v-if="!isEdit" label="密码" prop="password">
-        <el-input v-model="form.password" type="password" show-password placeholder="初始密码" maxlength="64" />
+      <el-form-item :label="isEdit ? '重置密码' : '密码'" prop="password">
+        <el-input
+          v-model="form.password"
+          type="password"
+          show-password
+          :placeholder="isEdit ? '留空则不修改' : '初始密码'"
+          maxlength="64"
+        />
       </el-form-item>
 
       <el-form-item label="昵称" prop="nickname">
@@ -122,8 +128,19 @@ const rules = {
     { min: 3, max: 32, message: '用户名长度 3-32', trigger: 'blur' }
   ],
   password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 64, message: '密码长度 6-64', trigger: 'blur' }
+    {
+      // 新增时必填，编辑时可选（留空则不修改）
+      validator: (rule, value, cb) => {
+        if (!isEdit.value && !value) {
+          return cb(new Error('请输入密码'))
+        }
+        if (value && (value.length < 6 || value.length > 64)) {
+          return cb(new Error('密码长度 6-64'))
+        }
+        cb()
+      },
+      trigger: 'blur'
+    }
   ],
   nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
   email: [
@@ -176,12 +193,15 @@ const submit = async () => {
   saving.value = true
   let res
   if (isEdit.value) {
-    // 编辑：不传 username / password
+    // 编辑：仅在有密码时才传 password（否则后端可能误清空）
     const payload = {
       nickname: form.nickname,
       email: form.email,
       color: form.color,
       is_admin: form.is_admin
+    }
+    if (form.password) {
+      payload.password = form.password
     }
     res = await sxkApi.updateMember(props.memberId, payload)
   } else {

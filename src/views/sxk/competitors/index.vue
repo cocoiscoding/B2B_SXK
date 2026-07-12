@@ -72,6 +72,14 @@
                 共 {{ competitorList.length }} 个竞品
               </div>
             </div>
+            <el-button
+              :loading="reanalyzing"
+              size="small"
+              @click="onReanalyze"
+            >
+              <el-icon><Refresh /></el-icon>
+              <span>重新分析</span>
+            </el-button>
           </div>
 
           <div v-if="!competitorList.length" class="competitor-list__empty">
@@ -120,7 +128,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { Aim, Box, Search } from '@element-plus/icons-vue'
+import { Aim, Box, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import sxkApi from '@/mock/sxkApi'
 
@@ -130,6 +138,7 @@ const selectedId = ref(null)
 const selectedProduct = ref(null)
 const competitorList = ref([])
 const loading = ref(false)
+const reanalyzing = ref(false)  // 重新分析加载状态
 
 const filteredProducts = computed(() => {
   const kw = productKeyword.value.trim().toLowerCase()
@@ -204,6 +213,31 @@ const removeCompetitor = async (comp) => {
     }
   } catch (e) {
     // axios 拦截器已提示
+  }
+}
+
+// 重新分析竞品（Phase D 增强）
+// 后端无独立 /competitors/analyze 端点，重新分析由 content_generate 阶段触发。
+// 这里提供 UI 让用户提示"需生成新内容" —— 避免误以为有独立端点
+const onReanalyze = async () => {
+  reanalyzing.value = true
+  try {
+    // 真实链路：此处应 POST /api/products/{id}/competitors/analyze（后端目前无独立端点）
+    // 折中：直接调 listCompetitors 重新拉取最新数据
+    const res = await sxkApi.listCompetitors(selectedId.value)
+    reanalyzing.value = false
+    if (res.code === 0) {
+      competitorList.value = res.data || []
+      if (!competitorList.value.length) {
+        ElMessage.info('当前产品暂无竞品数据。请在「内容生成」阶段生成竞品分析后再次查看。')
+      } else {
+        ElMessage.success('已刷新竞品列表')
+      }
+    } else {
+      ElMessage.error(res.msg || '刷新失败')
+    }
+  } catch (e) {
+    reanalyzing.value = false
   }
 }
 
