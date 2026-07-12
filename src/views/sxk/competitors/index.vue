@@ -39,7 +39,6 @@
               :class="{ 'is-active': selectedId === p.product_id }"
               @click="selectProduct(p)"
             >
-              <el-icon class="product-item__icon"><Box /></el-icon>
               <div class="product-item__info">
                 <div class="product-item__name">{{ p.name }}</div>
                 <div class="product-item__cat">
@@ -126,7 +125,7 @@
 
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { Aim, Box, Refresh, Search } from '@element-plus/icons-vue'
+import { Aim, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import sxkApi from '@/mock/sxkApi'
 
@@ -318,6 +317,8 @@ onMounted(() => {
     font-size: 18px;
     flex-shrink: 0;
   }
+  // 关键：已移除 .product-item__icon（图框里的 Box），保留 CSS 以防其他场景复用
+  // .sxk-product-item__icon  仍可被其他模板使用
 
   &__info {
     flex: 1;

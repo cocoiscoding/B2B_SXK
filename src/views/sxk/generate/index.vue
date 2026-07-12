@@ -212,136 +212,112 @@
           </div>
         </div>
 
-        <!-- ============ 卡片 3：动态参数（智能分类 + 视觉分组） ============ -->
+        <!-- ============ 卡片 3：动态参数（4 栏紧凑布局，一屏全显） ============ -->
         <template v-if="currentScene">
-          <div class="sxk-form-card">
-            <div class="sxk-form-card__head">
+          <div class="sxk-form-card sxk-form-card--params-compact">
+            <div class="sxk-form-card__head sxk-form-card__head--compact">
               <span class="sxk-form-card__bar"></span>
               <span class="sxk-form-card__title">动态参数（{{ currentScene.name }}）</span>
               <span class="sxk-form-card__desc">带 * 为必填项</span>
             </div>
-            <div class="sxk-form-card__body">
-              <!-- 区域 1：枚举类（标签按钮组） -->
-              <div v-if="enumParams.length" class="sxk-param-section">
-                <div class="sxk-param-section__title">
-                  <el-icon><Operation /></el-icon>
-                  <span>选项配置</span>
-                </div>
-                <div
-                  v-for="p in enumParams"
-                  :key="p.key"
-                  class="sxk-param-row"
-                >
-                  <div class="sxk-param-row__label">
-                    <span v-if="p.required" class="sxk-param-required">*</span>
-                    <span class="sxk-param-row__label-text">{{ cleanLabel(p.label) }}</span>
-                    <span v-if="p.default" class="sxk-param-row__label-hint">推荐：{{ p.default }}</span>
-                  </div>
-                  <div class="sxk-param-row__chips">
-                    <button
-                      v-for="opt in p.options"
-                      :key="opt"
-                      type="button"
-                      class="sxk-param-chip"
-                      :class="{ 'is-active': form.params[p.key] === opt }"
-                      @click="form.params[p.key] = opt"
-                    >
-                      {{ opt }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 区域 2：文本类（紧凑输入框 + 默认值提示） -->
-              <div v-if="textParams.length" class="sxk-param-section">
-                <div class="sxk-param-section__title">
-                  <el-icon><EditPen /></el-icon>
-                  <span>文本信息</span>
-                </div>
-                <div class="sxk-param-grid-2col">
+            <div class="sxk-form-card__body sxk-form-card__body--compact">
+              <div class="sxk-form-compact">
+                <template v-for="p in currentScene.params" :key="p.key">
+                  <!-- 枚举：label + chip 同行（compact） -->
                   <div
-                    v-for="p in textParams"
-                    :key="p.key"
-                    class="sxk-param-input"
-                    :class="{ 'is-full': p.fullWidth }"
+                    v-if="p.type === 'enum' && p.options && p.options.length"
+                    class="sxk-field sxk-field--enum"
                   >
-                    <div class="sxk-param-input__label">
-                      <span v-if="p.required" class="sxk-param-required">*</span>
-                      <span class="sxk-param-input__label-text">{{ cleanLabel(p.label) }}</span>
+                    <span class="sxk-field__label">
+                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      {{ p.label || p.key }}
+                    </span>
+                    <div class="sxk-field__chips">
+                      <button
+                        v-for="opt in p.options"
+                        :key="opt"
+                        type="button"
+                        class="sxk-param-chip sxk-param-chip--compact"
+                        :class="{ 'is-active': form.params[p.key] === opt }"
+                        @click="form.params[p.key] = opt"
+                      >{{ opt }}</button>
                     </div>
+                  </div>
+                  <!-- 文本：label + input 同行 -->
+                  <div
+                    v-else-if="p.type === 'text'"
+                    class="sxk-field sxk-field--text"
+                  >
+                    <span class="sxk-field__label">
+                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      {{ p.label || p.key }}
+                    </span>
                     <el-input
                       v-model="form.params[p.key]"
-                      :placeholder="p.default || `请输入${cleanLabel(p.label)}`"
-                      :maxlength="p.maxLength || 200"
+                      :placeholder="p.default || '请输入'"
+                      :maxlength="p.maxLength || 100"
                       show-word-limit
                       clearable
                       size="default"
-                    >
-                      <template v-if="p.default" #prefix>
-                        <el-tooltip :content="`推荐值：${p.default}`" placement="top">
-                          <el-icon class="sxk-param-input__tip"><InfoFilled /></el-icon>
-                        </el-tooltip>
-                      </template>
-                    </el-input>
-                    <div v-if="p.hint" class="sxk-param-input__hint">{{ p.hint }}</div>
+                    />
                   </div>
-                </div>
-              </div>
-
-              <!-- 区域 3：长文本类（独占一行） -->
-              <div v-if="textareaParams.length" class="sxk-param-section">
-                <div class="sxk-param-section__title">
-                  <el-icon><Document /></el-icon>
-                  <span>详细说明</span>
-                </div>
-                <div
-                  v-for="p in textareaParams"
-                  :key="p.key"
-                  class="sxk-param-input sxk-param-input--full"
-                >
-                  <div class="sxk-param-input__label">
-                    <span v-if="p.required" class="sxk-param-required">*</span>
-                    <span class="sxk-param-input__label-text">{{ cleanLabel(p.label) }}</span>
-                    <span v-if="p.default" class="sxk-param-input__label-hint">推荐：{{ p.default }}</span>
+                  <!-- 长文本：label + textarea 同行（紧凑 1 行） -->
+                  <div
+                    v-else-if="p.type === 'textarea'"
+                    class="sxk-field sxk-field--textarea"
+                  >
+                    <span class="sxk-field__label">
+                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      {{ p.label || p.key }}
+                    </span>
+                    <el-input
+                      v-model="form.params[p.key]"
+                      type="textarea"
+                      :autosize="{ minRows: 1, maxRows: 3 }"
+                      :placeholder="p.default || '请输入'"
+                      :maxlength="p.maxLength || 500"
+                      show-word-limit
+                    />
                   </div>
-                  <el-input
-                    v-model="form.params[p.key]"
-                    type="textarea"
-                    :autosize="{ minRows: 3, maxRows: 6 }"
-                    :placeholder="p.default || `请输入${cleanLabel(p.label)}`"
-                    :maxlength="p.maxLength || 1000"
-                    show-word-limit
-                  />
-                </div>
-              </div>
-
-              <!-- 提示词 -->
-              <div v-if="form.params.prompt" class="sxk-param-section">
-                <div class="sxk-param-section__title">
-                  <el-icon><MagicStick /></el-icon>
-                  <span>提示词</span>
-                </div>
-                <el-input
-                  v-model="form.params.prompt"
-                  type="textarea"
-                  :rows="4"
-                  placeholder="给 AI 一些附加指令，例如：'请用第一人称' 或 '结尾加一句号召'"
-                  :maxlength="500"
-                  show-word-limit
-                />
-              </div>
-
-              <!-- 智能提示：填写完成度 -->
-              <div v-if="completionProgress < 100" class="sxk-param-tip">
-                <el-icon><Aim /></el-icon>
-                <span>已完成 <b>{{ completionProgress }}%</b>，还需填写 <b>{{ requiredRemaining }}</b> 个必填项</span>
-                <div class="sxk-param-tip__bar">
-                  <div class="sxk-param-tip__bar-fill" :style="{ width: completionProgress + '%' }"></div>
-                </div>
+                  <!-- 默认：text -->
+                  <div v-else class="sxk-field sxk-field--text">
+                    <span class="sxk-field__label">
+                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      {{ p.label || p.key }}
+                    </span>
+                    <el-input
+                      v-model="form.params[p.key]"
+                      :placeholder="p.default || '请输入'"
+                      :maxlength="p.maxLength || 100"
+                      show-word-limit
+                      clearable
+                    />
+                  </div>
+                </template>
               </div>
             </div>
           </div>
         </template>
+
+        <!-- ============ 附加提示词（可选，辅助 AI 生成） ============ -->
+        <div class="sxk-form-card sxk-form-card--prompt">
+          <div class="sxk-form-card__head sxk-form-card__head--compact">
+            <span class="sxk-form-card__bar"></span>
+            <span class="sxk-form-card__title">附加提示词</span>
+            <span class="sxk-form-card__desc">可选 · 给 AI 一些附加指令，让生成更贴近你的想法</span>
+          </div>
+          <div class="sxk-form-card__body sxk-form-card__body--compact">
+            <el-input
+              v-model="form.params.prompt"
+              type="textarea"
+              :autosize="{ minRows: 1, maxRows: 3 }"
+              placeholder="例如：'请用第一人称' / '结尾加一句号召' / '突出 AI 风控和毫秒级风险识别'"
+              :maxlength="500"
+              show-word-limit
+              clearable
+            />
+          </div>
+        </div>
 
         <!-- ============ 卡片 4：提交 ============ -->
         <div class="sxk-form-card sxk-form-card--submit">
@@ -3265,6 +3241,139 @@ void renderMarkdown
   text-align: center;
   line-height: 1.3;
   color: inherit;
+}
+
+// ============================================================
+// 4 栏紧凑布局：动态参数一屏全显（关键：消除滚动）
+// ============================================================
+
+// 提示词卡片（紧凑、内嵌风格）
+.sxk-form-card--prompt {
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $spacing-sm;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.02), rgba(79, 70, 229, 0.01));
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.25);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+  }
+  .el-textarea__inner {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px dashed $border-base;
+    transition: all 0.2s;
+    &:hover, &:focus {
+      background: $bg-card;
+      border-style: solid;
+      border-color: rgba(99, 102, 241, 0.5);
+    }
+  }
+}
+
+// 紧凑卡片（无 hover、padding 缩小）
+.sxk-form-card--params-compact {
+  padding: $spacing-sm $spacing-md;
+  margin-bottom: $spacing-sm;
+  &:hover {
+    border-color: $border-light;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  }
+}
+.sxk-form-card__head--compact {
+  margin-bottom: $spacing-xs;
+  padding-bottom: $spacing-xs;
+  border-bottom: 1px dashed $border-light;
+}
+.sxk-form-card__body--compact {
+  padding-top: $spacing-xs;
+}
+
+// 4 栏紧凑网格（关键：4 字段一行，textarea 也强制 1 行）
+.sxk-form-compact {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $spacing-xs $spacing-sm;
+  align-items: start;
+
+  // 响应式
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  @media (max-width: 992px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  @media (max-width: 576px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// 单个字段（label + 控件 同行）
+.sxk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0; // 防止溢出
+
+  // 枚举类 chip 占满 4 栏
+  &--enum {
+    grid-column: span 4;
+    .sxk-field__chips {
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    @media (max-width: 1200px) {
+      grid-column: span 3;
+    }
+    @media (max-width: 992px) {
+      grid-column: span 2;
+    }
+    @media (max-width: 576px) {
+      grid-column: 1;
+    }
+  }
+
+  // textarea 占 2 栏
+  &--textarea {
+    grid-column: span 2;
+    @media (max-width: 992px) {
+      grid-column: span 2;
+    }
+    @media (max-width: 576px) {
+      grid-column: 1;
+    }
+  }
+
+  &__label {
+    font-size: 12px;
+    color: $text-secondary;
+    line-height: 1.3;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  &__required {
+    color: #ef4444;
+    font-style: normal;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+}
+
+// 紧凑 chip（更小、更紧凑）
+.sxk-param-chip--compact {
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  &.is-active {
+    box-shadow: 0 1px 4px rgba(99, 102, 241, 0.3);
+  }
 }
 
 // 表单整体（更紧凑、更专业）
