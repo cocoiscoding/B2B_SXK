@@ -826,8 +826,8 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
               </div>
             </div>
             <div class="hc-actions" @click.stop>
-              <el-button text size="small" :type="row.feedback==='like'?'success':'info'" @click="setFeedback(row,'like')">👍</el-button>
-              <el-button text size="small" :type="row.feedback==='dislike'?'danger':'info'" @click="setFeedback(row,'dislike')">👎</el-button>
+              <el-button text size="small" :type="row.feedback==='like'?'success':'info'" @click="setFeedback(row,'like')">👍 {{row.like_count||0}}</el-button>
+              <el-button text size="small" :type="row.feedback==='dislike'?'danger':'info'" @click="setFeedback(row,'dislike')">👎 {{row.dislike_count||0}}</el-button>
               <el-button text size="small" @click="exportHistory(row)">导出</el-button>
               <el-button text size="small" type="danger" @click="deleteHistory(row)">删除</el-button>
             </div>
@@ -849,8 +849,8 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                 <el-tag :type="currentHistory.validated?'success':'warning'" size="small">{{ currentHistory.validated?'通过':'待完善' }}</el-tag>
               </el-descriptions-item>
               <el-descriptions-item label="反馈">
-                <el-button text size="small" :type="currentHistory.feedback==='like'?'success':'info'" @click="setFeedback(currentHistory,'like')">👍{{ currentHistory.feedback==='like'?' 已赞':'' }}</el-button>
-                <el-button text size="small" :type="currentHistory.feedback==='dislike'?'danger':'info'" @click="setFeedback(currentHistory,'dislike')">👎{{ currentHistory.feedback==='dislike'?' 已踩':'' }}</el-button>
+                <el-button text size="small" :type="currentHistory.feedback==='like'?'success':'info'" @click="setFeedback(currentHistory,'like')">👍 {{currentHistory.like_count||0}}{{ currentHistory.feedback==='like'?' 已赞':'' }}</el-button>
+                <el-button text size="small" :type="currentHistory.feedback==='dislike'?'danger':'info'" @click="setFeedback(currentHistory,'dislike')">👎 {{currentHistory.dislike_count||0}}{{ currentHistory.feedback==='dislike'?' 已踩':'' }}</el-button>
               </el-descriptions-item>
               <el-descriptions-item label="创建人">
                 <span v-if="memberName(currentHistory.created_by)" :style="{color:memberColor(currentHistory.created_by)}">● {{ memberName(currentHistory.created_by) }}</span>

@@ -249,6 +249,9 @@ class HistoryItem(BaseModel):
     # 每个成员对该记录的反馈 {member_id: "like"/"dislike"}，per-user 不互相覆盖
     # 路由层返回时用 feedback_voters.get(当前用户id) 回填 feedback 字段，前端零改动
     feedback_voters: dict = Field(default_factory=dict)
+    # 赞/踩总数：路由层从 feedback_voters 统计回填，供前端按钮显示数量
+    like_count: int = 0
+    dislike_count: int = 0
     created_by: str | None = None    # 生成人（团队成员 id，加分项：团队协作）
 
 

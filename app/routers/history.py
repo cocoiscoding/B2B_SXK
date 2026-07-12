@@ -22,10 +22,11 @@ JSON_FIELDS = ["params", "versions", "agent_trace", "issues", "feedback_voters"]
 
 
 def _inject_current_feedback(rows, user_id: str):
-    """把 feedback_voters 中当前用户的态度回填到 feedback 字段（前端零改动）。
+    """把 feedback_voters 中当前用户的态度回填到 feedback 字段，并统计赞/踩总数。
 
     feedback 单值会被多人覆盖，改用 feedback_voters 记录每个成员的态度；
-    返回前用当前用户的态度回填 feedback，前端读 row.feedback 仍是当前用户视角。
+    返回前用当前用户的态度回填 feedback（前端读 row.feedback 仍是当前用户视角），
+    并从 feedback_voters 统计 like_count / dislike_count 供前端按钮显示数量。
     支持单条 dict 或列表。
     """
     if isinstance(rows, dict):
@@ -34,6 +35,11 @@ def _inject_current_feedback(rows, user_id: str):
         voters = r.get("feedback_voters") or {}
         if isinstance(voters, dict) and voters:
             r["feedback"] = voters.get(user_id)
+            r["like_count"] = sum(1 for v in voters.values() if v == "like")
+            r["dislike_count"] = sum(1 for v in voters.values() if v == "dislike")
+        else:
+            r["like_count"] = 0
+            r["dislike_count"] = 0
     return rows
 
 
