@@ -9,29 +9,27 @@
 -->
 <template>
   <div class="sxk-knowledge">
-    <!-- ========== 顶部头：标题 + 按钮 ========== -->
-    <basic-block>
-      <div class="page-header">
-        <div class="page-header__title">
-          <h2>产品知识库</h2>
-          <p>上传并解析产品文档，为 AI Agent 提供精准的事实依据</p>
-        </div>
-        <div class="page-header__actions">
-          <el-button v-if="isAdmin" @click="onReindex" :loading="reindexing">
-            <el-icon><Refresh /></el-icon>
-            <span>重建向量索引</span>
-          </el-button>
-          <el-button @click="onImport">
-            <el-icon><Upload /></el-icon>
-            <span>Word 建库</span>
-          </el-button>
-          <el-button type="primary" @click="onAdd">
-            <el-icon><Plus /></el-icon>
-            <span>添加产品</span>
-          </el-button>
-        </div>
+    <!-- ========== 顶部欢迎条：与首页风格一致 ========== -->
+    <div class="sxk-page-welcome">
+      <div class="sxk-page-welcome__left">
+        <h2 class="sxk-page-welcome__title">产品知识库</h2>
+        <p class="sxk-page-welcome__desc">上传并解析产品文档，为 AI Agent 提供精准的事实依据</p>
       </div>
-    </basic-block>
+      <div class="sxk-page-welcome__actions">
+        <el-button v-if="isAdmin" @click="onReindex" :loading="reindexing">
+          <el-icon><Refresh /></el-icon>
+          <span>重建向量索引</span>
+        </el-button>
+        <el-button @click="onImport">
+          <el-icon><Upload /></el-icon>
+          <span>Word 建库</span>
+        </el-button>
+        <el-button type="primary" @click="onAdd">
+          <el-icon><Plus /></el-icon>
+          <span>添加产品</span>
+        </el-button>
+      </div>
+    </div>
 
     <!-- ========== 搜索 + 分类 ========== -->
     <basic-block>
@@ -518,31 +516,8 @@ onMounted(() => {
   gap: $spacing-md;
 }
 
-// ========== 页面头部 ==========
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  &__title {
-    h2 {
-      margin: 0 0 $spacing-xs;
-      font-size: $font-size-xl;
-      font-weight: 700;
-      color: $gray-900;
-    }
-    p {
-      margin: 0;
-      font-size: $font-size-sm;
-      color: $text-regular;
-    }
-  }
-
-  &__actions {
-    display: flex;
-    gap: $spacing-sm;
-  }
-}
+// ========== 页面头部（已迁移到 .sxk-page-welcome，参考 common.scss） ==========
+// 关键：删除了旧的 .page-header，使用全局 .sxk-page-welcome 组件
 
 // ========== 搜索栏 ==========
 .search-bar {

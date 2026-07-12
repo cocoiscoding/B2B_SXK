@@ -62,10 +62,10 @@
               @keyup.enter="handleLogin"
             />
           </el-form-item>
-          <el-form-item v-if="website.captchaMode">
+          <el-form-item v-if="website.captchaMode" prop="code">
             <el-row :gutter="10" style="width: 100%">
               <el-col :span="14">
-                <el-input v-model="loginForm.code" :prefix-icon="Picture" placeholder="验证码" size="large" @keyup.enter="handleLogin" />
+                <el-input v-model="loginForm.code" :prefix-icon="Picture" placeholder="请输入验证码" size="large" @keyup.enter="handleLogin" />
               </el-col>
               <el-col :span="10">
                 <div class="captcha-img" @click="refreshCaptcha">
@@ -115,7 +115,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { User, Lock, Picture, InfoFilled, MagicStick, DataAnalysis, Promotion } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/modules/user'
 import { getCaptcha } from '@/api/user'
@@ -151,7 +151,9 @@ const loginForm = reactive({
 
 const loginRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  // 验证码必填：trigger 用 'blur' 校验（输入框失焦），避免中文输入法 IME 误触
+  code: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
 }
 
 /**
@@ -188,7 +190,36 @@ const goRegister = () => {
 const handleLogin = async () => {
   if (!loginFormRef.value) return
   try {
+    // 1) 基础表单校验（用户名 + 密码 + 验证码必填）
     await loginFormRef.value.validate()
+
+    // 2) 验证码必填 + 大小写不敏感校验（仅前端演示用）
+    if (website.captchaMode) {
+      const input = (loginForm.code || '').trim()
+      if (!input) {
+        await ElMessageBox.alert('请输入验证码后再登录', '提示', {
+          type: 'warning',
+          confirmButtonText: '我知道了',
+          customClass: 'sxk-login-alert'
+        })
+        refreshCaptcha()
+        return
+      }
+      // 关键：不区分大小写比对（真实环境由后端校验）
+      const expected = (sessionStorage.getItem('sxk-captcha-text') || '').trim()
+      if (expected && input.toLowerCase() !== expected.toLowerCase()) {
+        await ElMessageBox.alert('验证码不正确，请重新输入', '提示', {
+          type: 'error',
+          confirmButtonText: '重新输入',
+          customClass: 'sxk-login-alert'
+        })
+        loginForm.code = ''
+        refreshCaptcha()
+        return
+      }
+    }
+
+    // 3) 登录请求
     loading.value = true
     await userStore.loginByUsername(loginForm)
     ElMessage.success('登录成功')

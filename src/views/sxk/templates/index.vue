@@ -7,25 +7,19 @@
 -->
 <template>
   <div class="sxk-templates">
-    <!-- 顶部头 + 创建按钮 -->
-    <basic-block>
-      <div class="page-header">
-        <div>
-          <h2>场景模板管理</h2>
-          <p>管理营销场景与子模板，支撑多 Agent 内容生成</p>
-        </div>
-        <div class="page-header__actions">
-          <el-button type="primary" @click="onAddScene">
-            <el-icon><Grid /></el-icon>
-            <span>新建场景</span>
-          </el-button>
-          <!-- <el-button type="primary" @click="onManageScenes">
-            <el-icon><Setting /></el-icon>
-            <span>管理场景</span>
-          </el-button> -->
-        </div>
+    <!-- 顶部欢迎条：与首页风格一致 -->
+    <div class="sxk-page-welcome">
+      <div class="sxk-page-welcome__left">
+        <h2 class="sxk-page-welcome__title">场景模板管理</h2>
+        <p class="sxk-page-welcome__desc">管理营销场景与子模板，支撑多 Agent 内容生成</p>
       </div>
-    </basic-block>
+      <div class="sxk-page-welcome__actions">
+        <el-button type="primary" @click="onAddScene">
+          <el-icon><Grid /></el-icon>
+          <span>新建场景</span>
+        </el-button>
+      </div>
+    </div>
 
     <!-- 4 个统计卡片 -->
     <el-row :gutter="16">
@@ -487,30 +481,8 @@ const openDetailFromQuery = async () => {
   gap: $spacing-md;
 }
 
-// ========== 页面头部 ==========
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  h2 {
-    margin: 0 0 $spacing-xs;
-    font-size: $font-size-xl;
-    font-weight: 700;
-    color: $gray-900;
-  }
-  p {
-    margin: 0;
-    font-size: $font-size-sm;
-    color: $text-regular;
-  }
-
-  &__actions {
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
-  }
-}
+// ========== 页面头部（已迁移到 .sxk-page-welcome，参考 common.scss） ==========
+// 关键：删除了旧的 .page-header，使用全局 .sxk-page-welcome 组件
 
 // ========== 统计卡片 ==========
 .mini-stat {

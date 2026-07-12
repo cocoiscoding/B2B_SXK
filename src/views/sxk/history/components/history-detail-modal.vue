@@ -27,6 +27,7 @@
     @open="load"
   >
     <!-- ========== 头部 ========== -->
+  <template #header>
     <div class="hdm-head">
       <div class="hdm-head__left">
         <h3 class="hdm-head__title">
@@ -36,13 +37,14 @@
         <p v-if="data" class="hdm-head__sub">
           {{ data.product?.name || '已删除产品' }}
           <span v-if="data.scene_name">· {{ data.scene_name }}</span>
-          <span v-if="data.created_at">· {{ formatDateTime(data.created_at) }}</span>
+          <!-- <span v-if="data.created_at">· {{ formatDateTime(data.created_at) }}</span> -->
         </p>
       </div>
       <button class="hdm-head__close" @click="$emit('update:modelValue', false)">
         <el-icon :size="20"><Close /></el-icon>
       </button>
     </div>
+  </template>
 
     <!-- ========== 可滚动内容区 ========== -->
     <div class="hdm-body" v-loading="loading">
@@ -256,57 +258,61 @@
               </div>
             </template>
 
-            <!-- 投票胶囊条（自绘，不依赖 emoji 渲染） -->
-            <div class="hdm-vote">
-              <button
-                class="hdm-vote__btn is-like"
-                :class="{ 'is-active': votedDir(v) === 'like' }"
-                @click="onVote(v, 'like')"
-              >
-                <span class="hdm-vote__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="14" height="14">
-                    <path
-                      d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </span>
-                <span class="hdm-vote__label">赞</span>
-                <span class="hdm-vote__num">{{ v.votes?.like || 0 }}</span>
-              </button>
-
-              <span class="hdm-vote__sep" />
-
-              <button
-                class="hdm-vote__btn is-dislike"
-                :class="{ 'is-active': votedDir(v) === 'dislike' }"
-                @click="onVote(v, 'dislike')"
-              >
-                <span class="hdm-vote__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="14" height="14">
-                    <path
-                      d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </span>
-                <span class="hdm-vote__label">踩</span>
-                <span class="hdm-vote__num">{{ v.votes?.dislike || 0 }}</span>
-              </button>
-
-              <span class="hdm-vote__divider" />
-
-              <el-button link size="small" class="hdm-vote__seo" @click="onAnalyzeSeo(v)">
-                <el-icon><Search /></el-icon>
-                SEO 分析
-              </el-button>
-            </div>
+            <!-- 投票胶囊条已移至全局底部 .hdm-vote-bar（fixed） -->
           </el-tab-pane>
         </el-tabs>
       </template>
       <div v-else-if="!loading" class="hdm-empty">
         <el-empty description="暂无数据" />
       </div>
+    </div>
+
+    <!-- ========== 底部固定点赞区（当前 tab 版本） ========== -->
+    <div
+      v-if="!loading && data && data.versions?.length"
+      class="hdm-vote-bar"
+    >
+      <div class="hdm-vote-bar__left">
+        <!-- <span class="hdm-vote-bar__label">当前版本（{{ currentVersion?.index }}）反馈：</span> -->
+        <button
+          class="hdm-vote__btn is-like"
+          :class="{ 'is-active': votedDir(currentVersion) === 'like' }"
+          @click="onVote(currentVersion, 'like')"
+        >
+          <span class="hdm-vote__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="14" height="14">
+              <path
+                d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
+          <span class="hdm-vote__label">赞</span>
+          <span class="hdm-vote__num">{{ currentVersion?.votes?.like || 0 }}</span>
+        </button>
+
+        <span class="hdm-vote__sep" />
+        <button
+          class="hdm-vote__btn is-dislike"
+          :class="{ 'is-active': votedDir(currentVersion) === 'dislike' }"
+          @click="onVote(currentVersion, 'dislike')"
+        >
+          <span class="hdm-vote__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="14" height="14">
+              <path
+                d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z"
+                fill="currentColor"
+              />
+            </svg>
+          </span>
+          <span class="hdm-vote__label">踩</span>
+          <span class="hdm-vote__num">{{ currentVersion?.votes?.dislike || 0 }}</span>
+        </button>
+      </div>
+      <el-button link size="small" class="hdm-vote__seo" @click="onAnalyzeSeo(currentVersion)">
+        <el-icon><Search /></el-icon>
+        SEO 分析
+      </el-button>
     </div>
 
     <!-- ========== 底部 ========== -->
@@ -468,6 +474,15 @@ const leadingVersion = (versions) => {
   }
   return best
 }
+
+/**
+ * 关键：当前激活 tab 的版本（用于底部 fixed 点赞区）
+ */
+const currentVersion = computed(() => {
+  if (!data.value?.versions?.length) return null
+  const idx = Number(activeVersionIndex.value || 0)
+  return data.value.versions[idx] || data.value.versions[0]
+})
 
 const renderArticle = (body, images, title) => {
   return renderArticleUtil(body || '', images || [], title || '')
@@ -642,17 +657,23 @@ const onAnalyzeSeo = async (v) => {
 </script>
 
 <style lang="scss">
-// 全局覆盖：与产品/模板弹窗保持完全一致
-// 设计：依赖全局 .el-dialog 的 max-height: 80vh + flex 列布局 + body 滚动
-//       .hdm-dialog 不再覆盖 body 的滚动行为（避免 footer 被裁切）
+// ============================================================
+// 全局覆盖：三段式固定布局（头部 / 中间滚动 / 底部点赞 + 底部按钮）
+// ============================================================
 .hdm-dialog {
+  // 关键：禁用全局 .el-dialog__body 的 overflow-y: auto
+  //       因为现在 .hdm-body 自己负责滚动
   .el-dialog__header {
-    display: none;
+    padding: 0;            // 让 .hdm-head 自带 padding
   }
   .el-dialog__body {
-    // 不再设置 max-height / overflow（由全局 .el-dialog__body 控制滚动）
-    // 保留 padding: 0（让 .hdm-body 自带 padding）
+    // 关键：外层 body 不滚动（由 .hdm-body 自管）
     padding: 0;
+    flex: 1;               // 关键：占满 head 与 footer 之间的空间
+    min-height: 0;         // 允许收缩
+    overflow: hidden;      // 关键：禁用外层滚动
+    display: flex;         // 关键：让 .hdm-body 能 flex: 1 撑满
+    flex-direction: column;
   }
   .el-dialog__footer {
     // 关键：恢复 padding，让 .hdm-foot 与弹窗底边有间距
@@ -724,14 +745,18 @@ const onAnalyzeSeo = async (v) => {
   }
 }
 
-// ========== 可滚动内容区 ==========
-// 关键：依赖全局 .el-dialog__body 的 overflow-y: auto
-//       hdm-body 不再自己设 max-height / overflow，避免双重滚动
+// ========== 可滚动内容区（关键：自管滚动）==========
+// 关键：现在 .hdm-body 自己负责滚动，由 .el-dialog__body 提供的 flex 父级计算高度
 .hdm-body {
   padding: $spacing-lg;
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
+  // 关键：自管滚动（关键的三段式：head 固定 / body 滚 / vote-bar 固定）
+  flex: 1 1 auto;           // 关键：占满 head / vote-bar 之间的空间
+  min-height: 0;            // 关键：允许 flex 子项收缩（否则内容超出时不会滚动）
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .hdm-empty {
@@ -1131,6 +1156,34 @@ const onAnalyzeSeo = async (v) => {
       color: #666;
       margin-top: 6px;
     }
+  }
+}
+
+// ========== 底部固定点赞区（与 footer 上下相邻） ==========
+.hdm-vote-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: 12px $spacing-lg;
+  background: $bg-hover;
+  border-top: 1px solid $border-light;
+  flex-shrink: 0;        // 关键：作为 body 内的最后一个 flex item，保持 fixed 效果
+  // 关键：自管边界，铺满 .el-dialog__body 宽度
+  margin: 0 (-$spacing-lg);  // 抵消 .hdm-body 的 padding，让 bar 贴边铺满
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__label {
+    font-size: 12px;
+    color: $text-secondary;
+    font-weight: 500;
   }
 }
 

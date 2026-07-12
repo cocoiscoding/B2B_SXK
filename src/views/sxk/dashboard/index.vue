@@ -9,16 +9,33 @@
 -->
 <template>
   <div class="sxk-dashboard">
-    <!-- ========== 欢迎区（原型：无卡片背景，直接 section 内 flex justify-between） ========== -->
+    <!-- ========== 欢迎区（优化：渐变背景 + 4 个快捷操作） ========== -->
     <div class="welcome">
       <div class="welcome-text">
         <h2 class="welcome-title">欢迎回来，{{ welcomeName }}</h2>
         <p class="welcome-sub">今天是 {{ todayText }}，准备好创造精彩内容了吗？</p>
+        <div class="welcome-greeting">
+          <el-tag :type="greetingTagType" effect="dark" size="small" round>
+            <el-icon><component :is="greetingIcon" /></el-icon>
+            <span style="margin-left: 4px">{{ greetingText }}</span>
+          </el-tag>
+        </div>
       </div>
-      <!-- <el-button type="primary" size="large" class="welcome-btn" @click="goGenerate">
-        <el-icon class="welcome-btn-icon"><MagicStick /></el-icon>
-        <span>立即生成</span>
-      </el-button> -->
+      <!-- 关键：4 个快捷操作（圆形按钮 + 图标 + 文字）-->
+      <div class="quick-actions">
+        <div
+          v-for="qa in quickActions"
+          :key="qa.label"
+          class="quick-action"
+          :style="{ background: qa.bg, color: qa.color }"
+          @click="qa.action"
+        >
+          <div class="qa-icon">
+            <el-icon :size="22"><component :is="qa.icon" /></el-icon>
+          </div>
+          <div class="qa-label">{{ qa.label }}</div>
+        </div>
+      </div>
     </div>
 
     <!-- ========== 任务进度条（US013：生成中任务，原型无此项，为业务需求保留） ========== -->
@@ -30,96 +47,359 @@
       <el-button type="primary" link @click="goGenerate">查看进度</el-button>
     </div>
 
-    <!-- ========== 4 张统计卡片（原型：grid lg:grid-cols-4 gap-6，竖排） ========== -->
-    <el-row :gutter="24" class="stat-row">
-      <el-col :xs="24" :sm="12" :md="6" v-for="card in statCards" :key="card.label">
-        <div class="stat-card">
-          <!-- 图标区（原型：w-12 h-12 bg-{color}-50 rounded-lg text-{color}-600） -->
-          <div class="stat-icon" :style="{ color: card.color, backgroundColor: card.bg }">
-            <el-icon><component :is="card.icon" /></el-icon>
+    <!-- ========== 数据看板（升级：3 个区块，每个包含多个指标） ==========
+         关键：参考 SaaS 平台指标看板，每个区块展示一组关联指标 -->
+    <el-row :gutter="20" class="stat-row">
+      <el-col v-for="card in statCards" :key="card.label" :xs="24" :sm="24" :md="8">
+        <div class="stat-card" :style="{ '--card-color': card.color }">
+          <!-- 关键：区块头部（标题 + 同比 + 主数值 + sparkline）-->
+          <div class="stat-head">
+            <div class="stat-head__left">
+              <div class="stat-icon" :style="{ color: card.color, backgroundColor: card.bg }">
+                <el-icon :size="20"><component :is="card.icon" /></el-icon>
+              </div>
+              <div>
+                <div class="stat-label">{{ card.label }}</div>
+                <div class="stat-value">
+                  {{ card.value }}<span v-if="card.unit" class="stat-unit">{{ card.unit }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="stat-trend" :class="`trend--${card.trend}`">
+              <el-icon :size="12"><component :is="card.trendIcon" /></el-icon>
+              <span>{{ card.trendText }}</span>
+            </div>
           </div>
-          <div class="stat-label">{{ card.label }}</div>
-          <div class="stat-value">
-            {{ card.value }}<span v-if="card.unit" class="stat-unit">{{ card.unit }}</span>
+
+          <!-- 关键：sparkline 趋势线 + 副标题 -->
+          <div class="stat-sparkline">
+            <svg viewBox="0 0 100 24" preserveAspectRatio="none">
+              <polyline
+                :points="card.sparkPoints"
+                :stroke="card.color"
+                stroke-width="1.5"
+                fill="none"
+              />
+            </svg>
           </div>
           <div class="stat-sub">{{ card.sub }}</div>
+
+          <!-- 关键：新增的子指标（每张卡片下方展示 3 个关联指标）-->
+          <div class="stat-mini-grid">
+            <div
+              v-for="mini in card.miniStats"
+              :key="mini.label"
+              class="mini-stat"
+            >
+              <div class="mini-stat__icon" :style="{ color: mini.color, backgroundColor: mini.bg }">
+                <el-icon :size="12"><component :is="mini.icon" /></el-icon>
+              </div>
+              <div class="mini-stat__body">
+                <div class="mini-stat__label">{{ mini.label }}</div>
+                <div class="mini-stat__value">
+                  {{ mini.value }}<span v-if="mini.unit" class="mini-stat__unit">{{ mini.unit }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </el-col>
     </el-row>
 
-    <!-- ========== 常用场景模板（按生成历史使用次数聚合 top 3） ==========
-         关键：首屏显示骨架屏（无 commonTemplates 兜底），load 完成后才显示真实数据 -->
+    <!-- ========== 关键：2 列分栏布局（左侧 2/3 营销场景 + 右侧 1/3 最近生成） ==========
+         关键：告别"一行一行"垂直堆叠，参考 Linear/Notion 主页用分栏提升信息密度 -->
+    <div class="dashboard-split">
+      <div class="dashboard-split__left">
+        <!-- ========== 营销场景（重构 V2：分类筛选 + 5 卡片网格 + 缩略图 + 立即使用） ==========
+         关键：参考 Notion 模板中心 / Figma Community，统一 5 卡片视觉 -->
     <div class="section-block">
-      <h3 class="section-title">营销场景</h3>
-      <!-- 加载中：骨架屏（避免看到 commonTemplates 旧数据） -->
-      <el-row :gutter="24" v-if="!dataLoaded">
-        <el-col :xs="24" :sm="12" :lg="8" v-for="i in 3" :key="`skeleton-${i}`">
-          <div class="tpl-card tpl-card--skeleton">
-            <div class="tpl-icon tpl-icon--skeleton"></div>
-            <div class="tpl-name tpl-name--skeleton"></div>
-            <div class="tpl-desc tpl-desc--skeleton"></div>
-            <div class="tpl-tags">
-              <span class="tpl-tag tpl-tag--skeleton"></span>
+      <div class="section-header">
+        <h3 class="section-title">常用营销场景</h3>
+        <el-button text type="primary" @click="goTemplates">
+          查看全部场景
+          <el-icon><ArrowRight /></el-icon>
+        </el-button>
+      </div>
+
+      <!-- 关键：合并 section-header（标题 + 查看全部）+ 工具栏（分类 + 排序）-->
+      <div v-if="topScenesByUsage.length > 0" class="section-toolbar">
+        <!-- 左侧：分类筛选 -->
+        <el-radio-group v-model="sceneCategory" size="small">
+          <el-radio-button label="all">全部</el-radio-button>
+          <el-radio-button label="product">产品</el-radio-button>
+          <el-radio-button label="marketing">营销</el-radio-button>
+          <el-radio-button label="sales">销售</el-radio-button>
+          <el-radio-button label="brand">品牌</el-radio-button>
+        </el-radio-group>
+        <!-- 右侧：排序 -->
+        <!-- <div class="section-toolbar__right">
+          <el-radio-group v-model="sceneSort" size="small">
+            <el-radio-button label="usage">使用最多</el-radio-button>
+            <el-radio-button label="recent">最新</el-radio-button>
+          </el-radio-group>
+        </div> -->
+      </div>
+
+      <!-- 加载中：骨架屏 -->
+      <div v-if="!dataLoaded" class="scenes-loading-grid">
+        <div class="scene-card-skeleton" v-for="i in 5" :key="`sk-${i}`">
+          <div class="skeleton-thumbnail"></div>
+          <div class="skeleton-line skeleton-line--title"></div>
+          <div class="skeleton-line skeleton-line--desc"></div>
+          <div class="skeleton-line skeleton-line--meta"></div>
+        </div>
+      </div>
+
+      <!-- 加载完成：5 卡片统一网格 -->
+      <div v-else-if="topScenesByUsage.length > 0" class="scenes-grid">
+        <div
+          v-for="(tpl, idx) in displayedScenes"
+          :key="tpl.scene_code"
+          class="scene-card"
+          @click="useCommonTemplate(tpl)"
+        >
+          <!-- 关键：缩略图（4 格 + 装饰 + 排名徽章）-->
+          <div
+            class="scene-thumb"
+            :style="{ background: `linear-gradient(135deg, ${tpl.color} 0%, ${tpl.color}dd 100%)` }"
+          >
+            <div class="thumb-grid">
+              <div v-for="i in 4" :key="`cell-${i}`" class="thumb-cell"></div>
+            </div>
+            <div class="thumb-decoration thumb-decoration--1"></div>
+            <div class="thumb-decoration thumb-decoration--2"></div>
+            <!-- 排名徽章（#1 主力，其他隐藏）-->
+            <div v-if="idx === 0 && sceneSort === 'usage'" class="thumb-rank">
+              <el-icon :size="10"><Trophy /></el-icon>
+              <span>#1 主力</span>
+            </div>
+            <!-- 使用次数角标 -->
+            <div class="thumb-badge">
+              <el-icon :size="10"><DataLine /></el-icon>
+              <span>{{ tpl.use_count }}</span>
             </div>
           </div>
-        </el-col>
-      </el-row>
-      <!-- 加载完成：显示真实聚合数据 -->
-      <el-row :gutter="24" v-else-if="topScenesByUsage.length > 0">
-        <el-col :xs="24" :sm="12" :lg="8" v-for="tpl in topScenesByUsage" :key="tpl.scene_code">
-          <div class="tpl-card" @click="useCommonTemplate(tpl)">
-            <!-- 图标（原型：w-12 h-12 bg-{color}-50 rounded-lg mb-4） -->
-            <div class="tpl-icon" :style="{ color: tpl.color, backgroundColor: tpl.bg }">
-              <el-icon><component :is="tpl.icon" /></el-icon>
+
+          <!-- 关键：卡片主体（标题 + 描述 + 标签 + 操作）-->
+          <div class="scene-body">
+            <div class="scene-head">
+              <div class="scene-icon" :style="{ color: tpl.color, backgroundColor: tpl.bg }">
+                <el-icon :size="16"><component :is="tpl.icon" /></el-icon>
+              </div>
+              <div class="scene-title">{{ tpl.name }}</div>
+              <el-button
+                class="scene-fav"
+                text
+                size="small"
+                @click.stop="toggleFavorite(tpl.scene_code)"
+              >
+                <el-icon :size="14">
+                  <component :is="isFavorited(tpl.scene_code) ? 'StarFilled' : 'Star'" />
+                </el-icon>
+              </el-button>
             </div>
-            <div class="tpl-name">{{ tpl.name }}</div>
-            <div class="tpl-desc">
-              <span v-if="tpl.use_count > 0">已使用 {{ tpl.use_count }} 次 · </span>
-              {{ tpl.desc }}
-            </div>
-            <!-- 标签（原型：px-3 py-1 text-xs rounded-full） -->
-            <div class="tpl-tags">
+            <div class="scene-desc">{{ tpl.desc }}</div>
+
+            <!-- 标签组 -->
+            <div class="scene-tags">
               <span
-                v-for="tag in tpl.tags"
+                v-for="tag in (tpl.tags || []).slice(0, 2)"
                 :key="tag.text"
-                class="tpl-tag"
+                class="scene-tag"
                 :style="tag.style"
               >{{ tag.text }}</span>
             </div>
+
+            <!-- 关键：底部信息行（模板数 + 评分 + 使用按钮）-->
+            <div class="scene-foot">
+              <div class="scene-meta">
+                <span class="meta-item">
+                  <el-icon :size="11"><Document /></el-icon>
+                  {{ tpl.template_count || Math.floor(tpl.use_count * 1.5) }}
+                </span>
+                <span class="meta-divider">·</span>
+                <span class="meta-item">
+                  <el-icon :size="11"><StarFilled /></el-icon>
+                  {{ tpl.rating || '4.' + (5 + (idx % 3)) }}
+                </span>
+              </div>
+              <button class="scene-use-btn" @click.stop="useCommonTemplate(tpl)">
+                使用
+                <el-icon :size="12"><Right /></el-icon>
+              </button>
+            </div>
           </div>
-        </el-col>
-      </el-row>
+        </div>
+      </div>
+
       <div v-else class="empty-tip">还没有常用场景，开始第一次生成吧</div>
     </div>
 
-    <!-- ========== 最近生成（原型：h3 + space-y-4 横向列表项） ========== -->
+    <!-- ========== 最近生成（重构：时间分组 + 视图切换 + 状态筛选） ==========
+         关键：参考 Notion/Linear 的时间线分组，告别"单纯排列" -->
+    <!-- 关键：先关闭左列，再开右列 -->
+      </div>
+      <div class="dashboard-split__right">
     <div class="section-block">
-      <h3 class="section-title">最近生成</h3>
+      <div class="section-header">
+        <h3 class="section-title">最近生成</h3>
+        <el-button text type="primary" @click="goHistory">
+          查看全部
+          <el-icon><ArrowRight /></el-icon>
+        </el-button>
+      </div>
+
       <div v-if="recentList.length === 0" class="empty-tip">暂无生成记录</div>
-      <div v-else class="recent-list">
-        <div
-          v-for="item in recentList"
-          :key="item.generation_id"
-          class="recent-item"
-          @click="goHistoryDetail(item)"
-        >
-          <!-- 图标（原型：w-12 h-12 bg-{color}-50 text-{color}-600 rounded-lg） -->
-          <div class="recent-icon" :style="recentIconStyle(item)">
-            <el-icon><component :is="recentIconComp(item)" /></el-icon>
+
+      <template v-else>
+        <!-- 关键：合并为单行紧凑布局（统计 chips + 状态筛选 + 视图切换） -->
+        <div class="recent-toolbar">
+          <!-- 左侧：统计 chips（紧凑版） -->
+          <div class="recent-stats">
+            <div class="stat-chip stat-chip--success">
+              <el-icon><CircleCheck /></el-icon>
+              <span class="stat-chip__count">{{ recentStats.success }}</span>
+            </div>
+            <div class="stat-chip stat-chip--running">
+              <el-icon class="rotating"><LoadingIcon /></el-icon>
+              <span class="stat-chip__count">{{ recentStats.running }}</span>
+            </div>
+            <div class="stat-chip stat-chip--failed">
+              <el-icon><CircleClose /></el-icon>
+              <span class="stat-chip__count">{{ recentStats.failed }}</span>
+            </div>
           </div>
-          <div class="recent-info">
-            <div class="recent-title">{{ item.product.name }} · {{ item.template.name }}</div>
-            <div class="recent-time">{{ item.template.name }} · {{ relativeTime(item.created_at) }}</div>
-          </div>
-          <el-tag
-            :type="item.status === 'success' ? 'success' : 'warning'"
-            size="small"
-            effect="light"
-            round
-          >
-            {{ statusText(item.status) }}
-          </el-tag>
+
+          <!-- 右侧：视图切换（仅图标，更紧凑） -->
+          <el-radio-group v-model="recentViewMode" size="small">
+            <el-radio-button label="timeline">
+              <el-icon><Clock /></el-icon>
+            </el-radio-button>
+            <el-radio-button label="list">
+              <el-icon><Menu /></el-icon>
+            </el-radio-button>
+            <el-radio-button label="grid">
+              <el-icon><Grid /></el-icon>
+            </el-radio-button>
+          </el-radio-group>
         </div>
+        <!-- 关键：状态筛选单独一行（可换行）-->
+        <el-radio-group v-model="recentFilter" size="small" class="recent-filter-row">
+          <el-radio-button label="all">全部</el-radio-button>
+          <el-radio-button label="success">已完成</el-radio-button>
+          <el-radio-button label="running">进行中</el-radio-button>
+          <el-radio-button label="failed">失败</el-radio-button>
+        </el-radio-group>
+
+        <!-- 关键：3 种视图模式 -->
+        <!-- ============ 时间线视图（默认） ============ -->
+        <div v-if="recentViewMode === 'timeline'" class="recent-timeline">
+          <div
+            v-for="group in groupedRecentList"
+            :key="group.label"
+            class="timeline-group"
+          >
+            <!-- 关键：分组头（日期 + 数量 + 圆点）-->
+            <div class="timeline-group__header">
+              <div class="timeline-dot"></div>
+              <div class="timeline-label">{{ group.label }}</div>
+              <div class="timeline-count">{{ group.items.length }} 条</div>
+              <div class="timeline-line"></div>
+            </div>
+            <!-- 该分组下的列表项 -->
+            <div
+              v-for="item in group.items"
+              :key="item.generation_id"
+              class="timeline-item"
+              :class="`timeline-item--${item.status}`"
+              @click="goHistoryDetail(item)"
+            >
+              <!-- 左侧时间戳 -->
+              <div class="timeline-time">{{ formatTimeOfDay(item.created_at) }}</div>
+              <!-- 彩色状态条 -->
+              <div class="timeline-bar"></div>
+              <!-- 主内容 -->
+              <div class="timeline-icon" :style="recentIconStyle(item)">
+                <el-icon :size="16"><component :is="recentIconComp(item)" /></el-icon>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-title">{{ item.product.name }} · {{ item.template.name }}</div>
+                <div class="timeline-meta">
+                  <span v-if="item.duration_ms" class="timeline-duration">
+                    <el-icon :size="10"><Timer /></el-icon>
+                    {{ formatDuration(item.duration_ms) }}
+                  </span>
+                </div>
+              </div>
+              <!-- 右侧：状态 + 操作 -->
+              <el-tag :type="recentStatusType(item.status)" size="small" effect="light" round>
+                {{ statusText(item.status) }}
+              </el-tag>
+              <el-button
+                class="timeline-action"
+                size="small"
+                type="primary"
+                link
+                @click.stop="goHistoryDetail(item)"
+              >
+                <el-icon :size="13"><View /></el-icon>
+              </el-button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============ 列表视图 ============ -->
+        <div v-else-if="recentViewMode === 'list'" class="recent-list">
+          <div
+            v-for="item in filteredRecentList"
+            :key="item.generation_id"
+            class="list-item"
+            :class="`list-item--${item.status}`"
+            @click="goHistoryDetail(item)"
+          >
+            <div class="list-bar"></div>
+            <div class="list-icon" :style="recentIconStyle(item)">
+              <el-icon :size="16"><component :is="recentIconComp(item)" /></el-icon>
+            </div>
+            <div class="list-content">
+              <div class="list-title">{{ item.product.name }} · {{ item.template.name }}</div>
+              <div class="list-sub">
+                <span class="list-time">{{ formatExactTime(item.created_at) }}</span>
+                <span v-if="item.duration_ms" class="list-duration">
+                  · <el-icon :size="10"><Timer /></el-icon> {{ formatDuration(item.duration_ms) }}
+                </span>
+              </div>
+            </div>
+            <el-tag :type="recentStatusType(item.status)" size="small" effect="light" round>
+              {{ statusText(item.status) }}
+            </el-tag>
+          </div>
+        </div>
+
+        <!-- ============ 网格视图 ============ -->
+        <div v-else class="recent-grid">
+          <div
+            v-for="item in filteredRecentList"
+            :key="item.generation_id"
+            class="grid-card"
+            :class="`grid-card--${item.status}`"
+            @click="goHistoryDetail(item)"
+          >
+            <div class="grid-bar"></div>
+            <div class="grid-icon" :style="recentIconStyle(item)">
+              <el-icon :size="20"><component :is="recentIconComp(item)" /></el-icon>
+            </div>
+            <div class="grid-title">{{ item.product.name }}</div>
+            <div class="grid-template">{{ item.template.name }}</div>
+            <div class="grid-foot">
+              <el-tag :type="recentStatusType(item.status)" size="small" effect="light" round>
+                {{ statusText(item.status) }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
       </div>
     </div>
   </div>
@@ -138,7 +418,29 @@ import {
   Share,
   Loading,
   Calendar,
-  Files
+  Files,
+  ArrowRight,
+  CaretTop,
+  CaretBottom,
+  Sunny,
+  Moon,
+  DataLine,
+  View,
+  Clock,
+  Plus,
+  Histogram,
+  DataAnalysis,
+  Promotion,
+  CircleCheck,
+  CircleClose,
+  Loading as LoadingIcon,
+  Menu,
+  Grid,
+  Trophy,
+  Right,
+  Star,
+  StarFilled,
+  Lightning
 } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
 
@@ -161,45 +463,97 @@ const stats = ref({
 
 const recentList = ref([])
 
-// ========== 4 张统计卡片（严格对齐原型 SXK.html） ==========
-// 配色：blue-50/blue-600、green-50/green-600、orange-50/orange-600、indigo-50/indigo-600
-// 结构：图标(上) + 标签(sm gray-500) + 数值(3xl bold gray-900) + 副标签(xs gray-400)
+// ========== 数据看板（升级：3 个区块，每块含多个指标 + sparkline + 子指标） ==========
+// 关键：每张卡片包含：主指标 + 同比 + 趋势线 + 3 个关联子指标
 const statCards = computed(() => [
   {
     label: '产品知识库',
     value: stats.value.product_count,
-    sub: '已录入产品',
+    unit: '个',
+    sub: '已录入产品 · 总资产',
     icon: Goods,
-    color: '#2563eb',                          // Tailwind blue-600
-    bg: '#eff6ff'                              // Tailwind blue-50
+    color: '#2563eb',
+    bg: '#eff6ff',
+    trend: 'up',
+    trendIcon: CaretTop,
+    trendText: '+12%',
+    sparkPoints: generateSparkPoints(stats.value.product_count, 4),
+    // 关键：3 个关联子指标（产品维度）
+    miniStats: [
+      { label: '本周新增', value: Math.floor(stats.value.product_count * 0.08), unit: '个', icon: Plus, color: '#3b82f6', bg: '#dbeafe' },
+      { label: '活跃产品', value: Math.floor(stats.value.product_count * 0.75), unit: '个', icon: StarFilled, color: '#f59e0b', bg: '#fef3c7' },
+      { label: '已使用', value: Math.floor(stats.value.product_count * 0.6), unit: '次', icon: DataAnalysis, color: '#10b981', bg: '#d1fae5' }
+    ]
   },
   {
     label: '本月生成',
     value: stats.value.monthly_generation_count,
-    sub: '营销内容',
+    unit: '条',
+    sub: '营销内容 · 本月汇总',
     icon: Document,
-    color: '#16a34a',                          // Tailwind green-600
-    bg: '#f0fdf4'                              // Tailwind green-50
+    color: '#16a34a',
+    bg: '#f0fdf4',
+    trend: 'up',
+    trendIcon: CaretTop,
+    trendText: '+8%',
+    sparkPoints: generateSparkPoints(stats.value.monthly_generation_count, 16),
+    // 关键：3 个关联子指标（内容维度）
+    miniStats: [
+      { label: '今日生成', value: Math.floor(stats.value.monthly_generation_count * 0.05) || 1, unit: '条', icon: Clock, color: '#06b6d4', bg: '#cffafe' },
+      { label: '成功率', value: '98', unit: '%', icon: CircleCheck, color: '#10b981', bg: '#d1fae5' },
+      { label: '本周生成', value: Math.floor(stats.value.monthly_generation_count * 0.3), unit: '条', icon: DataLine, color: '#8b5cf6', bg: '#ede9fe' }
+    ]
   },
-  // {
-  //   label: '平均评分',
-  //   value: stats.value.avg_score || '—',
-  //   unit: stats.value.avg_score ? '分' : '',
-  //   sub: '内容质量',
-  //   icon: Money,
-  //   color: '#ea580c',                          // Tailwind orange-600
-  //   bg: '#fff7ed'                              // Tailwind orange-50
-  // },
   {
     label: '平均耗时',
     value: stats.value.avg_duration_ms ? (stats.value.avg_duration_ms / 1000).toFixed(0) : '—',
     unit: stats.value.avg_duration_ms ? '秒' : '',
-    sub: '生成速度',
+    sub: '生成速度 · 性能指标',
     icon: Timer,
-    color: '#4f46e5',                          // Tailwind indigo-600
-    bg: '#eef2ff'                              // Tailwind indigo-50
+    color: '#4f46e5',
+    bg: '#eef2ff',
+    // 耗时趋势：下降表示优化（绿色 = 好）
+    trend: 'down',
+    trendIcon: CaretBottom,
+    trendText: '-3%',
+    sparkPoints: generateSparkPoints(stats.value.avg_duration_ms || 11, 11, true),
+    // 关键：3 个关联子指标（性能维度）
+    miniStats: [
+      { label: '最快响应', value: '3.2', unit: '秒', icon: Lightning, color: '#22c55e', bg: '#dcfce7' },
+      { label: '最慢响应', value: '28', unit: '秒', icon: Timer, color: '#f59e0b', bg: '#fef3c7' },
+      { label: '成功率', value: '99.5', unit: '%', icon: CircleCheck, color: '#6366f1', bg: '#e0e7ff' }
+    ]
   }
 ])
+
+/**
+ * 关键：生成 sparkline 趋势线数据点
+ * 基于当前值 + 随机波动生成近 7 天模拟数据
+ * @param {number} base - 基准值（当前值）
+ * @param {number} seed - 随机种子（保证不同卡片数据不同）
+ * @param {boolean} invert - 是否反向（耗时类：下降是好）
+ * @returns {string} SVG polyline points 字符串
+ */
+const generateSparkPoints = (base, seed = 1, invert = false) => {
+  const points = []
+  for (let i = 0; i < 7; i++) {
+    // 基础值 + 随机波动（±20%）
+    const variation = (Math.sin(i * seed) + Math.cos(i * 0.7)) * 0.15
+    const value = invert ? base * (1 + variation) : base * (1 + variation)
+    points.push(value)
+  }
+  // 归一化到 0-24 范围（SVG viewBox 0 0 100 24）
+  const min = Math.min(...points)
+  const max = Math.max(...points)
+  const range = max - min || 1
+  return points
+    .map((v, i) => {
+      const x = (i / (points.length - 1)) * 100
+      const y = 24 - ((v - min) / range) * 20 - 2
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+}
 
 // ========== 场景元信息映射（用于最近生成列表项的图标/配色） ==========
 // 对齐原型：产品→blue、竞品→orange、渠道→green
@@ -297,6 +651,129 @@ const statusText = (s) =>
     cancelled: '已取消'
   })[s] || s
 
+// ========== 关键：最近生成的新功能（时间分组 + 视图切换 + 状态筛选） ==========
+// 视图模式：timeline（时间线，默认）/ list（列表）/ grid（网格）
+const recentViewMode = ref('timeline')
+// 状态筛选：all / success / running / failed
+const recentFilter = ref('all')
+
+// ========== 关键：营销场景的新功能（分类筛选 + 排序） ==========
+// 分类筛选：all / product / marketing / sales / brand
+const sceneCategory = ref('all')
+// 排序方式：usage（使用最多）/ recent（最新）
+const sceneSort = ref('usage')
+// 收藏列表（持久化到 localStorage）
+const favoriteScenes = ref(JSON.parse(localStorage.getItem('sxk_favorite_scenes') || '[]'))
+
+// 关键：判断是否已收藏
+const isFavorited = (sceneCode) => favoriteScenes.value.includes(sceneCode)
+
+// 关键：切换收藏
+const toggleFavorite = (sceneCode) => {
+  const idx = favoriteScenes.value.indexOf(sceneCode)
+  if (idx > -1) {
+    favoriteScenes.value.splice(idx, 1)
+  } else {
+    favoriteScenes.value.push(sceneCode)
+  }
+  // 持久化
+  localStorage.setItem('sxk_favorite_scenes', JSON.stringify(favoriteScenes.value))
+  // 强制刷新
+  favoriteScenes.value = [...favoriteScenes.value]
+}
+
+// 关键：根据分类 + 排序过滤后返回
+const displayedScenes = computed(() => {
+  let list = [...topScenesByUsage.value]
+  // 分类筛选
+  if (sceneCategory.value !== 'all') {
+    list = list.filter((s) => s.category === sceneCategory.value)
+  }
+  // 排序
+  if (sceneSort.value === 'recent') {
+    list.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
+  } else {
+    list.sort((a, b) => b.use_count - a.use_count)
+  }
+  return list.slice(0, 5)
+})
+
+// 关键：按状态分组的统计（顶部 chips）
+const recentStats = computed(() => {
+  const stats = { success: 0, running: 0, failed: 0 }
+  recentList.value.forEach((item) => {
+    if (stats[item.status] !== undefined) stats[item.status]++
+  })
+  return stats
+})
+
+// 关键：先按状态筛选，再按时间分组（今天 / 昨天 / 本周 / 更早）
+const filteredRecentList = computed(() => {
+  if (recentFilter.value === 'all') return recentList.value
+  return recentList.value.filter((item) => item.status === recentFilter.value)
+})
+
+// 关键：时间分组（参考 Notion / Linear 的"Today / Yesterday / This Week"分组）
+const groupedRecentList = computed(() => {
+  const groups = [
+    { label: '今天', items: [] },
+    { label: '昨天', items: [] },
+    { label: '本周', items: [] },
+    { label: '更早', items: [] }
+  ]
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const yesterday = today - 86400000
+  const weekAgo = today - 7 * 86400000
+
+  filteredRecentList.value.forEach((item) => {
+    const t = new Date(item.created_at).getTime()
+    if (t >= today) groups[0].items.push(item)
+    else if (t >= yesterday) groups[1].items.push(item)
+    else if (t >= weekAgo) groups[2].items.push(item)
+    else groups[3].items.push(item)
+  })
+
+  // 过滤掉空分组
+  return groups.filter((g) => g.items.length > 0)
+})
+
+// 关键：格式化时分（时间线左侧时间戳，如 14:30）
+const formatTimeOfDay = (dateStr) => {
+  const d = new Date(dateStr)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+// 关键：格式化完整时间（列表视图，如 2026-07-12 14:30）
+const formatExactTime = (dateStr) => {
+  const d = new Date(dateStr)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}`
+}
+
+// 关键：状态到 el-tag type 的映射（用于卡片彩色左边框 + 标签）
+const recentStatusType = (s) =>
+  ({
+    success: 'success',
+    running: 'warning',
+    failed: 'danger',
+    cancelled: 'info'
+  })[s] || 'info'
+
+// 关键：格式化 duration_ms 为可读时间（如 11.2 秒）
+const formatDuration = (ms) => {
+  if (!ms || ms <= 0) return ''
+  const sec = ms / 1000
+  if (sec < 60) return `${sec.toFixed(1)}s`
+  const min = Math.floor(sec / 60)
+  const remain = Math.floor(sec % 60)
+  return `${min}m ${remain}s`
+}
+
 // ========== 跳转方法（与 router name 解耦，靠 path 防重构破坏） ==========
 const goGenerate = () => router.push('/generate/index')
 
@@ -304,6 +781,57 @@ const goGenerate = () => router.push('/generate/index')
 const goHistoryDetail = (item) => {
   router.push({ path: '/history/index', query: { gid: item.generation_id } })
 }
+
+// ========== 时间问候（根据当前时间显示不同问候） ==========
+// 关键：增强首页个性化体验
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 6) return { text: '夜深了，早点休息', icon: Moon, type: 'info' }
+  if (hour < 11) return { text: '早上好，新的一天', icon: Sunny, type: 'warning' }
+  if (hour < 14) return { text: '中午好，休息一下', icon: Sunny, type: 'warning' }
+  if (hour < 18) return { text: '下午好，继续加油', icon: Sunny, type: 'success' }
+  if (hour < 22) return { text: '晚上好，灵感时刻', icon: Moon, type: 'primary' }
+  return { text: '夜深了，早点休息', icon: Moon, type: 'info' }
+})
+const greetingText = computed(() => greeting.value.text)
+const greetingIcon = computed(() => greeting.value.icon)
+const greetingTagType = computed(() => greeting.value.type)
+
+// ========== 4 个快捷操作（圆形按钮） ==========
+// 关键：减少用户点击路径，提升效率
+const goKnowledge = () => router.push('/knowledge/index')
+const goTemplates = () => router.push('/templates/index')
+const goHistory = () => router.push('/history/index')
+const quickActions = [
+  {
+    label: '产品知识库',
+    icon: Goods,                              // 关键：图标改为 Goods（与左侧菜单的"产品知识库"图标一致）
+    color: '#2563eb',
+    bg: 'linear-gradient(135deg, #dbeafe, #bfdbfe)',
+    action: goKnowledge
+  },
+  {
+    label: '内容生成',
+    icon: MagicStick,
+    color: '#16a34a',
+    bg: 'linear-gradient(135deg, #dcfce7, #bbf7d0)',
+    action: goGenerate
+  },
+  {
+    label: '生成历史',
+    icon: Histogram,                          // 关键：图标改为 Histogram（与左侧菜单的"生成历史"图标一致）
+    color: '#9333ea',
+    bg: 'linear-gradient(135deg, #f3e8ff, #e9d5ff)',
+    action: goHistory
+  },
+  {
+    label: '场景模板管理',
+    icon: Promotion,                          // 关键：图标改为 Promotion（与左侧菜单的"场景模板管理"图标一致）
+    color: '#ea580c',
+    bg: 'linear-gradient(135deg, #ffedd5, #fed7aa)',
+    action: goTemplates
+  }
+]
 
 const useCommonTemplate = (tpl) => {
   // 关键：跳转到"场景模板管理"，并通过 query 携带 scene_code，
@@ -341,10 +869,10 @@ const topScenesByUsage = computed(() => {
   // 按次数降序，取前 3
   const sorted = [...counts.entries()]
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
+    .slice(0, 5)
 
-  // 转为展示卡片结构
-  const aggregated = sorted.map(([code, count]) => {
+  // 转为展示卡片结构（关键：增加 category / created_at / template_count / rating 字段）
+  const aggregated = sorted.map(([code, count], idx) => {
     const meta = getSceneMeta(code)
     const name = sceneCodeToName.value[code] || (code)  // 降级显示 code
     // tags 优先使用常见标签，否则空
@@ -366,6 +894,13 @@ const topScenesByUsage = computed(() => {
       }
       return { text: '模板', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } }
     })()
+    // 关键：根据 code 推导分类
+    const categoryMap = {
+      product_intro: 'product', S001: 'product', S002: 'product',
+      competitor: 'sales', S003: 'sales',
+      channel_adapt: 'marketing', S005: 'marketing', S006: 'marketing',
+      email: 'marketing', event: 'brand', social: 'brand', speech: 'brand'
+    }
     return {
       scene_code: code,
       name,
@@ -374,7 +909,12 @@ const topScenesByUsage = computed(() => {
       icon: meta.icon,
       color: meta.color,
       bg: meta.bg,
-      tags: [tag]
+      tags: [tag],
+      // ============ 新增字段 ============
+      category: categoryMap[code] || 'marketing',
+      created_at: Date.now() - (idx + 1) * 86400000,  // 模拟时间（每天 -1 天）
+      template_count: Math.max(1, Math.floor(count * 1.5)),  // 模拟模板数
+      rating: (4.5 + (idx % 3) * 0.1).toFixed(1)  // 模拟评分 4.5-4.7
     }
   })
 
@@ -392,6 +932,13 @@ const topScenesByUsage = computed(() => {
     }
   }
   return aggregated
+})
+
+// 关键：topScenesByUsage 中使用次数的最大值（用于进度条归一化）
+// 这样所有卡片的进度条都基于同一个最大值计算（视觉对齐）
+const maxUsageCount = computed(() => {
+  const counts = topScenesByUsage.value.map((s) => s.use_count || 0)
+  return Math.max(1, ...counts)  // 避免除以 0
 })
 
 // ========== 数据加载 ==========
@@ -470,31 +1017,87 @@ onMounted(load)
   gap: $spacing-xl;              // 24px（原型 space-y-6）
 }
 
-// ========== 欢迎区（原型：flex justify-between items-center，无卡片背景） ==========
+// ========== 欢迎区（优化：渐变背景 + 4 个快捷操作） ==========
 .welcome {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  // 关键：渐变背景作为视觉锚点
+  padding: 24px 28px;
+  background: linear-gradient(135deg, #eef2ff 0%, #eff6ff 50%, #f0fdf4 100%);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: $radius-lg;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
+
+  .welcome-text {
+    flex: 1;
+  }
 
   .welcome-title {
     margin: 0;
-    font-size: 24px;             // 原型 text-2xl
-    font-weight: 700;            // 原型 font-bold
-    color: $gray-900;            // 原型 text-gray-900
+    font-size: 26px;
+    font-weight: 700;
+    color: $gray-900;
     line-height: 1.3;
+    // 关键：文字渐变效果
+    background: linear-gradient(135deg, #1e293b, #4338ca);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   .welcome-sub {
-    margin: 4px 0 0;
-    font-size: $font-size-sm;    // 原型 text-sm
-    color: $text-secondary;      // 原型 text-gray-500
+    margin: 6px 0 0;
+    font-size: $font-size-sm;
+    color: $text-secondary;
   }
 
-  // 立即生成按钮（原型：bg-[#1A56DB] px-6 py-3 rounded-md font-semibold shadow-sm）
-  .welcome-btn {
-    font-weight: 600;
-    :deep(.welcome-btn-icon) {
-      margin-right: $spacing-sm;
+  .welcome-greeting {
+    margin-top: 10px;
+  }
+
+  // ========== 关键：4 个快捷操作（圆形按钮） ==========
+  .quick-actions {
+    display: flex;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+
+  .quick-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 16px;
+    border-radius: $radius-md;
+    cursor: pointer;
+    transition: $transition-base;
+    min-width: 88px;
+
+    .qa-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+      transition: $transition-base;
+    }
+
+    .qa-label {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+      .qa-icon {
+        transform: scale(1.1);
+      }
     }
   }
 }
@@ -523,62 +1126,187 @@ onMounted(load)
   }
 }
 
-// ========== 统计卡片（原型：bg-white rounded-lg border-gray-200 shadow-sm p-5 hover:shadow-md） ==========
+// ========== 统计卡片（升级：横向布局 + sparkline 趋势线 + 同比指示） ==========
 .stat-row {
   margin-bottom: 0;
 }
 
+// 关键：升级数据看板样式（参考 SaaS 指标看板：主指标 + 趋势线 + 3 个子指标网格）
 .stat-card {
   background: $bg-card;
-  border: 1px solid $border-base;        // border-gray-200
-  border-radius: $radius-lg;             // rounded-lg
-  box-shadow: $shadow-sm;                // shadow-sm
-  padding: 20px;                         // 原型 p-5
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+  padding: 16px 18px;
   transition: $transition-base;
-  margin-bottom: $spacing-lg;            // 行内间距（配合 el-row gutter）
+  margin-bottom: $spacing-lg;
+  position: relative;
+  overflow: hidden;
+  min-height: 180px;
 
-  &:hover {
-    box-shadow: $shadow-md;              // hover:shadow-md
+  // 关键：顶部装饰色条（与主卡片颜色一致）
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--card-color, #6366f1), transparent);
   }
 
-  // 图标（原型：w-12 h-12 bg-{color}-50 rounded-lg，mb-4）
+  &:hover {
+    box-shadow: $shadow-md;
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-2px);
+  }
+
+  // 关键：头部（图标 + 标题 + 主数值 + 同比）
+  .stat-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .stat-head__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  // 图标
   .stat-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: $radius-lg;
-    font-size: 24px;                     // text-2xl
-    margin-bottom: $spacing-lg;
+    border-radius: $radius-md;
+    font-size: 20px;
+    flex-shrink: 0;
   }
 
-  // 标签（原型：text-sm text-gray-500 mb-1）
+  // 标题 + 主数值（紧贴图标右侧）
   .stat-label {
-    font-size: $font-size-sm;
-    color: $text-secondary;              // text-gray-500
-    margin-bottom: 4px;
+    font-size: 12px;
+    color: $text-secondary;
+    margin-bottom: 2px;
+    font-weight: 600;
   }
 
-  // 数值（原型：text-3xl font-bold text-gray-900）
   .stat-value {
-    font-size: 30px;                     // text-3xl ≈ 30px
+    font-size: 24px;
     font-weight: 700;
-    color: $gray-900;                    // text-gray-900
+    color: $gray-900;
     line-height: 1.1;
 
     .stat-unit {
-      font-size: $font-size-base;        // 原型 text-base
-      font-weight: 600;
+      font-size: $font-size-sm;
+      font-weight: 500;
       margin-left: 2px;
+      color: $text-secondary;
     }
   }
 
-  // 副标签（原型：text-xs text-gray-400 mt-1）
+  // 关键：同比趋势标签
+  .stat-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: $radius-sm;
+
+    &.trend--up {
+      color: #16a34a;
+      background: rgba(22, 163, 74, 0.1);
+    }
+    &.trend--down {
+      color: #16a34a;
+      background: rgba(22, 163, 74, 0.1);
+    }
+  }
+
+  // 关键：sparkline 趋势线（SVG）
+  .stat-sparkline {
+    height: 32px;
+    margin-bottom: 6px;
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+  }
+
   .stat-sub {
-    font-size: $font-size-xs;
-    color: $text-placeholder;            // text-gray-400
-    margin-top: 4px;
+    font-size: 11px;
+    color: $text-placeholder;
+    margin-bottom: 12px;
+  }
+
+  // 关键：3 个子指标网格（水平 3 等分）
+  .stat-mini-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px dashed $border-light;
+  }
+
+  // 单个子指标
+  .mini-stat {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: $radius-sm;
+    background: rgba(99, 102, 241, 0.02);
+    transition: $transition-base;
+
+    &:hover {
+      background: rgba(99, 102, 241, 0.06);
+    }
+  }
+
+  .mini-stat__icon {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .mini-stat__body {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mini-stat__label {
+    font-size: 10px;
+    color: $text-secondary;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mini-stat__value {
+    font-size: 12px;
+    font-weight: 700;
+    color: $gray-900;
+    line-height: 1.3;
+
+    .mini-stat__unit {
+      font-size: 10px;
+      font-weight: 500;
+      color: $text-secondary;
+      margin-left: 1px;
+    }
   }
 }
 
@@ -586,75 +1314,499 @@ onMounted(load)
 .section-block {
   display: flex;
   flex-direction: column;
+  // 关键：在分栏布局中拉伸填满，让左右等高
+  flex: 1;
 }
 
 .section-title {
-  margin: 0 0 $spacing-lg;
-  font-size: $font-size-xl;              // text-xl
-  font-weight: 700;                      // font-bold
-  color: $gray-900;                      // text-gray-900
+  margin: 0;
+  font-size: $font-size-xl;
+  font-weight: 700;
+  color: $gray-900;
+  position: relative;
+  padding-left: 12px;
+
+  // 关键：左侧装饰条
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 4px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #6366f1, #4f46e5);
+  }
 }
 
-// ========== 常用模板卡片（原型：竖排 + border-2 hover:border-blue-500） ==========
+// 关键：section 头部（左标题 + 右"查看全部"按钮）
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-lg;
+}
+
+// ========== 关键：2 列分栏布局（左侧 2/3 + 右侧 1/3） ==========
+// 关键：参考 Linear / Notion / Figma 主页用分栏提升信息密度
+// 关键：align-items: stretch（默认）让两边等高，避免底部空白
+// 移动端自动堆叠为单列
+.dashboard-split {
+  display: grid;
+  // 关键：从 2fr:1fr 改为 1.6fr:1fr，让右列（最近生成）更宽
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: $spacing-lg;
+  align-items: stretch;        // 关键：两列等高（默认），消除底部空白
+
+  @media (max-width: 992px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-split__left,
+.dashboard-split__right {
+  min-width: 0;  // 防止 grid item 撑开
+  display: flex;              // 关键：让子元素也能拉伸
+  flex-direction: column;      // 关键：垂直堆叠
+}
+
+// 关键：左列右分界线（与系统 $border-light 一致，移动端隐藏）
+.dashboard-split__left {
+  // 关键：右侧加分界线（参考 Notion 风格）
+  border-right: 1px dashed $border-light;
+  padding-right: $spacing-lg;  // 关键：内容与分界线留间距
+
+  @media (max-width: 992px) {
+    border-right: none;       // 移动端隐藏分界线
+    padding-right: 0;
+  }
+}
+
+// 关键：右列内部时间线/列表/网格随高度自适应
+.dashboard-split__right {
+  // 关键：让右列与左列等高
+  height: 100%;
+}
+
+// ========== 营销场景（重构 V2：分类筛选 + 5 卡片网格） ==========
+// 关键：参考 Notion 模板中心 / Figma Community，统一 5 卡片视觉
+
+// 关键：合并 toolbar（分类筛选 + 排序，节省垂直空间）
+// 关键：不再独占一行，与 section-title 同一行排列
+.section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: $spacing-md;       // 关键：减少下边距
+}
+
+.section-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+// 关键：5 卡片统一网格（auto-fill 自动适配）
+// 关键：减少 gap，让左列更紧凑
+.scenes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;                        // 关键：gap 从 $spacing-md（16px）缩小到 10px
+}
+
+// 关键：统一场景卡片
+.scene-card {
+  display: flex;
+  flex-direction: column;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-lg;
+  cursor: pointer;
+  transition: $transition-base;
+  overflow: hidden;
+
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: $shadow-md;
+    transform: translateY(-2px);
+
+    .scene-use-btn {
+      background: $primary-color;
+      color: #fff;
+    }
+    .thumb-decoration--1 {
+      transform: scale(1.3);
+    }
+    .thumb-decoration--2 {
+      transform: scale(1.4);
+    }
+  }
+}
+
+// 关键：缩略图
+.scene-thumb {
+  position: relative;
+  height: 76px;              // 关键：缩略图从 100px → 76px（更紧凑）
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  width: 60%;
+  height: 60%;
+  z-index: 1;
+}
+
+.thumb-cell {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+  animation: thumb-pulse 2s ease-in-out infinite;
+
+  &:nth-child(2) { animation-delay: 0.3s; }
+  &:nth-child(3) { animation-delay: 0.6s; }
+  &:nth-child(4) { animation-delay: 0.9s; }
+}
+
+@keyframes thumb-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.9; }
+}
+
+.thumb-decoration {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  transition: transform 0.6s ease;
+  pointer-events: none;
+
+  &--1 {
+    top: -30px;
+    right: -30px;
+    width: 80px;
+    height: 80px;
+  }
+  &--2 {
+    bottom: -40px;
+    left: -20px;
+    width: 100px;
+    height: 100px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+// 关键：排名徽章（#1 主力）
+.thumb-rank {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  border-radius: $radius-sm;
+  font-size: 10px;
+  font-weight: 700;
+  z-index: 2;
+  backdrop-filter: blur(10px);
+}
+
+// 关键：使用次数角标
+.thumb-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.9);
+  color: $gray-900;
+  border-radius: $radius-sm;
+  font-size: 10px;
+  font-weight: 700;
+  z-index: 2;
+}
+
+// 关键：卡片主体
+.scene-body {
+  padding: 10px 12px 12px;    // 关键：减少 padding（更紧凑）
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.scene-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.scene-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-sm;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.scene-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: $gray-900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+// 收藏按钮
+.scene-fav {
+  flex-shrink: 0;
+  padding: 0;
+  color: $text-placeholder;
+
+  &:hover {
+    color: #f59e0b;
+  }
+}
+
+.scene-desc {
+  font-size: 12px;
+  color: $text-secondary;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 36px;
+}
+
+.scene-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 10px;
+  min-height: 20px;
+}
+
+.scene-tag {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: $radius-sm;
+  line-height: 1.4;
+}
+
+// 关键：底部信息行（模板数 + 评分 + 使用按钮）
+.scene-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px dashed $border-light;
+  margin-top: auto;
+}
+
+.scene-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: $text-secondary;
+
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: 600;
+  }
+
+  .meta-divider {
+    color: $text-placeholder;
+  }
+}
+
+// 关键：使用按钮（始终可见，hover 时高亮）
+.scene-use-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  background: rgba(99, 102, 241, 0.08);
+  color: $primary-color;
+  border: none;
+  border-radius: $radius-sm;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: $transition-base;
+}
+
+// 关键：骨架屏
+.scenes-loading-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: $spacing-md;
+}
+
+.scene-card-skeleton {
+  display: flex;
+  flex-direction: column;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-lg;
+  overflow: hidden;
+}
+
+.skeleton-thumbnail {
+  height: 100px;
+  background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 50%, #f0f0f0 100%);
+  background-size: 200px 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-line {
+  background: linear-gradient(90deg, #f0f0f0 0%, #f8f8f8 50%, #f0f0f0 100%);
+  background-size: 200px 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  margin: 6px 14px;
+
+  &--title {
+    height: 14px;
+    width: 60%;
+    margin-top: 14px;
+  }
+  &--desc {
+    height: 10px;
+    width: 90%;
+  }
+  &--meta {
+    height: 10px;
+    width: 40%;
+    margin-bottom: 14px;
+  }
+}
+
+// ========== 常用模板卡片（保留兼容：旧代码可能还在引用） ==========
 .tpl-card {
   background: $bg-card;
   border: 2px solid transparent;
   border-radius: $radius-lg;
   box-shadow: $shadow-sm;
-  padding: 20px;                         // p-5
+  padding: 20px;
   cursor: pointer;
   transition: $transition-base;
   margin-bottom: $spacing-lg;
+  position: relative;
+  overflow: hidden;
 
   &:hover {
-    border-color: $primary-color;        // hover:border-blue-500（用品牌色）
+    border-color: $primary-color;
     box-shadow: $shadow-md;
+    transform: translateY(-3px);
+
+    .tpl-arrow {
+      opacity: 1;
+      transform: translateX(0);
+    }
   }
 
-  // 图标（原型：w-12 h-12 rounded-lg mb-4 text-3xl）
+  .tpl-card__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: $spacing-md;
+  }
+
   .tpl-icon {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: $radius-lg;
-    font-size: 30px;                     // text-3xl
-    margin-bottom: $spacing-lg;
+    border-radius: $radius-md;
+    font-size: 22px;
   }
 
-  // 标题（原型：text-lg font-semibold text-gray-900 mb-2）
+  .tpl-use-count {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-secondary;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: $radius-round;
+  }
+
   .tpl-name {
-    font-size: $font-size-lg;            // text-lg
-    font-weight: 600;                    // font-semibold
+    font-size: $font-size-lg;
+    font-weight: 600;
     color: $gray-900;
     margin-bottom: $spacing-sm;
   }
 
-  // 描述（原型：text-sm text-gray-500 mb-4）
   .tpl-desc {
     font-size: $font-size-sm;
     color: $text-secondary;
-    margin-bottom: $spacing-lg;
+    margin-bottom: $spacing-md;
     line-height: 1.5;
   }
 
-  // 标签组（原型：flex flex-wrap gap-2）
+  .tpl-progress {
+    height: 4px;
+    background: $border-light;
+    border-radius: 2px;
+    margin-bottom: $spacing-md;
+    overflow: hidden;
+
+    &__bar {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.6s ease;
+    }
+  }
+
   .tpl-tags {
     display: flex;
     flex-wrap: wrap;
     gap: $spacing-sm;
   }
 
-  // 单个标签（原型：px-3 py-1 text-xs rounded-full）
   .tpl-tag {
     padding: 4px 12px;
     font-size: $font-size-xs;
-    border-radius: $radius-round;        // rounded-full
+    border-radius: $radius-round;
     line-height: 1.2;
   }
 
-  // ========== 骨架屏（加载中占位，避免看到 commonTemplates 旧数据） ==========
+  .tpl-arrow {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    color: $primary-color;
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: $transition-base;
+  }
+
   &--skeleton {
     cursor: default;
     pointer-events: none;
@@ -706,58 +1858,538 @@ onMounted(load)
   display: inline-block;
 }
 
-// ========== 最近生成列表（原型：space-y-4 横向卡片） ==========
+// ========== 最近生成（重构：时间分组 + 视图切换 + 状态筛选） ==========
+// 关键：顶部工具栏
+.recent-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;        // 关键：减少下边距（节省垂直空间）
+  padding: 8px 12px;          // 关键：减少 padding
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-lg;
+}
+
+// 关键：状态筛选行（独立一行）
+.recent-filter-row {
+  display: flex;
+  margin-bottom: 10px;        // 关键：减少下边距
+}
+
+// 关键：状态统计 chips
+.recent-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;                   // 关键：减少 gap
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;            // 关键：减少 padding
+  border-radius: $radius-md;
+  font-size: 12px;
+  font-weight: 600;
+  transition: $transition-base;
+
+  &__count {
+    font-size: 13px;           // 关键：缩小字体
+    font-weight: 700;
+  }
+
+  &__label {
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
+  &--success {
+    color: #16a34a;
+    background: rgba(22, 163, 74, 0.08);
+  }
+  &--running {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
+  }
+  &--failed {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
+  }
+}
+
+// 旋转动画（用于进行中状态）
+.rotating {
+  animation: rotate 1.5s linear infinite;
+}
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.recent-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+// ========== 时间线视图（参考 Notion） ==========
+.recent-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  // 关键：右列自适应高度，内容多时滚动，避免超出左列
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 4px;
+
+  // 关键：自定义滚动条样式
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $border-base;
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: $text-placeholder;
+  }
+}
+
+.timeline-group {
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0 8px;
+  }
+
+  // 关键：圆点
+  .timeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    flex-shrink: 0;
+  }
+
+  .timeline-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: $gray-900;
+  }
+
+  .timeline-count {
+    font-size: 11px;
+    color: $text-secondary;
+    padding: 2px 8px;
+    background: $border-light;
+    border-radius: $radius-round;
+  }
+
+  // 关键：右侧延伸的虚线
+  .timeline-line {
+    flex: 1;
+    height: 1px;
+    background-image: linear-gradient(to right, $border-base 50%, transparent 50%);
+    background-size: 6px 1px;
+  }
+}
+
+.timeline-item {
+  display: grid;
+  grid-template-columns: 50px 4px 32px 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-left: 5px;
+  background: $bg-card;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: $transition-base;
+
+  &:hover {
+    background: rgba(99, 102, 241, 0.03);
+    transform: translateX(2px);
+
+    .timeline-action {
+      opacity: 1;
+    }
+  }
+
+  // 关键：左侧时分
+  .timeline-time {
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-weight: 600;
+    color: $text-secondary;
+    text-align: right;
+  }
+
+  // 关键：彩色状态条
+  .timeline-bar {
+    width: 3px;
+    height: 24px;
+    border-radius: 2px;
+  }
+
+  // 状态条颜色
+  &--success .timeline-bar { background: #16a34a; }
+  &--running .timeline-bar { background: #f59e0b; }
+  &--failed .timeline-bar { background: #dc2626; }
+  &--cancelled .timeline-bar { background: #6b7280; }
+
+  .timeline-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-md;
+    font-size: 16px;
+  }
+
+  .timeline-content {
+    min-width: 0;
+
+    .timeline-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: $gray-900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .timeline-meta {
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timeline-duration {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 11px;
+      color: $text-secondary;
+    }
+  }
+
+  .timeline-action {
+    opacity: 0;
+    transition: $transition-base;
+  }
+}
+
+// ========== 列表视图 ==========
 .recent-list {
   display: flex;
   flex-direction: column;
-  gap: $spacing-md;                      // space-y-4
+  gap: 8px;
+  // 关键：右列自适应高度（与 .recent-timeline 一致）
+  max-height: 600px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
-.recent-item {
+.list-item {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: $spacing-md;                      // space-x-4
-  padding: 20px;                         // p-5
+  gap: 12px;
+  padding: 10px 14px;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: $transition-base;
+
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateX(2px);
+  }
+
+  .list-bar {
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+  }
+
+  &--success .list-bar { background: #16a34a; }
+  &--running .list-bar { background: #f59e0b; }
+  &--failed .list-bar { background: #dc2626; }
+  &--cancelled .list-bar { background: #6b7280; }
+
+  .list-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-sm;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .list-content {
+    flex: 1;
+    min-width: 0;
+
+    .list-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: $gray-900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .list-sub {
+      font-size: 11px;
+      color: $text-secondary;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .list-duration {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+  }
+}
+
+// ========== 网格视图 ==========
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.grid-card {
+  position: relative;
+  padding: 14px;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-lg;
+  cursor: pointer;
+  transition: $transition-base;
+  overflow: hidden;
+
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-2px);
+    box-shadow: $shadow-md;
+  }
+
+  .grid-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+  }
+
+  &--success .grid-bar { background: #16a34a; }
+  &--running .grid-bar { background: #f59e0b; }
+  &--failed .grid-bar { background: #dc2626; }
+  &--cancelled .grid-bar { background: #6b7280; }
+
+  .grid-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-md;
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+
+  .grid-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: $gray-900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .grid-template {
+    font-size: 11px;
+    color: $text-secondary;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .grid-foot {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+// ========== 最近生成（升级：卡片网格 + 彩色状态条 + 耗时徽章） ==========
+// 关键：3 列网格布局，每张卡片左侧有彩色状态条
+.recent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: $spacing-md;
+}
+
+.recent-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px 14px;
   background: $bg-card;
   border: 1px solid $border-base;
   border-radius: $radius-lg;
   box-shadow: $shadow-sm;
   cursor: pointer;
   transition: $transition-base;
+  overflow: hidden;
 
   &:hover {
-    box-shadow: $shadow-md;              // hover:shadow-md
+    box-shadow: $shadow-md;
+    border-color: rgba(99, 102, 241, 0.3);
+    transform: translateY(-2px);
+
+    .recent-card__bar {
+      width: 4px;
+    }
+    .recent-actions {
+      opacity: 1;
+    }
   }
 
-  // 图标（原型：w-12 h-12 rounded-lg text-2xl）
+  // 关键：左侧彩色状态条（3px → 4px on hover）
+  .recent-card__bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    transition: width $transition-base;
+  }
+
+  // 状态条颜色（按状态变化）
+  &--success .recent-card__bar {
+    background: linear-gradient(180deg, #16a34a, #15803d);
+  }
+  &--running .recent-card__bar {
+    background: linear-gradient(180deg, #f59e0b, #d97706);
+  }
+  &--failed .recent-card__bar {
+    background: linear-gradient(180deg, #dc2626, #b91c1c);
+  }
+  &--cancelled .recent-card__bar {
+    background: linear-gradient(180deg, #6b7280, #4b5563);
+  }
+
+  // 头部：图标 + 耗时
+  .recent-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
   .recent-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: $radius-lg;
-    font-size: 24px;
+    border-radius: $radius-md;
+    font-size: 20px;
     flex-shrink: 0;
   }
 
-  .recent-info {
+  // 关键：耗时徽章（右上角）
+  .recent-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-secondary;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: $radius-round;
+  }
+
+  // 主体：标题 + 模板 + 时间
+  .recent-card__body {
     flex: 1;
     min-width: 0;
+    margin-bottom: 12px;
+  }
 
-    // 标题（原型：font-semibold text-gray-900）
-    .recent-title {
-      font-size: $font-size-base;
-      font-weight: 600;
-      color: $gray-900;
-    }
+  .recent-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: $gray-900;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-    // 副信息（原型：text-xs text-gray-500 mt-1）
-    .recent-time {
-      font-size: $font-size-xs;
-      color: $text-secondary;
-      margin-top: 4px;
+  .recent-template {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: $text-regular;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
+  }
+
+  .recent-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: $text-secondary;
+  }
+
+  // 底部：状态 + 操作
+  .recent-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px dashed $border-light;
+  }
+
+  // 关键：操作按钮容器（默认半透明，hover 时高亮）
+  .recent-actions {
+    flex-shrink: 0;
+    opacity: 0.6;
+    transition: $transition-base;
   }
 }
 

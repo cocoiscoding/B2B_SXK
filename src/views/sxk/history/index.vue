@@ -4,18 +4,16 @@
 -->
 <template>
   <div class="sxk-history">
-    <!-- ========== 顶部标题 ========== -->
-    <basic-block>
-      <div class="page-header">
-        <div class="page-header__title">
-          <h2>生成历史</h2>
-          <p>共 <b>{{ list.length }}</b> 条记录</p>
-        </div>
-        <div class="page-header__actions">
-          <el-button :icon="Refresh" @click="load" :loading="loading">刷新</el-button>
-        </div>
+    <!-- ========== 顶部欢迎条：与首页风格一致 ========== -->
+    <div class="sxk-page-welcome">
+      <div class="sxk-page-welcome__left">
+        <h2 class="sxk-page-welcome__title">生成历史</h2>
+        <p class="sxk-page-welcome__desc">共 <b style="color: #6366f1; font-size: 14px;">{{ total }}</b> 条记录</p>
       </div>
-    </basic-block>
+      <div class="sxk-page-welcome__actions">
+        <el-button :icon="Refresh" @click="load" :loading="loading">刷新</el-button>
+      </div>
+    </div>
 
     <!-- ========== 搜索 + 筛选 ========== -->
     <basic-block>
@@ -65,103 +63,174 @@
       </div>
     </basic-block>
 
-    <!-- ========== 卡片列表 ========== -->
+    <!-- ========== 表格列表（替换原卡片列表） ========== -->
     <basic-block>
       <div v-if="loading && list.length === 0" class="sxk-history__loading">
         <el-icon class="rotating"><Loading /></el-icon>
         加载中...
       </div>
-      <div v-else-if="!filteredList.length" class="sxk-history__empty">
+      <div v-else-if="!list.length" class="sxk-history__empty">
         <el-empty :description="emptyText" />
       </div>
-      <div v-else class="sxk-history__list">
-        <div
-          v-for="row in filteredList"
-          :key="row.generation_id"
-          class="sxk-history__card"
-          :class="{ 'is-valid': row.validated, 'is-highlight': highlightId === row.generation_id }"
-          :data-gid="row.generation_id"
-          @click="onView(row)"
-        >
-          <!-- 左侧 4px 侧边条（已校验=蓝、待校验=橙） -->
-          <div class="sxk-history__card-bar" />
+      <el-table
+        v-else
+        :data="list"
+        class="sxk-history__table"
+        :row-class-name="tableRowClass"
+        v-loading="loading"
+        :highlight-current-row="false"
+        @row-click="onView"
+        stripe
+        border
+        style="width: 100%; cursor: pointer;"
+      >
+        <!-- 产品（关键：去掉小图标） -->
+        <el-table-column label="产品" min-width="200" prop="product.name" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span>{{ row.product?.name || '已删除产品' }}</span>
+          </template>
+        </el-table-column>
 
-          <div class="sxk-history__card-main">
-            <div class="sxk-history__card-top">
-              <span class="sxk-history__card-product">
-                {{ row.product?.name || '已删除产品' }}
-              </span>
-              <span
-                v-if="row.scene_name"
-                class="sxk-history__card-scene"
-              >
-                / {{ row.scene_name }}
-              </span>
-              <span
-                class="sxk-history__card-status"
-                :class="row.validated ? 'is-pass' : 'is-warn'"
-              >
-                <span class="sxk-history__card-status-dot" />
-                <span>{{ row.validated ? '已校验' : '待完善' }}</span>
-              </span>
-            </div>
+        <!-- 场景 -->
+        <el-table-column label="场景" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">
+            <el-tag v-if="row.scene_name" type="primary" effect="light" size="small">
+              {{ row.scene_name }}
+            </el-tag>
+            <span v-else class="text-secondary">—</span>
+          </template>
+        </el-table-column>
 
-            <div class="sxk-history__card-meta">
-              <span v-if="splitChannels(row.channel).length" class="sxk-history__card-channel">
-                渠道 · {{ splitChannels(row.channel).join(' / ') }}
-              </span>
-              <span>{{ formatDateTime(row.created_at) }}</span>
-              <span
-                v-if="row.created_by"
-                class="sxk-history__card-creator"
-                :style="{ color: memberColor(displayCreator(row)) }"
+        <!-- 渠道 -->
+        <el-table-column label="渠道" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }">
+            <template v-if="splitChannels(row.channel).length">
+              <el-tag
+                v-for="ch in splitChannels(row.channel)"
+                :key="ch"
+                size="small"
+                effect="plain"
+                round
+                class="sxk-history__channel-tag"
               >
-                <span class="sxk-history__card-creator-dot" :style="{ background: memberColor(displayCreator(row)) }" />
-                {{ displayCreator(row) }}
-              </span>
-            </div>
-          </div>
+                {{ ch }}
+              </el-tag>
+            </template>
+            <span v-else class="text-secondary">—</span>
+          </template>
+        </el-table-column>
 
-          <!-- 右侧操作：反馈 + 导出 + 删除 -->
-          <div class="sxk-history__card-actions" @click.stop>
-            <button
-              class="sxk-history__icon-btn is-like"
-              :class="{ 'is-active': row.feedback === 'like' }"
-              title="点赞"
-              @click="onSetFeedback(row, 'like')"
+        <!-- 创建人 -->
+        <el-table-column label="创建人" min-width="110" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span
+              v-if="row.created_by"
+              class="sxk-history__cell-creator"
+              :style="{ color: memberColor(displayCreator(row)) }"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
-              </svg>
-            </button>
-            <button
-              class="sxk-history__icon-btn is-dislike"
-              :class="{ 'is-active': row.feedback === 'dislike' }"
-              title="点踩"
-              @click="onSetFeedback(row, 'dislike')"
+              <span
+                class="sxk-history__cell-creator-dot"
+                :style="{ background: memberColor(displayCreator(row)) }"
+              />
+              {{ displayCreator(row) }}
+            </span>
+            <span v-else class="text-secondary">—</span>
+          </template>
+        </el-table-column>
+
+        <!-- 校验状态 -->
+        <el-table-column label="校验状态" width="100">
+          <template #default="{ row }">
+            <el-tag
+              :type="row.validated ? 'success' : 'warning'"
+              effect="light"
+              size="small"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
-              </svg>
-            </button>
-            <el-dropdown trigger="click" @command="(fmt) => onExport(row, fmt)">
-              <el-button text size="small">
-                导出 <el-icon><ArrowDown /></el-icon>
+              <span class="sxk-history__status-dot" :class="row.validated ? 'is-pass' : 'is-warn'" />
+              {{ row.validated ? '已校验' : '待完善' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <!-- 反馈 -->
+        <el-table-column label="反馈" width="100">
+          <template #default="{ row }">
+            <div class="sxk-history__cell-feedback" @click.stop>
+              <button
+                class="sxk-history__icon-btn is-like"
+                :class="{ 'is-active': row.feedback === 'like' }"
+                title="点赞"
+                @click="onSetFeedback(row, 'like')"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+                </svg>
+              </button>
+              <button
+                class="sxk-history__icon-btn is-dislike"
+                :class="{ 'is-active': row.feedback === 'dislike' }"
+                title="点踩"
+                @click="onSetFeedback(row, 'dislike')"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
+                </svg>
+              </button>
+            </div>
+          </template>
+        </el-table-column>
+
+        <!-- 时间 -->
+        <el-table-column label="生成时间" width="160">
+          <template #default="{ row }">
+            <span class="text-secondary">{{ formatDateTime(row.created_at) }}</span>
+          </template>
+        </el-table-column>
+
+        <!-- 操作 -->
+        <el-table-column label="操作" width="180" fixed="right">
+          <template #default="{ row }">
+            <div class="sxk-history__cell-actions" @click.stop>
+              <el-button text size="small" type="primary" @click="onView(row)">
+                查看
               </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="docx">Word (.docx)</el-dropdown-item>
-                  <el-dropdown-item command="markdown">Markdown (.md)</el-dropdown-item>
-                  <el-dropdown-item command="txt">纯文本 (.txt)</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-            <el-button text size="small" type="danger" @click="onDelete(row)">
-              删除
-            </el-button>
-          </div>
-        </div>
-      </div>
+              <el-dropdown trigger="click" @command="(fmt) => onExport(row, fmt)">
+                <el-button text size="small">
+                  导出 <el-icon><ArrowDown /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="docx">Word (.docx)</el-dropdown-item>
+                    <el-dropdown-item command="markdown">Markdown (.md)</el-dropdown-item>
+                    <el-dropdown-item command="txt">纯文本 (.txt)</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+              <el-button text size="small" type="danger" @click="onDelete(row)">
+                删除
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
+
+        <!-- 空表格占位 -->
+        <template #empty>
+          <el-empty :description="emptyText" />
+        </template>
+      </el-table>
+
+      <!-- ========== 分页 ========== -->
+      <el-pagination
+        v-model:current-page="pager.page"
+        v-model:page-size="pager.size"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+        :background="true"
+        layout="total, sizes, prev, pager, next, jumper"
+        class="sxk-history__pager"
+        @current-change="load"
+        @size-change="load"
+      />
     </basic-block>
 
     <!-- ========== 详情弹窗 ========== -->
@@ -196,8 +265,10 @@ const route = useRoute()
 // ========== 状态 ==========
 const filters = reactive({ keyword: '', scene_code: '', validated: '' })
 const list = ref([])
+const total = ref(0)                       // 关键：总条数（来自后端）
 const loading = ref(false)
 const scenes = ref([])
+const pager = reactive({ page: 1, size: 10 })  // 关键：分页（默认 10/页）
 
 const detailVisible = ref(false)
 const detailTargetId = ref(null)
@@ -218,16 +289,7 @@ const memberColor = (id) => {
 }
 
 // ========== 计算属性 ==========
-const filteredList = computed(() => {
-  const kw = String(filters.keyword || '').trim().toLowerCase()
-  return list.value.filter((g) => {
-    if (filters.scene_code && g.scene_code !== filters.scene_code) return false
-    if (filters.validated === 'true' && !g.validated) return false
-    if (filters.validated === 'false' && g.validated) return false
-    if (kw && !(g.product?.name || '').toLowerCase().includes(kw)) return false
-    return true
-  })
-})
+// 关键：原 filteredList 已废弃，搜索/筛选由后端分页接口处理
 
 const emptyText = computed(() => {
   if (filters.keyword || filters.scene_code || filters.validated) {
@@ -235,6 +297,16 @@ const emptyText = computed(() => {
   }
   return '暂无生成历史'
 })
+
+/**
+ * 关键：表格行高亮类名（来自 /generate 跳转时高亮目标行）
+ */
+const tableRowClass = ({ row }) => {
+  if (highlightId.value && highlightId.value === row.generation_id) {
+    return 'sxk-history__row-highlight'
+  }
+  return ''
+}
 
 // ========== 工具 ==========
 const formatDateTime = (iso) => {
@@ -281,14 +353,22 @@ const displayCreator = (row) => {
   return cachedUsername || '当前用户'
 }
 
-// ========== 数据加载 ==========
+// ========== 数据加载（后端分页） ==========
 const load = async () => {
   loading.value = true
   try {
-    const resp = await sxkApi.listHistory({ page: 1, size: 200 })
+    const resp = await sxkApi.listHistory({
+      page: pager.page,
+      size: pager.size,
+      keyword: filters.keyword,
+      scene_code: filters.scene_code,
+      status: filters.validated === 'true' ? 'success' : (filters.validated === 'false' ? 'pending' : '')
+    })
     list.value = resp.data?.items || []
+    total.value = resp.data?.total || 0
   } catch (e) {
     list.value = []
+    total.value = 0
     ElMessage.error('加载历史失败：' + (e?.message || '未知错误'))
   } finally {
     loading.value = false
@@ -396,13 +476,18 @@ function waitListReady(maxRetry = 20, interval = 200) {
 
 // ========== 业务方法 ==========
 const search = () => {
-  // 搜索为纯前端过滤，无需重新拉取
+  // 关键：搜索时重置到第 1 页
+  pager.page = 1
+  load()
 }
 
 const reset = () => {
   filters.keyword = ''
   filters.scene_code = ''
   filters.validated = ''
+  pager.page = 1
+  pager.size = 10
+  load()
 }
 
 const onView = (row) => {
@@ -491,25 +576,8 @@ const onUpdated = (updated) => {
   gap: $spacing-md;
 }
 
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: $spacing-md;
-  &__title {
-    h2 {
-      margin: 0 0 4px;
-      font-size: $font-size-xl;
-      color: $text-primary;
-    }
-    p {
-      margin: 0;
-      font-size: $font-size-sm;
-      color: $text-regular;
-    }
-  }
-}
+// ========== 页面头部（已迁移到 .sxk-page-welcome，参考 common.scss） ==========
+// 关键：删除了旧的 .page-header，使用全局 .sxk-page-welcome 组件
 
 .search-bar {
   display: flex;
@@ -532,155 +600,78 @@ const onUpdated = (updated) => {
   padding: $spacing-xl 0;
 }
 
-.sxk-history__list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.sxk-history__card {
-  display: flex;
-  width: 100%;
-  background: $bg-card;
-  border: 1px solid $border-base;
+// ========== 表格样式（替换原卡片样式） ==========
+.sxk-history__table {
   border-radius: $radius-md;
   overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: $shadow-sm;
+  transition: $transition-base;
 
-  &:hover {
-    box-shadow: $shadow-md;
-    border-color: $primary-color-light;
-    transform: translateY(-1px);
+  :deep(.el-table__row) {
+    transition: $transition-base;
+    cursor: pointer;
+
+    &:hover > td.el-table__cell {
+      background: rgba(99, 102, 241, 0.04) !important;
+    }
   }
 
-  // 左侧 4px 侧边条：默认蓝
-  &-bar {
-    width: 4px;
-    flex-shrink: 0;
-    background: $primary-color;
-  }
-  // 待校验时为橙
-  &:not(.is-valid) &-bar {
-    background: #faad14;
-  }
-
-  // 来自 /generate 跳转的"高亮定位"动画（2.4s）
-  &.is-highlight {
-    border-color: $primary-color;
-    box-shadow: 0 0 0 3px rgba($primary-color, 0.2), $shadow-md;
+  :deep(.sxk-history__row-highlight > td.el-table__cell) {
+    background: rgba(99, 102, 241, 0.08) !important;
     animation: sxk-history-pulse 1.2s ease-in-out 2;
   }
 }
+
 @keyframes sxk-history-pulse {
   0%, 100% {
-    box-shadow: 0 0 0 3px rgba($primary-color, 0.2), $shadow-md;
+    background: rgba(99, 102, 241, 0.08) !important;
   }
   50% {
-    box-shadow: 0 0 0 8px rgba($primary-color, 0.05), $shadow-md;
+    background: rgba(99, 102, 241, 0.16) !important;
   }
 }
 
-.sxk-history__card-main {
-  flex: 1 1 auto;
-  padding: 12px 16px;
-  min-width: 0;
+// 表格内单元格
+// 关键：移除了 .sxk-history__cell-product / .sxk-history__cell-icon（去掉产品前小图标）
+.sxk-history__channel-tag {
+  margin-right: 4px;
+  margin-bottom: 2px;
 }
-
-.sxk-history__card-top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.sxk-history__card-product {
-  font-weight: 600;
-  font-size: 15px;
-  color: $text-primary;
-}
-
-// 场景（与产品名同行，斜杠分隔，不喧宾夺主）
-.sxk-history__card-scene {
-  font-size: 13px;
-  color: $text-regular;
-  font-weight: 400;
-}
-
-// 校验状态胶囊（圆点+文字，与详情弹窗一致）
-.sxk-history__card-status {
+.sxk-history__cell-creator {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 1px 8px 1px 6px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.5;
-  border: 1px solid transparent;
-  margin-left: auto;
-
-  &-dot {
-    width: 5px;
-    height: 5px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-  &.is-pass {
-    background: #ecfdf5;
-    color: #047857;
-    border-color: #a7f3d0;
-  }
-  &.is-warn {
-    background: #fffbeb;
-    color: #b45309;
-    border-color: #fde68a;
-  }
-}
-
-.sxk-history__card-meta {
-  display: flex;
-  gap: 14px;
-  font-size: 12.5px;
-  color: $text-regular;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.sxk-history__card-channel {
-  color: $primary-color;
+  gap: 5px;
   font-weight: 500;
 }
-
-.sxk-history__card-creator {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 500;
-
-  &-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-}
-
-.sxk-history__card-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 0 12px;
-  border-left: 1px solid $border-light;
+.sxk-history__cell-creator-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   flex-shrink: 0;
 }
+.sxk-history__status-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-right: 4px;
+  background: currentColor;
+  &.is-pass { background: #10b981; }
+  &.is-warn { background: #f59e0b; }
+}
+.sxk-history__cell-feedback {
+  display: inline-flex;
+  gap: 2px;
+}
+.sxk-history__cell-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
 
-// 反馈 icon 按钮（自绘 SVG 拇指，不再用 emoji）
+// 反馈 icon 按钮（自绘 SVG 拇指）
 .sxk-history__icon-btn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -705,5 +696,11 @@ const onUpdated = (updated) => {
     color: $danger-color;
     background: rgba(245, 108, 108, 0.1);
   }
+}
+
+// 分页
+.sxk-history__pager {
+  margin-top: $spacing-lg;
+  justify-content: flex-end;
 }
 </style>

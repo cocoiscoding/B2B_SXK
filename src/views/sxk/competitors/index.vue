@@ -7,15 +7,13 @@
 -->
 <template>
   <div class="sxk-competitors">
-    <!-- 顶部头 -->
-    <basic-block>
-      <div class="page-header">
-        <div class="page-header__title">
-          <h2>竞品分析</h2>
-          <p>查看每个产品的竞品情报，支持删除</p>
-        </div>
+    <!-- 顶部欢迎条：与首页风格一致 -->
+    <div class="sxk-page-welcome">
+      <div class="sxk-page-welcome__left">
+        <h2 class="sxk-page-welcome__title">竞品分析</h2>
+        <p class="sxk-page-welcome__desc">查看每个产品的竞品情报，支持删除</p>
       </div>
-    </basic-block>
+    </div>
 
     <div class="layout">
       <!-- 左侧：产品列表 -->
@@ -251,19 +249,8 @@ onMounted(() => {
   padding: $spacing-md 0;
 }
 
-.page-header {
-  &__title h2 {
-    font-size: 20px;
-    font-weight: 600;
-    color: $text-primary;
-    margin: 0 0 4px;
-  }
-  &__title p {
-    font-size: 13px;
-    color: $text-secondary;
-    margin: 0;
-  }
-}
+// ========== 页面头部（已迁移到 .sxk-page-welcome，参考 common.scss） ==========
+// 关键：删除了旧的 .page-header，使用全局 .sxk-page-welcome 组件
 
 .layout {
   display: grid;

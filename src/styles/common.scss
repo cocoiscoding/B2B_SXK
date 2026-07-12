@@ -172,6 +172,7 @@ a {
 
 // ---------- 页面头（标题 + 副标题 + 操作按钮） ----------
 // 用法：<basic-block><div class="sxk-page-header">...</div></basic-block>
+// 升级：标题加渐变色（与首页一致），更精致
 .sxk-page-header {
   display: flex;
   align-items: center;
@@ -182,9 +183,14 @@ a {
     h2 {
       margin: 0 0 $spacing-xs;
       font-size: $font-size-xl;
-      font-weight: 600;
+      font-weight: 700;
       color: $text-primary;
       line-height: 1.4;
+      // 关键：标题渐变色（与首页 welcome 一致）
+      background: linear-gradient(135deg, #6366f1, #4f46e5, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
     p {
       margin: 0;
@@ -365,4 +371,115 @@ mark,
   padding: 0 2px;
   border-radius: $radius-sm;
   font-weight: 500;
+}
+
+// ============================================================
+// 首页风格统一组件（v1.0.3+ 全部业务页面复用）
+// ============================================================
+
+// ---------- section 头部（紫色装饰条 + 标题 + 右侧"查看全部"） ----------
+// 关键：所有业务页面的 section 标题都使用此样式，与首页保持一致
+.sxk-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+  padding: 0;
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $text-primary;
+
+    // 关键：左侧紫色渐变装饰条（与首页一致）
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: linear-gradient(180deg, #6366f1, #4f46e5);
+      border-radius: $radius-sm;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+}
+
+// ---------- section 区块（带背景 + 边距） ----------
+// 关键：所有页面的内容区块都使用此样式
+.sxk-section-block {
+  background: $bg-card;
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-sm;
+  margin-bottom: $spacing-md;
+  transition: $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-md;
+  }
+}
+
+// ---------- 页面欢迎条（替代简单标题） ----------
+// 关键：业务页面顶部可用欢迎条组件，提升与首页一致感
+.sxk-page-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 50%, #f0f9ff 100%);
+  border-radius: $radius-lg;
+  margin-bottom: $spacing-md;
+  position: relative;
+  overflow: hidden;
+
+  // 关键：右侧装饰圆
+  &::after {
+    content: '';
+    position: absolute;
+    right: -40px;
+    top: -40px;
+    width: 160px;
+    height: 160px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(79, 70, 229, 0.06));
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  &__left {
+    position: relative;
+    z-index: 1;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  &__desc {
+    font-size: 13px;
+    color: $text-secondary;
+    margin: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+  }
 }

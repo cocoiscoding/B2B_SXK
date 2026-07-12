@@ -6,21 +6,19 @@
 -->
 <template>
   <div class="sxk-members">
-    <!-- ========== 顶部头：标题 + 添加按钮 ========== -->
-    <basic-block>
-      <div class="page-header">
-        <div class="page-header__title">
-          <h2>成员管理</h2>
-          <p>管理团队成员的账号、昵称和角色权限（仅管理员）</p>
-        </div>
-        <div class="page-header__actions">
-          <el-button type="primary" @click="onAdd">
-            <el-icon><Plus /></el-icon>
-            <span>添加成员</span>
-          </el-button>
-        </div>
+    <!-- ========== 顶部欢迎条：与首页风格一致 ========== -->
+    <div class="sxk-page-welcome">
+      <div class="sxk-page-welcome__left">
+        <h2 class="sxk-page-welcome__title">成员管理</h2>
+        <p class="sxk-page-welcome__desc">管理团队成员的账号、昵称和角色权限（仅管理员）</p>
       </div>
-    </basic-block>
+      <div class="sxk-page-welcome__actions">
+        <el-button type="primary" @click="onAdd">
+          <el-icon><Plus /></el-icon>
+          <span>添加成员</span>
+        </el-button>
+      </div>
+    </div>
 
     <!-- ========== 成员表格 ========== -->
     <basic-block>
@@ -153,35 +151,8 @@ onMounted(() => {
   padding: $spacing-md 0;
 }
 
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: $spacing-md;
-
-  &__title {
-    flex: 1;
-
-    h2 {
-      font-size: 20px;
-      font-weight: 600;
-      color: $text-primary;
-      margin: 0 0 4px;
-    }
-
-    p {
-      font-size: 13px;
-      color: $text-secondary;
-      margin: 0;
-    }
-  }
-
-  &__actions {
-    display: flex;
-    gap: $spacing-sm;
-    flex-shrink: 0;
-  }
-}
+// ========== 页面头部（已迁移到 .sxk-page-welcome，参考 common.scss） ==========
+// 关键：删除了旧的 .page-header，使用全局 .sxk-page-welcome 组件
 
 .members-table {
   margin-top: 0;

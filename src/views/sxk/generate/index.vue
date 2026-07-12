@@ -19,30 +19,32 @@
 -->
 <template>
   <div class="sxk-generate" :class="{ 'is-empty': !currentDraft }">
-    <!-- ============================== 左栏：生成配置 + 阶段指示（v-if 控制显示/隐藏） ============================== -->
+    <!-- ============================== 顶部彩色小长条（与产品知识库一致，独立彩色块） ============================== -->
+    <div v-if="configPanelVisible" class="sxk-generate__welcome">
+      <div class="sxk-generate__welcome-left">
+        <span class="sxk-generate__welcome-bar"></span>
+        <div>
+          <h2 class="sxk-generate__welcome-title">内容生成</h2>
+          <p class="sxk-generate__welcome-desc">填写配置，一键产出多版本营销文案</p>
+        </div>
+      </div>
+      <el-tag
+        v-if="currentDraft"
+        size="small"
+        type="info"
+        effect="light"
+        class="sxk-generate__phase-tag"
+      >
+        阶段 {{ draftStep + 1 }} / 3
+      </el-tag>
+    </div>
+
+    <!-- ============================== 左栏：生成配置（首次访问无草稿时全宽撑满） ============================== -->
     <basic-block
-      v-if="configPanelVisible"
+      v-if="configPanelVisible && !currentDraft"
       class="sxk-generate__config"
       hover-shadow
     >
-      <template #header>
-        <div class="sxk-page-header" style="width: 100%; padding: 0">
-          <div class="sxk-page-header__title">
-            <h2>内容生成</h2>
-            <p>填写配置，一键产出多版本营销文案</p>
-          </div>
-          <el-tag
-            v-if="currentDraft"
-            size="small"
-            type="info"
-            effect="light"
-            class="sxk-generate__phase-tag"
-          >
-            阶段 {{ draftStep + 1 }} / 3
-          </el-tag>
-        </div>
-      </template>
-
       <!-- 阶段指示器（草稿存在时显示） -->
       <div v-if="currentDraft" class="sxk-generate__steps">
         <!-- 自绘可点击步骤条（替代 el-steps，支持已完成步回跳） -->
@@ -119,8 +121,15 @@
         class="sxk-generate__form"
         @submit.prevent
       >
-        <!-- 顶部：选择产品（独立一行，更突出） -->
-        <el-form-item label="选择产品" prop="product_id">
+        <!-- ============ 卡片 1：基础配置（产品 + 模板 并排） ============ -->
+        <div class="sxk-form-card">
+          <div class="sxk-form-card__head">
+            <span class="sxk-form-card__bar"></span>
+            <span class="sxk-form-card__title">基础配置</span>
+            <span class="sxk-form-card__desc">先选择产品，再选择场景模板</span>
+          </div>
+          <div class="sxk-form-card__body">
+            <el-form-item label="选择产品" prop="product_id" class="sxk-form-card__col">
           <el-select
             v-model="form.product_id"
             placeholder="请选择产品"
@@ -143,9 +152,18 @@
             </el-option>
           </el-select>
         </el-form-item>
+          </div>
+        </div>
 
-        <!-- 内容场景（全宽） -->
-        <el-form-item label="内容场景" prop="scene_code">
+        <!-- ============ 卡片 2：内容场景（全宽网格） ============ -->
+        <div class="sxk-form-card">
+          <div class="sxk-form-card__head">
+            <span class="sxk-form-card__bar"></span>
+            <span class="sxk-form-card__title">内容场景</span>
+            <span class="sxk-form-card__desc">选择本次生成内容的目标场景</span>
+          </div>
+          <div class="sxk-form-card__body">
+            <el-form-item label="选择场景" prop="scene_code">
           <div class="sxk-generate__scene-grid">
             <div
               v-for="s in scenes"
@@ -164,100 +182,262 @@
               <span class="sxk-generate__scene-text">{{ s.name }}</span>
             </div>
           </div>
-        </el-form-item>
+            </el-form-item>
 
-        <!-- 2.5) 模板选择（动态参数之前） -->
-        <el-form-item v-if="currentScene" label="选择模板">
-          <el-select
-            v-model="form.template_id"
-            placeholder="请选择模板（可选）"
-            filterable
-            clearable
-            class="sxk-generate__form-full"
-            @change="onTemplateChange"
-          >
-            <el-option
-              v-for="t in sceneTemplates"
-              :key="t.template_id"
-              :label="t.name"
-              :value="t.template_id"
-            />
-          </el-select>
-        </el-form-item>
-
-        <!-- 3) 动态参数（2 列网格） -->
-        <template v-if="currentScene">
-          <div class="sxk-generate__params-title">动态参数（{{ currentScene.name }}）</div>
-          <div class="sxk-generate__params-grid">
+            <!-- 关键：选择模板（移到内容场景下方） -->
             <el-form-item
-              v-for="p in currentScene.params"
-              :key="p.key"
-              :label="p.label + (p.required ? ' *' : '')"
-              :prop="`params.${p.key}`"
-              :rules="p.required ? [{ required: true, message: `${p.label}为必填` }] : []"
-              class="sxk-generate__params-item"
+              v-if="currentScene"
+              prop="template_id"
+              :rules="[{ required: true, message: '请选择模板', trigger: 'change' }]"
             >
+              <template #label>
+                <span>选择模板</span>
+              </template>
               <el-select
-                v-if="p.type === 'enum'"
-                v-model="form.params[p.key]"
-                :placeholder="p.default || `请选择${p.label}`"
-                class="sxk-generate__form-full"
-              >
-                <el-option v-for="opt in p.options" :key="opt" :label="opt" :value="opt" />
-              </el-select>
-              <el-input
-                v-else-if="p.type === 'text'"
-                v-model="form.params[p.key]"
-                :placeholder="p.default || '请输入...'"
+                v-model="form.template_id"
+                placeholder="请选择模板"
+                filterable
                 clearable
                 class="sxk-generate__form-full"
-              />
-              <el-input
-                v-else-if="p.type === 'textarea'"
-                v-model="form.params[p.key]"
-                type="textarea"
-                :autosize="{ minRows: 3, maxRows: 6 }"
-                :placeholder="p.default || '请输入...'"
-                class="sxk-generate__form-full"
-              />
-              <el-input
-                v-else
-                v-model="form.params[p.key]"
-                :placeholder="p.default || '请输入...'"
-                class="sxk-generate__form-full"
-              />
+                @change="onTemplateChange"
+              >
+                <el-option
+                  v-for="t in sceneTemplates"
+                  :key="t.template_id"
+                  :label="t.name"
+                  :value="t.template_id"
+                />
+              </el-select>
             </el-form-item>
           </div>
-          <el-form-item v-if="form.params.prompt" label="提示词">
-            <el-input
-              v-model="form.params.prompt"
-              type="textarea"
-              :rows="4"
-              placeholder="提示词内容"
-            />
-          </el-form-item>
+        </div>
+
+        <!-- ============ 卡片 3：动态参数（智能分类 + 视觉分组） ============ -->
+        <template v-if="currentScene">
+          <div class="sxk-form-card">
+            <div class="sxk-form-card__head">
+              <span class="sxk-form-card__bar"></span>
+              <span class="sxk-form-card__title">动态参数（{{ currentScene.name }}）</span>
+              <span class="sxk-form-card__desc">带 * 为必填项</span>
+            </div>
+            <div class="sxk-form-card__body">
+              <!-- 区域 1：枚举类（标签按钮组） -->
+              <div v-if="enumParams.length" class="sxk-param-section">
+                <div class="sxk-param-section__title">
+                  <el-icon><Operation /></el-icon>
+                  <span>选项配置</span>
+                </div>
+                <div
+                  v-for="p in enumParams"
+                  :key="p.key"
+                  class="sxk-param-row"
+                >
+                  <div class="sxk-param-row__label">
+                    <span v-if="p.required" class="sxk-param-required">*</span>
+                    <span class="sxk-param-row__label-text">{{ cleanLabel(p.label) }}</span>
+                    <span v-if="p.default" class="sxk-param-row__label-hint">推荐：{{ p.default }}</span>
+                  </div>
+                  <div class="sxk-param-row__chips">
+                    <button
+                      v-for="opt in p.options"
+                      :key="opt"
+                      type="button"
+                      class="sxk-param-chip"
+                      :class="{ 'is-active': form.params[p.key] === opt }"
+                      @click="form.params[p.key] = opt"
+                    >
+                      {{ opt }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 区域 2：文本类（紧凑输入框 + 默认值提示） -->
+              <div v-if="textParams.length" class="sxk-param-section">
+                <div class="sxk-param-section__title">
+                  <el-icon><EditPen /></el-icon>
+                  <span>文本信息</span>
+                </div>
+                <div class="sxk-param-grid-2col">
+                  <div
+                    v-for="p in textParams"
+                    :key="p.key"
+                    class="sxk-param-input"
+                    :class="{ 'is-full': p.fullWidth }"
+                  >
+                    <div class="sxk-param-input__label">
+                      <span v-if="p.required" class="sxk-param-required">*</span>
+                      <span class="sxk-param-input__label-text">{{ cleanLabel(p.label) }}</span>
+                    </div>
+                    <el-input
+                      v-model="form.params[p.key]"
+                      :placeholder="p.default || `请输入${cleanLabel(p.label)}`"
+                      :maxlength="p.maxLength || 200"
+                      show-word-limit
+                      clearable
+                      size="default"
+                    >
+                      <template v-if="p.default" #prefix>
+                        <el-tooltip :content="`推荐值：${p.default}`" placement="top">
+                          <el-icon class="sxk-param-input__tip"><InfoFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
+                    </el-input>
+                    <div v-if="p.hint" class="sxk-param-input__hint">{{ p.hint }}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 区域 3：长文本类（独占一行） -->
+              <div v-if="textareaParams.length" class="sxk-param-section">
+                <div class="sxk-param-section__title">
+                  <el-icon><Document /></el-icon>
+                  <span>详细说明</span>
+                </div>
+                <div
+                  v-for="p in textareaParams"
+                  :key="p.key"
+                  class="sxk-param-input sxk-param-input--full"
+                >
+                  <div class="sxk-param-input__label">
+                    <span v-if="p.required" class="sxk-param-required">*</span>
+                    <span class="sxk-param-input__label-text">{{ cleanLabel(p.label) }}</span>
+                    <span v-if="p.default" class="sxk-param-input__label-hint">推荐：{{ p.default }}</span>
+                  </div>
+                  <el-input
+                    v-model="form.params[p.key]"
+                    type="textarea"
+                    :autosize="{ minRows: 3, maxRows: 6 }"
+                    :placeholder="p.default || `请输入${cleanLabel(p.label)}`"
+                    :maxlength="p.maxLength || 1000"
+                    show-word-limit
+                  />
+                </div>
+              </div>
+
+              <!-- 提示词 -->
+              <div v-if="form.params.prompt" class="sxk-param-section">
+                <div class="sxk-param-section__title">
+                  <el-icon><MagicStick /></el-icon>
+                  <span>提示词</span>
+                </div>
+                <el-input
+                  v-model="form.params.prompt"
+                  type="textarea"
+                  :rows="4"
+                  placeholder="给 AI 一些附加指令，例如：'请用第一人称' 或 '结尾加一句号召'"
+                  :maxlength="500"
+                  show-word-limit
+                />
+              </div>
+
+              <!-- 智能提示：填写完成度 -->
+              <div v-if="completionProgress < 100" class="sxk-param-tip">
+                <el-icon><Aim /></el-icon>
+                <span>已完成 <b>{{ completionProgress }}%</b>，还需填写 <b>{{ requiredRemaining }}</b> 个必填项</span>
+                <div class="sxk-param-tip__bar">
+                  <div class="sxk-param-tip__bar-fill" :style="{ width: completionProgress + '%' }"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </template>
 
-        <!-- 4) 立即生成（底部居中） -->
-        <div class="sxk-generate__submit-area">
-          <el-button
-            type="primary"
-            class="sxk-generate__submit"
-            :loading="triggering"
-            @click="onTrigger"
-          >
-            <el-icon style="margin-right: 6px"><MagicStick /></el-icon>
-            立即生成（3 个初稿）
-          </el-button>
-          <div class="sxk-generate__submit-tip">
-            生成后分三个阶段进行：选定初稿 → 改内容·选渠道 → 文生图·保存历史
+        <!-- ============ 卡片 4：提交 ============ -->
+        <div class="sxk-form-card sxk-form-card--submit">
+          <div class="sxk-generate__submit-area">
+            <el-button
+              type="primary"
+              class="sxk-generate__submit"
+              :loading="triggering"
+              @click="onTrigger"
+            >
+              <el-icon style="margin-right: 6px"><MagicStick /></el-icon>
+              立即生成（3 个初稿）
+            </el-button>
+            <div class="sxk-generate__submit-tip">
+              生成后分三个阶段进行：选定初稿 → 改内容·选渠道 → 文生图·保存历史
+            </div>
           </div>
         </div>
       </el-form>
     </basic-block>
 
-    <!-- ============================== 右栏：阶段化主体（仅当有 currentDraft 时显示） ============================== -->
-    <basic-block v-if="currentDraft" class="sxk-generate__main" hover-shadow>
+    <!-- ============================== 当有草稿时：左栏（config） + 右栏（result）水平排列 ============================== -->
+    <div v-if="configPanelVisible && currentDraft" class="sxk-generate__body">
+      <basic-block
+        v-if="configPanelVisible && currentDraft"
+        class="sxk-generate__config"
+        hover-shadow
+      >
+      <!-- 阶段指示器（草稿存在时显示） -->
+      <div class="sxk-generate__steps">
+        <!-- 自绘可点击步骤条（替代 el-steps，支持已完成步回跳） -->
+        <div class="sxk-generate__step-track">
+          <div
+            v-for="(s, i) in stepDefs"
+            :key="i"
+            class="sxk-generate__step"
+            :class="stepClass(i)"
+            @click="onStepJump(i)"
+            :title="canJumpTo(i) ? `回到：${s.title}` : s.title"
+          >
+            <div class="sxk-generate__step-no">
+              <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)"><CircleCheckFilled /></el-icon>
+              <span v-else>{{ i + 1 }}</span>
+            </div>
+            <div class="sxk-generate__step-info">
+              <div class="sxk-generate__step-title">{{ s.title }}</div>
+              <div class="sxk-generate__step-desc">{{ s.desc }}</div>
+            </div>
+            <span
+              v-if="i === draftStep && !(i === 2 && stage2Completed)"
+              class="sxk-generate__step-tag"
+            >当前</span>
+            <span
+              v-else-if="i < draftStep || (i === 2 && stage2Completed)"
+              class="sxk-generate__step-tag is-done"
+            >完成</span>
+            <span
+              v-else
+              class="sxk-generate__step-tag is-wait"
+            >待开始</span>
+          </div>
+        </div>
+
+        <!-- 当前阶段摘要卡 -->
+        <div class="sxk-generate__step-summary">
+          <span class="sxk-generate__step-summary-icon">
+            <el-icon><Aim /></el-icon>
+          </span>
+          <span class="sxk-generate__step-summary-text">
+            <b>当前阶段：</b>{{ stepDefs[draftStep]?.summary }}
+          </span>
+        </div>
+
+        <!-- 草稿操作行 -->
+        <div class="sxk-generate__step-actions">
+          <el-button
+            size="small"
+            :icon="Refresh"
+            @click="onDiscardDraft"
+          >
+            重新配置
+          </el-button>
+          <el-button
+            size="small"
+            type="danger"
+            plain
+            :icon="Delete"
+            @click="confirmDiscard"
+          >
+            放弃草稿
+          </el-button>
+        </div>
+      </div>
+      </basic-block>
+
+      <basic-block v-if="currentDraft" class="sxk-generate__main" hover-shadow>
       <template #header>
         <div class="sxk-generate__main-title">
           <span class="sxk-generate__main-title-main">
@@ -1025,6 +1205,8 @@
         </el-card>
       </div>
     </basic-block>
+    </div>
+    <!-- /.sxk-generate__body -->
 
     <!-- ============ 流程结束弹窗（页面级）============ -->
     <el-dialog
@@ -1363,7 +1545,8 @@ import {
   Files,
   Reading,
   Close,
-  Check
+  Check,
+  Operation
 } from '@element-plus/icons-vue'
 import BasicBlock from '@/components/basic-block/main.vue'
 import { sxkApi } from '@/mock/sxkApi'
@@ -1748,6 +1931,44 @@ function getSceneIcon(sceneCode) {
 const currentScene = computed(() =>
   scenes.value.find((s) => s.scene_code === form.scene_code)
 )
+
+// 关键：清理 label 末尾/开头的星号（兼容后端多带/少带 * 的情况）
+const cleanLabel = (label) =>
+  (label || '').replace(/(^\s*\*\s*|\s*\*\s*$)/g, '').trim()
+
+// 关键：动态参数按类型分组（enum / text / textarea）
+const enumParams = computed(() => {
+  const list = currentScene.value?.params || []
+  return list.filter((p) => p.type === 'enum' && p.options?.length)
+})
+const textParams = computed(() => {
+  const list = currentScene.value?.params || []
+  return list.filter((p) => p.type === 'text')
+})
+const textareaParams = computed(() => {
+  const list = currentScene.value?.params || []
+  return list.filter((p) => p.type === 'textarea')
+})
+
+// 关键：填写完成度（必填项中已填写的比例）
+const requiredParamList = computed(() => {
+  const list = currentScene.value?.params || []
+  return list.filter((p) => p.required)
+})
+const filledRequiredCount = computed(() => {
+  return requiredParamList.value.filter((p) => {
+    const v = form.params[p.key]
+    return v !== undefined && v !== null && String(v).trim() !== ''
+  }).length
+})
+const completionProgress = computed(() => {
+  const total = requiredParamList.value.length
+  if (total === 0) return 100
+  return Math.round((filledRequiredCount.value / total) * 100)
+})
+const requiredRemaining = computed(() => {
+  return Math.max(0, requiredParamList.value.length - filledRequiredCount.value)
+})
 
 const draftStep = computed(() => {
   const s = currentDraft.value?.stage
@@ -2487,6 +2708,7 @@ void renderMarkdown
 // ---------- 主框架 ----------
 .sxk-generate {
   display: flex;
+  flex-direction: column; // 关键：纵向布局（顶 welcome + 下方左右分栏）
   gap: $spacing-md;
   align-items: stretch;
   // 高度 = 浏览器可用高度
@@ -2499,17 +2721,79 @@ void renderMarkdown
   overflow: hidden; // 防止整体页面滚动
 
   @media (max-width: 1100px) {
-    flex-direction: column;
     height: auto; // 移动端不锁高度
     min-height: auto;
   }
 }
 
+// 关键：欢迎条（与产品知识库一致，独立的彩色块，与下面内容隔离）
+.sxk-generate__welcome {
+  flex: 0 0 auto; // 关键：不被压缩，独立占满横向宽度
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.04), rgba(59, 130, 246, 0.06));
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  border-radius: $radius-md;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
+
+  &-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+  &-bar {
+    display: inline-block;
+    width: 4px;
+    height: 28px;
+    background: linear-gradient(180deg, #6366f1, #4f46e5);
+    border-radius: $radius-sm;
+    flex-shrink: 0;
+  }
+  &-title {
+    margin: 0 0 2px;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    background: linear-gradient(135deg, #6366f1, #4f46e5, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  &-desc {
+    margin: 0;
+    font-size: 12px;
+    color: $text-secondary;
+    line-height: 1.4;
+  }
+}
+
+// 关键：内容区（左侧 config + 右侧 result 的水平分栏）
+.sxk-generate__body {
+  flex: 1 1 auto; // 关键：占满剩余高度
+  min-height: 0;
+  display: flex;
+  gap: $spacing-md;
+  align-items: stretch;
+  overflow: hidden;
+
+  @media (max-width: 1100px) {
+    flex-direction: column;
+    overflow: visible;
+  }
+}
+
 // ---------- 左栏：生成配置 + 阶段指示（全宽撑满 + 固定高度 + 内部滚动） ----------
 .sxk-generate__config {
-  // 卡片宽度：撑满整个父容器（不限制最大宽度）
+  // 关键：默认全宽撑满（首次访问无草稿时）
   flex: 1 1 auto;
   width: 100%;
+  max-width: 100%;
   // 关键：撑满父容器高度（让内部可滚动）
   display: flex;
   flex-direction: column;
@@ -2517,6 +2801,55 @@ void renderMarkdown
   // 固定高度 = 父级（动态跟随浏览器尺寸变化）
   height: 100%;
   min-height: 0;
+
+  // 关键：当父级是 .sxk-generate__body（有右栏兄弟）时，左栏占 50%
+  .sxk-generate__body > & {
+    flex: 1 1 50%;
+    width: 50%;
+    max-width: 50%;
+  }
+
+  // 关键：配置区头部（与首页彩色长条风格一致，嵌在 basic-block header 区域）
+  .sxk-generate__config-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0;
+    gap: $spacing-md;
+  }
+  .sxk-generate__config-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+  .sxk-generate__config-bar {
+    display: inline-block;
+    width: 4px;
+    height: 28px;
+    background: linear-gradient(180deg, #6366f1, #4f46e5);
+    border-radius: $radius-sm;
+    flex-shrink: 0;
+  }
+  .sxk-generate__config-title {
+    margin: 0 0 2px;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.3;
+    background: linear-gradient(135deg, #6366f1, #4f46e5, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .sxk-generate__config-desc {
+    margin: 0;
+    font-size: 12px;
+    color: $text-secondary;
+    line-height: 1.4;
+  }
+
   // 让 basic-block 自身撑满
   :deep(.basic-block) {
     display: flex;
@@ -2935,6 +3268,82 @@ void renderMarkdown
 }
 
 // 表单整体（更紧凑、更专业）
+// ============================================================
+// 表单卡片化（关键：分 4 卡片让表单更专业）
+// ============================================================
+.sxk-form-card {
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-md;
+  padding: $spacing-md $spacing-lg;
+  margin-bottom: $spacing-md;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.25);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.06);
+  }
+
+  // 卡片头部
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px dashed $border-light;
+  }
+  &__bar {
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: linear-gradient(180deg, #6366f1, #4f46e5);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: $text-primary;
+    flex-shrink: 0;
+  }
+  &__desc {
+    font-size: 12px;
+    color: $text-secondary;
+    margin-left: auto;
+  }
+
+  // 卡片主体
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    // 关键：基础配置卡片需要并排（产品 + 模板）
+    &:has(> .sxk-form-card__col) {
+      flex-direction: row;
+      gap: $spacing-md;
+    }
+  }
+  // 卡片内并排列（基础配置：产品 + 模板）
+  &__col {
+    flex: 1 1 0%;
+    min-width: 0;
+  }
+  // 提交卡片（无 hover，无边框）
+  &--submit {
+    text-align: center;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    padding: $spacing-sm 0;
+    &:hover {
+      border: none;
+      box-shadow: none;
+    }
+  }
+}
+
 .sxk-generate__form {
   // 表单行（横向布局）
   &-row {
@@ -2953,6 +3362,176 @@ void renderMarkdown
   }
 }
 // 动态参数 2 列网格
+// ============================================================
+// 动态参数全新布局：智能分类 + 视觉分组（chip 按钮 + 紧凑输入）
+// ============================================================
+
+// 区域标题（如"选项配置"）
+.sxk-param-section {
+  margin-bottom: $spacing-md;
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: $text-primary;
+    margin-bottom: $spacing-sm;
+    padding-left: 2px;
+    .el-icon {
+      color: $primary-color;
+      font-size: 14px;
+    }
+  }
+}
+
+// 枚举项（label + chip 组）
+.sxk-param-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: $spacing-sm;
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: $text-secondary;
+    flex-wrap: wrap;
+  }
+  &__label-text {
+    color: $text-primary;
+    font-weight: 500;
+  }
+  &__label-hint {
+    font-size: 12px;
+    color: $text-placeholder;
+    background: rgba(99, 102, 241, 0.06);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  &__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}
+
+// chip 按钮
+.sxk-param-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: $text-secondary;
+  background: $bg-card;
+  border: 1px solid $border-base;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  &:hover {
+    color: $primary-color;
+    border-color: rgba(99, 102, 241, 0.5);
+    background: rgba(99, 102, 241, 0.04);
+  }
+  &.is-active {
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    border-color: #4f46e5;
+    box-shadow: 0 2px 6px rgba(99, 102, 241, 0.3);
+  }
+}
+
+// 文本输入区（2 列网格）
+.sxk-param-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-sm $spacing-md;
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// 单个输入项
+.sxk-param-input {
+  &__label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: $text-secondary;
+    margin-bottom: 4px;
+  }
+  &__label-text {
+    color: $text-primary;
+    font-weight: 500;
+  }
+  &__label-hint {
+    font-size: 12px;
+    color: $text-placeholder;
+    background: rgba(99, 102, 241, 0.06);
+    padding: 1px 6px;
+    border-radius: 3px;
+  }
+  &__hint {
+    margin-top: 2px;
+    font-size: 12px;
+    color: $text-placeholder;
+    line-height: 1.4;
+  }
+  &__tip {
+    color: $primary-color;
+    cursor: help;
+  }
+  &--full {
+    grid-column: 1 / -1;
+  }
+}
+
+// 必填红星
+.sxk-param-required {
+  color: #ef4444;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+// 填写完成度提示
+.sxk-param-tip {
+  margin-top: $spacing-md;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04), rgba(79, 70, 229, 0.02));
+  border: 1px dashed rgba(99, 102, 241, 0.25);
+  border-radius: $radius-md;
+  font-size: 13px;
+  color: $text-secondary;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  .el-icon {
+    color: $primary-color;
+    font-size: 14px;
+    display: inline;
+    margin-right: 4px;
+  }
+  b {
+    color: $primary-color;
+    font-weight: 600;
+  }
+  &__bar {
+    height: 4px;
+    background: rgba(99, 102, 241, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  &__bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #4f46e5);
+    transition: width 0.3s ease;
+  }
+}
+
 .sxk-generate__params-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -3052,7 +3631,9 @@ void renderMarkdown
 
 // ---------- 右栏：主区域 ----------
 .sxk-generate__main {
-  flex: 1 1 auto;
+  flex: 1 1 50%;  // 关键：与 .sxk-generate__config 水平均分（父级 .sxk-generate__body 是水平 flex）
+  width: 50%;
+  max-width: 50%;
   min-height: 0; // 关键：flex 子项可滚动
   display: flex; // 让内部 stage 撑满
   flex-direction: column;
