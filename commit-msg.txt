@@ -1,6 +1,0 @@
-feat: 竞品分析去图标 + 生成表单布局调整
-
-- competitors: 移除产品列表前的 Box 图标，更简洁
-- generate: 动态参数卡片紧凑化（4 栏布局，一屏全显）
-
-Co-Authored-By: Claude <noreply@anthropic.com>
