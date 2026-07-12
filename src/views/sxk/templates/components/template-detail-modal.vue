@@ -135,7 +135,7 @@
   <!-- 编辑场景弹窗 -->
   <SceneCreateModal
     v-model="sceneEditVisible"
-    :scene-data="sceneEditData"
+    :edit-data="sceneEditData"
     @saved="onSceneSaved"
   />
 

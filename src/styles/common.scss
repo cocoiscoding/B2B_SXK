@@ -102,19 +102,31 @@ a {
 }
 
 // el-dialog 圆角加大 + 内边距对齐原型 modal-box padding:32px
+// 关键：所有弹窗高度固定为视口的 80vh，内容超出时滚动条展示
 .el-dialog {
   border-radius: $radius-xl;
   overflow: hidden;
-}
-// 横向 32px 对齐原型，纵向适度紧凑避免空旷
-.el-dialog__header {
-  padding: 24px 32px 12px;
-}
-.el-dialog__body {
-  padding: 8px 32px;
-}
-.el-dialog__footer {
-  padding: 12px 32px 24px;
+  // 固定高度上限 + 居中 + flex 布局让 body 滚动
+  max-height: 80vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+
+  .el-dialog__header {
+    padding: 24px 32px 12px;
+    flex-shrink: 0;          // 头部固定不滚动
+  }
+  .el-dialog__body {
+    padding: 8px 32px;
+    flex: 1;                 // 占满中间空间
+    overflow-y: auto;        // 内容超出时滚动
+    min-height: 0;           // 允许 flex 子项收缩
+    -webkit-overflow-scrolling: touch;
+  }
+  .el-dialog__footer {
+    padding: 12px 32px 24px;
+    flex-shrink: 0;          // 底部固定不滚动
+  }
 }
 
 // el-tabs 底部线条加粗 + 主色

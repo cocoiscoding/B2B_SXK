@@ -15,14 +15,14 @@
           <p>管理营销场景与子模板，支撑多 Agent 内容生成</p>
         </div>
         <div class="page-header__actions">
-          <el-button @click="onAddScene">
+          <el-button type="primary" @click="onAddScene">
             <el-icon><Grid /></el-icon>
             <span>新建场景</span>
           </el-button>
-          <el-button type="primary" @click="onManageScenes">
+          <!-- <el-button type="primary" @click="onManageScenes">
             <el-icon><Setting /></el-icon>
             <span>管理场景</span>
-          </el-button>
+          </el-button> -->
         </div>
       </div>
     </basic-block>
@@ -51,62 +51,51 @@
         :key="scene.scene_code"
         class="scene-card"
       >
-        <!-- 场景卡片头部：图标 + 名称 + 子模板数 + 编辑/删除 -->
-        <div class="scene-card__head">
-          <div class="scene-card__title" @click="onDetail(scene)">
-            <div class="scene-card__icon" :style="{ background: tplColor(scene.scene_code, scene.name).bg, color: tplColor(scene.scene_code, scene.name).color }">
-              <el-icon :size="24"><component :is="tplColor(scene.scene_code, scene.name).icon" /></el-icon>
-            </div>
-            <div>
-              <div class="scene-card__name">
-                {{ scene.name }}
-                <!-- <el-tag
-                  v-if="isCustomScene(scene.scene_code)"
-                  size="small"
-                  type="warning"
-                  effect="plain"
-                >自定义</el-tag> -->
-              </div>
-              <div class="scene-card__sub-count">{{ getSceneTemplates(scene.scene_code).length }} 个子模板</div>
-            </div>
-          </div>
+        <!-- 紧凑横向布局：图标 | 名称+描述 | 标签 | 元信息 | 操作 -->
+        <div class="scene-card__icon" :style="{ background: tplColor(scene.scene_code, scene.name).bg, color: tplColor(scene.scene_code, scene.name).color }">
+          <el-icon :size="20"><component :is="tplColor(scene.scene_code, scene.name).icon" /></el-icon>
         </div>
 
-        <!-- 场景描述 -->
-        <p class="scene-card__desc">{{ scene.description || '暂无描述' }}</p>
+        <div class="scene-card__main" @click="onDetail(scene)">
+          <div class="scene-card__name-row">
+            <span class="scene-card__name">{{ scene.name }}</span>
+            <el-tag v-if="isCustomScene(scene.scene_code)" size="small" type="warning" effect="plain" class="scene-card__tag">自定义</el-tag>
+            <span class="scene-card__sub-count">· {{ getSceneTemplates(scene.scene_code).length }} 个子模板</span>
+          </div>
+          <div class="scene-card__desc">{{ scene.description || '暂无描述' }}</div>
+        </div>
 
-        <!-- 子模板预览（前3个） -->
+        <!-- 中部：子模板预览标签（限 2 个）-->
         <div class="scene-card__preview">
           <template v-if="getSceneTemplates(scene.scene_code).length > 0">
             <el-tag
-              v-for="tpl in getSceneTemplates(scene.scene_code).slice(0, 3)"
+              v-for="tpl in getSceneTemplates(scene.scene_code).slice(0, 2)"
               :key="tpl.template_id"
               size="small"
               effect="plain"
             >{{ tpl.name }}</el-tag>
-            <span v-if="getSceneTemplates(scene.scene_code).length > 3" class="scene-card__more">
-              等 {{ getSceneTemplates(scene.scene_code).length }} 个
+            <span v-if="getSceneTemplates(scene.scene_code).length > 2" class="scene-card__more">
+              +{{ getSceneTemplates(scene.scene_code).length - 2 }}
             </span>
           </template>
-          <span v-else class="scene-card__empty-preview">暂无子模板，点击"查看详情"添加</span>
         </div>
 
-        <!-- 场景卡片底部：最近更新 + 操作 -->
-        <div class="scene-card__foot">
-          <div class="scene-card__foot-left">
-            <el-icon><Clock /></el-icon>
-            <span>最近更新 {{ formatSceneUpdate(scene.scene_code) }}</span>
-          </div>
-          <div class="scene-card__foot-right">
-            <el-button link type="primary" @click="onDetail(scene)">查看详情</el-button>
-            <span class="scene-card__divider">|</span>
-            <el-button
-              link
-              type="danger"
-              :icon="Delete"
-              @click="onDeleteScene(scene)"
-            >删除</el-button>
-          </div>
+        <!-- 右侧：元信息 + 操作 -->
+        <div class="scene-card__meta">
+          <el-icon><Clock /></el-icon>
+          <span>最近更新 {{ formatSceneUpdate(scene.scene_code) }}</span>
+        </div>
+
+        <div class="scene-card__actions">
+          <el-button link type="primary" size="small" @click="onDetail(scene)">查看详情</el-button>
+          <span class="scene-card__divider">|</span>
+          <el-button
+            link
+            type="danger"
+            size="small"
+            :icon="Delete"
+            @click="onDeleteScene(scene)"
+          >删除</el-button>
         </div>
       </div>
 
@@ -175,8 +164,8 @@
 </template>
 
 <script setup>
-import { computed, markRaw, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, markRaw, nextTick, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Grid,
@@ -205,6 +194,7 @@ import TemplateDetailModal from './components/template-detail-modal.vue'
 import SceneCreateModal from './components/scene-create-modal.vue'
 
 const router = useRouter()
+const route = useRoute()
 
 // ========== 状态 ==========
 const allTemplates = ref([])     // 全部模板（扁平列表）
@@ -279,9 +269,21 @@ const COLOR_MAP_LEGACY = {
   other: { bg: '#f1f5f9', color: '#475569' }
 }
 
-// 判断是否自定义场景（非预置 ID 格式）
+// 判断是否自定义场景
+// 后端预置场景的 id 是 S001-S006（见 B2B-SXK-FastApi/app/seed_data.py SEED_SCENARIOS）
+// mock 场景的 id 是 product_intro/competitor/...（见 src/mock/data.js mockSceneSchemas）
+// 两端 ID 格式不同，需要同时兼容（用 startsWith 判定）
+const PRESET_SCENE_IDS = ['S001', 'S002', 'S003', 'S004', 'S005', 'S006', 'S007', 'S008', 'S009', 'S010']
 const PRESET_SCENE_CODES = ['product_intro', 'competitor', 'channel_adapt', 'email', 'event', 'other']
-const isCustomScene = (code) => !PRESET_SCENE_CODES.includes(code)
+const isCustomScene = (code) => {
+  if (!code) return true  // 防御性：code 为空时视为自定义
+  // 后端预置：S0xx 格式
+  if (PRESET_SCENE_IDS.includes(code)) return false
+  // mock 预置：product_intro / competitor / ... 格式
+  if (PRESET_SCENE_CODES.includes(code)) return false
+  // 用户自定义：以 S 开头但不在预置列表中（如 S123ABC），或纯 UUID
+  return true
+}
 
 // ========== 计算属性 ==========
 // 场景列表（来源于 getSceneSchemas）
@@ -444,10 +446,38 @@ const onDeleteScene = async (scene) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadAllTemplates()
-  loadSceneSchemas()
+  await loadSceneSchemas()  // 关键：await 等数据加载完
+  // 关键：处理首页"营销场景"卡片点击跳转过来时的 openDetail query
+  await nextTick()           // 等 DOM 更新
+  await openDetailFromQuery()
 })
+
+/**
+ * 关键：处理首页"营销场景"卡片点击跳转过来时的 openDetail query
+ * 直接在数据加载完成后检查 query，找到场景就打开弹窗
+ */
+const openDetailFromQuery = async () => {
+  const code = route.query.openDetail
+  if (!code) return
+  if (sceneSchemasList.value.length === 0) {
+    ElMessage.warning('场景数据加载中，请稍后再试')
+    return
+  }
+  const scene = sceneSchemasList.value.find((s) => s.scene_code === code)
+  if (scene) {
+    // 关键：用 nextTick 等待弹窗绑定完成
+    nextTick(() => {
+      onDetail(scene)
+      // 清除 query，避免刷新或后退时再次触发
+      router.replace({ path: '/templates/index', query: {} })
+    })
+  } else {
+    ElMessage.warning(`未找到场景「${code}」，可能已被删除`)
+    router.replace({ path: '/templates/index', query: {} })
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -519,37 +549,46 @@ onMounted(() => {
 .scene-list {
   display: flex;
   flex-direction: column;
-  gap: $spacing-md;
+  // 关键：卡片间距收紧，从 12px 减到 8px，整体更紧凑
+  gap: 8px;
 }
 
 .scene-card {
-  padding: $spacing-lg;
+  // 关键：横向紧凑布局，单行展示所有信息
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  padding: $spacing-sm $spacing-md;
   background: $bg-card;
   border: 1px solid $border-base;
-  border-radius: $radius-lg;
+  border-radius: $radius-md;
   box-shadow: $shadow-sm;
   transition: $transition-base;
+  min-height: 64px;
 
   &:hover {
     border-color: $primary-color;
     box-shadow: $shadow-hover;
+    background: $bg-hover;
   }
 
-  // 头部：图标 + 名称 + 操作
-  &__head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    margin-bottom: $spacing-sm;
-  }
-
-  &__title {
+  // 图标：紧凑 40×40
+  &__icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: $radius-md;
     display: flex;
     align-items: center;
-    gap: $spacing-md;
-    cursor: pointer;
+    justify-content: center;
+  }
+
+  // 主信息区：名称 + 描述（可点击）
+  &__main {
     flex: 1;
-    min-width: 0;
+    min-width: 0;  // 关键：让子元素的 ellipsis 生效
+    cursor: pointer;
+    overflow: hidden;
 
     &:hover {
       .scene-card__name {
@@ -558,65 +597,87 @@ onMounted(() => {
     }
   }
 
-  &__icon {
-    flex-shrink: 0;
-    width: 48px;
-    height: 48px;
-    border-radius: $radius-lg;
+  &__name-row {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: $spacing-xs;
+    margin-bottom: 2px;
   }
 
   &__name {
-    font-size: $font-size-lg;
+    font-size: $font-size-base;
     font-weight: 600;
     color: $text-primary;
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
     transition: color 0.2s;
+    white-space: nowrap;
+  }
+
+  &__tag {
+    flex-shrink: 0;
   }
 
   &__sub-count {
     font-size: $font-size-xs;
     color: $text-secondary;
-    margin-top: 2px;
+    white-space: nowrap;
   }
 
-  &__head-actions {
-    display: flex;
-    gap: $spacing-xs;
-    flex-shrink: 0;
-  }
-
-  // 描述
+  // 描述：1行省略
   &__desc {
-    font-size: $font-size-sm;
+    font-size: $font-size-xs;
     color: $text-regular;
-    line-height: 1.6;
-    margin: 0 0 $spacing-sm;
+    line-height: 1.5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  // 子模板预览
+  // 子模板预览标签（限 2 个）
   &__preview {
     display: flex;
-    flex-wrap: wrap;
-    gap: $spacing-xs;
     align-items: center;
-    margin-bottom: $spacing-md;
-    font-size: $font-size-xs;
+    gap: $spacing-xs;
+    flex-shrink: 0;
+    max-width: 200px;
+    overflow: hidden;
   }
 
   &__more {
     color: $text-secondary;
+    font-size: $font-size-xs;
+    flex-shrink: 0;
   }
 
+  // 元信息（最近更新时间）
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    color: $text-secondary;
+    font-size: $font-size-xs;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  // 操作按钮
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    flex-shrink: 0;
+  }
+
+  &__divider {
+    color: $border-base;
+    margin: 0 $spacing-xs;
+  }
+
+  // 兼容旧版引用（防止编译警告）
   &__empty-preview {
     color: $text-placeholder;
   }
 
-  // 底部
+  // 兼容旧版引用（防止编译警告）
   &__foot {
     display: flex;
     align-items: center;
@@ -639,7 +700,8 @@ onMounted(() => {
     }
   }
 
-  &__divider {
+  // 兼容旧版引用（防止编译警告）
+  &__divider-old {
     color: $border-base;
   }
 }

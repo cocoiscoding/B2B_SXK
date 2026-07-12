@@ -15,10 +15,10 @@
         <h2 class="welcome-title">欢迎回来，{{ welcomeName }}</h2>
         <p class="welcome-sub">今天是 {{ todayText }}，准备好创造精彩内容了吗？</p>
       </div>
-      <el-button type="primary" size="large" class="welcome-btn" @click="goGenerate">
+      <!-- <el-button type="primary" size="large" class="welcome-btn" @click="goGenerate">
         <el-icon class="welcome-btn-icon"><MagicStick /></el-icon>
         <span>立即生成</span>
-      </el-button>
+      </el-button> -->
     </div>
 
     <!-- ========== 任务进度条（US013：生成中任务，原型无此项，为业务需求保留） ========== -->
@@ -47,18 +47,36 @@
       </el-col>
     </el-row>
 
-    <!-- ========== 常用模板（原型：h3 + grid lg:grid-cols-3 gap-6 竖排卡片） ========== -->
+    <!-- ========== 常用场景模板（按生成历史使用次数聚合 top 3） ==========
+         关键：首屏显示骨架屏（无 commonTemplates 兜底），load 完成后才显示真实数据 -->
     <div class="section-block">
-      <h3 class="section-title">常用模板</h3>
-      <el-row :gutter="24">
-        <el-col :xs="24" :sm="12" :lg="8" v-for="tpl in commonTemplates" :key="tpl.template_id">
+      <h3 class="section-title">营销场景</h3>
+      <!-- 加载中：骨架屏（避免看到 commonTemplates 旧数据） -->
+      <el-row :gutter="24" v-if="!dataLoaded">
+        <el-col :xs="24" :sm="12" :lg="8" v-for="i in 3" :key="`skeleton-${i}`">
+          <div class="tpl-card tpl-card--skeleton">
+            <div class="tpl-icon tpl-icon--skeleton"></div>
+            <div class="tpl-name tpl-name--skeleton"></div>
+            <div class="tpl-desc tpl-desc--skeleton"></div>
+            <div class="tpl-tags">
+              <span class="tpl-tag tpl-tag--skeleton"></span>
+            </div>
+          </div>
+        </el-col>
+      </el-row>
+      <!-- 加载完成：显示真实聚合数据 -->
+      <el-row :gutter="24" v-else-if="topScenesByUsage.length > 0">
+        <el-col :xs="24" :sm="12" :lg="8" v-for="tpl in topScenesByUsage" :key="tpl.scene_code">
           <div class="tpl-card" @click="useCommonTemplate(tpl)">
             <!-- 图标（原型：w-12 h-12 bg-{color}-50 rounded-lg mb-4） -->
             <div class="tpl-icon" :style="{ color: tpl.color, backgroundColor: tpl.bg }">
               <el-icon><component :is="tpl.icon" /></el-icon>
             </div>
             <div class="tpl-name">{{ tpl.name }}</div>
-            <div class="tpl-desc">{{ tpl.desc }}</div>
+            <div class="tpl-desc">
+              <span v-if="tpl.use_count > 0">已使用 {{ tpl.use_count }} 次 · </span>
+              {{ tpl.desc }}
+            </div>
             <!-- 标签（原型：px-3 py-1 text-xs rounded-full） -->
             <div class="tpl-tags">
               <span
@@ -71,6 +89,7 @@
           </div>
         </el-col>
       </el-row>
+      <div v-else class="empty-tip">还没有常用场景，开始第一次生成吧</div>
     </div>
 
     <!-- ========== 最近生成（原型：h3 + space-y-4 横向列表项） ========== -->
@@ -117,7 +136,9 @@ import {
   Timer,
   Document,
   Share,
-  Loading
+  Loading,
+  Calendar,
+  Files
 } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
 
@@ -160,15 +181,15 @@ const statCards = computed(() => [
     color: '#16a34a',                          // Tailwind green-600
     bg: '#f0fdf4'                              // Tailwind green-50
   },
-  {
-    label: '平均评分',
-    value: stats.value.avg_score || '—',
-    unit: stats.value.avg_score ? '分' : '',
-    sub: '内容质量',
-    icon: Money,
-    color: '#ea580c',                          // Tailwind orange-600
-    bg: '#fff7ed'                              // Tailwind orange-50
-  },
+  // {
+  //   label: '平均评分',
+  //   value: stats.value.avg_score || '—',
+  //   unit: stats.value.avg_score ? '分' : '',
+  //   sub: '内容质量',
+  //   icon: Money,
+  //   color: '#ea580c',                          // Tailwind orange-600
+  //   bg: '#fff7ed'                              // Tailwind orange-50
+  // },
   {
     label: '平均耗时',
     value: stats.value.avg_duration_ms ? (stats.value.avg_duration_ms / 1000).toFixed(0) : '—',
@@ -182,10 +203,22 @@ const statCards = computed(() => [
 
 // ========== 场景元信息映射（用于最近生成列表项的图标/配色） ==========
 // 对齐原型：产品→blue、竞品→orange、渠道→green
+// 同时支持 mock 格式 (product_intro/competitor/channel_adapt) 和后端格式 (S001-S006)
 const SCENE_META = {
+  // mock 格式
   product_intro: { icon: Document, color: '#2563eb', bg: '#eff6ff' },
   competitor: { icon: Money, color: '#ea580c', bg: '#fff7ed' },
-  channel_adapt: { icon: Share, color: '#16a34a', bg: '#f0fdf4' }
+  channel_adapt: { icon: Share, color: '#16a34a', bg: '#f0fdf4' },
+  email: { icon: Document, color: '#9333ea', bg: '#faf5ff' },
+  event: { icon: Calendar, color: '#dc2626', bg: '#fee2e2' },
+  other: { icon: Files, color: '#6b7280', bg: '#f3f4f6' },
+  // 后端预置场景 (S001-S006 对应 B2B-SXK-FastApi/app/seed_data.py SEED_SCENARIOS)
+  S001: { icon: Document, color: '#2563eb', bg: '#eff6ff' },  // 线下展会物料
+  S002: { icon: Document, color: '#2563eb', bg: '#eff6ff' },  // 产品介绍文案
+  S003: { icon: Money, color: '#ea580c', bg: '#fff7ed' },     // 竞品对比分析报告
+  S004: { icon: Document, color: '#16a34a', bg: '#f0fdf4' },  // 客户案例包装
+  S005: { icon: Share, color: '#dc2626', bg: '#fee2e2' },     // 演讲 PPT 大纲
+  S006: { icon: Share, color: '#9333ea', bg: '#faf5ff' }      // 社交媒体帖子
 }
 const getSceneMeta = (sceneCode) => SCENE_META[sceneCode] || SCENE_META.product_intro
 
@@ -273,25 +306,156 @@ const goHistoryDetail = (item) => {
 }
 
 const useCommonTemplate = (tpl) => {
-  ElMessage.success(`已预设场景「${tpl.name}」`)
-  router.push({ path: '/generate/index', query: { scene: tpl.scene_code } })
+  // 关键：跳转到"场景模板管理"，并通过 query 携带 scene_code，
+  //       让目标页面自动打开该场景的详情弹窗（而非仅停留在列表）
+  router.push({
+    path: '/templates/index',
+    query: { openDetail: tpl.scene_code }
+  })
 }
+
+// ========== 常用场景模板：按生成历史使用次数聚合 top 3 ==========
+// 关键：首屏显示骨架屏，load 完成后聚合真实数据
+// 降级：history 加载失败 / 数据不足 3 条 → 使用 commonTemplates 补齐
+const dataLoaded = ref(false)             // 数据是否已加载（控制骨架屏切换）
+const recentListForStats = ref([])        // 仅用于聚合 scene_code，不渲染到 UI
+const sceneCodeToName = ref({})           // 来自 getTemplateMeta 的 scene_code → 名称 映射
+
+/**
+ * 聚合规则：
+ *   1. 按 scene_code 分组
+ *   2. 每组 count = history 中该 scene_code 出现的次数
+ *   3. 按 count 降序
+ *   4. 取前 3
+ *   5. 不足 3 条时用 commonTemplates 补齐
+ */
+const topScenesByUsage = computed(() => {
+  // 聚合 history 中 scene_code 出现次数
+  const counts = new Map()
+  for (const item of (recentListForStats.value || [])) {
+    const code = item.scene_code
+    if (!code) continue
+    counts.set(code, (counts.get(code) || 0) + 1)
+  }
+
+  // 按次数降序，取前 3
+  const sorted = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+
+  // 转为展示卡片结构
+  const aggregated = sorted.map(([code, count]) => {
+    const meta = getSceneMeta(code)
+    const name = sceneCodeToName.value[code] || (code)  // 降级显示 code
+    // tags 优先使用常见标签，否则空
+    const tag = (() => {
+      if (code === 'product_intro' || code === 'S001' || code === 'S002') {
+        return { text: '文案', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } }
+      }
+      if (code === 'competitor' || code === 'S003') {
+        return { text: '分析', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } }
+      }
+      if (code === 'channel_adapt' || code === 'S005' || code === 'S006') {
+        return { text: '渠道', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } }
+      }
+      if (code === 'email') {
+        return { text: '邮件', style: { color: '#9333ea', backgroundColor: '#faf5ff' } }
+      }
+      if (code === 'event' || code === 'S001') {
+        return { text: '活动', style: { color: '#dc2626', backgroundColor: '#fee2e2' } }
+      }
+      return { text: '模板', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } }
+    })()
+    return {
+      scene_code: code,
+      name,
+      use_count: count,
+      desc: '基于真实使用历史推荐',
+      icon: meta.icon,
+      color: meta.color,
+      bg: meta.bg,
+      tags: [tag]
+    }
+  })
+
+  // 不足 3 条时用 commonTemplates 补齐（仅作为推荐项，use_count=0）
+  if (aggregated.length < 3) {
+    const existingCodes = new Set(aggregated.map((s) => s.scene_code))
+    for (const tpl of commonTemplates) {
+      if (aggregated.length >= 3) break
+      if (existingCodes.has(tpl.scene_code)) continue
+      aggregated.push({
+        ...tpl,
+        use_count: 0,
+        desc: tpl.desc + '（推荐）'
+      })
+    }
+  }
+  return aggregated
+})
 
 // ========== 数据加载 ==========
 const load = async () => {
   try {
-    // 并行加载：首页统计 + 最近 3 条 + 当前用户
-    const [statRes, recentRes, userRes] = await Promise.allSettled([
+    // 并行加载：首页统计 + 最近 3 条 + 当前用户 + 全量 history(用于聚合) + 场景元数据
+    const [statRes, recentRes, userRes, historyRes, metaRes] = await Promise.allSettled([
       sxkApi.getDashboardStats(),
       sxkApi.getRecentGenerations(3),
-      sxkApi.getCurrentUser()
+      sxkApi.getCurrentUser(),
+      // 关键：取尽可能多的 history 用于聚合常用场景（size 100 覆盖常用场景）
+      sxkApi.listHistory({ page: 1, size: 100 }),
+      sxkApi.getTemplateMeta()
     ])
     if (statRes.status === 'fulfilled' && statRes.value?.data) stats.value = statRes.value.data
     if (recentRes.status === 'fulfilled' && recentRes.value?.data) recentList.value = recentRes.value.data.items || []
     if (userRes.status === 'fulfilled' && userRes.value?.data) welcomeName.value = userRes.value.data.username || '营销专家'
+    // 聚合：scene_code 使用次数
+    if (historyRes.status === 'fulfilled' && historyRes.value?.data) {
+      const items = historyRes.value.data.items || historyRes.value.data || []
+      recentListForStats.value = Array.isArray(items) ? items : []
+      // ========== 关键：前端兜底计算"平均耗时" ==========
+      // 场景：后端 getDashboardStats 可能没提供 avg_duration_ms（兼容老接口）
+      //       或提供的值为 0/无效，此时前端用 history.agent_trace 自行计算
+      // 数据源：每条 history.agent_trace（JSON 数组，元素含 duration_ms）
+      if (!stats.value.avg_duration_ms) {
+        const durations = []
+        for (const h of recentListForStats.value) {
+          const trace = h && h.agent_trace
+          if (!Array.isArray(trace) || trace.length === 0) continue
+          const total = trace.reduce((sum, step) => {
+            const d = step && step.duration_ms
+            return sum + (typeof d === 'number' && d > 0 ? d : 0)
+          }, 0)
+          if (total > 0) durations.push(total)
+        }
+        if (durations.length > 0) {
+          stats.value = {
+            ...stats.value,
+            avg_duration_ms: Math.round(
+              durations.reduce((a, b) => a + b, 0) / durations.length
+            )
+          }
+        }
+      }
+      // ===============================================
+    }
+    // 场景元数据：scene_code → 名称
+    if (metaRes.status === 'fulfilled' && metaRes.value?.data) {
+      const sceneCodes = metaRes.value.data.scene_codes || []
+      const map = {}
+      for (const sc of sceneCodes) {
+        if (sc && sc.code) map[sc.code] = sc.name || sc.code
+      }
+      sceneCodeToName.value = map
+    }
+    // 关键：所有数据加载完成后切换为聚合数据
+    // 仍显示 commonTemplates 作为兜底（首屏已显示）
+    dataLoaded.value = true
   } catch (e) {
     console.error('[Dashboard] load failed', e)
     ElMessage.error('加载数据失败，请检查网络或重新登录')
+    // 失败时也标记为已加载（保持显示 commonTemplates）
+    dataLoaded.value = true
   }
 }
 
@@ -489,6 +653,57 @@ onMounted(load)
     border-radius: $radius-round;        // rounded-full
     line-height: 1.2;
   }
+
+  // ========== 骨架屏（加载中占位，避免看到 commonTemplates 旧数据） ==========
+  &--skeleton {
+    cursor: default;
+    pointer-events: none;
+  }
+}
+
+// ========== 骨架屏元素样式（关键：动画 + 灰色占位） ==========
+@keyframes skeleton-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+
+.tpl-icon--skeleton,
+.tpl-name--skeleton,
+.tpl-desc--skeleton,
+.tpl-tag--skeleton {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #f8f8f8 50%,
+    #f0f0f0 100%
+  );
+  background-size: 200px 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  color: transparent !important;
+  border-radius: $radius-md;
+}
+
+.tpl-icon--skeleton {
+  width: 48px;
+  height: 48px;
+}
+
+.tpl-name--skeleton {
+  width: 60%;
+  height: 18px;
+  margin-bottom: 12px;
+}
+
+.tpl-desc--skeleton {
+  width: 90%;
+  height: 14px;
+  margin-bottom: 8px;
+}
+
+.tpl-tag--skeleton {
+  width: 40px;
+  height: 18px;
+  display: inline-block;
 }
 
 // ========== 最近生成列表（原型：space-y-4 横向卡片） ==========

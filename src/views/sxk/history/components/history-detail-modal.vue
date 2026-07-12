@@ -643,15 +643,21 @@ const onAnalyzeSeo = async (v) => {
 
 <style lang="scss">
 // 全局覆盖：与产品/模板弹窗保持完全一致
+// 设计：依赖全局 .el-dialog 的 max-height: 80vh + flex 列布局 + body 滚动
+//       .hdm-dialog 不再覆盖 body 的滚动行为（避免 footer 被裁切）
 .hdm-dialog {
   .el-dialog__header {
     display: none;
   }
   .el-dialog__body {
+    // 不再设置 max-height / overflow（由全局 .el-dialog__body 控制滚动）
+    // 保留 padding: 0（让 .hdm-body 自带 padding）
     padding: 0;
   }
   .el-dialog__footer {
-    padding: 0;
+    // 关键：恢复 padding，让 .hdm-foot 与弹窗底边有间距
+    padding: 12px 24px 16px;
+    border-top: 1px solid $border-light;
   }
 }
 </style>
@@ -719,9 +725,9 @@ const onAnalyzeSeo = async (v) => {
 }
 
 // ========== 可滚动内容区 ==========
+// 关键：依赖全局 .el-dialog__body 的 overflow-y: auto
+//       hdm-body 不再自己设 max-height / overflow，避免双重滚动
 .hdm-body {
-  max-height: calc(86vh - 180px);
-  overflow-y: auto;
   padding: $spacing-lg;
   display: flex;
   flex-direction: column;
@@ -1134,8 +1140,9 @@ const onAnalyzeSeo = async (v) => {
   align-items: center;
   justify-content: flex-end;
   gap: $spacing-sm;
-  padding: $spacing-sm $spacing-lg $spacing-md;
-  border-top: 1px solid $border-light;
+  // 关键：水平 padding 由 .el-dialog__footer 提供，此处不重复
+  // 上下 padding 也不需要（由 .el-dialog__footer 提供）
+  padding: 0;
 }
 
 // ========== SEO 弹窗 ==========

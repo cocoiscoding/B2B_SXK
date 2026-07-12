@@ -323,11 +323,29 @@ export const sxkApi = {
           .sort((a, b) => b[1] - a[1])
           .slice(0, 3)
           .map(([scene_code, use_count_30d]) => ({ scene_code, use_count_30d }))
+        // ========== 关键：计算"平均耗时" ==========
+        // 数据源：每条 history.agent_trace（JSON 数组，元素含 duration_ms）
+        // 策略：累加每条 history 的所有 Agent 的 duration_ms，得到该条总耗时；
+        //       过滤无效值（null/0/缺失）后取平均
+        const durations = []
+        histList.forEach((h) => {
+          const trace = h.agent_trace
+          if (!Array.isArray(trace) || trace.length === 0) return
+          const total = trace.reduce((sum, step) => {
+            const d = step && step.duration_ms
+            return sum + (typeof d === 'number' && d > 0 ? d : 0)
+          }, 0)
+          if (total > 0) durations.push(total)
+        })
+        const avg_duration_ms = durations.length > 0
+          ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+          : 0
+        // ==========================================
         return ok({
           product_count: prodList.length,
           monthly_generation_count: histList.length,
           avg_score: 0,
-          avg_duration_ms: 0,
+          avg_duration_ms,  // 关键：真实计算（之前 hardcode 0）
           running_tasks: 0,
           popular_scenes
         })

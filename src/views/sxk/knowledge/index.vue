@@ -170,12 +170,6 @@
               </span>
               <div class="actions">
                 <el-button link type="primary" @click="onDetail(item)">查看</el-button>
-                <el-button
-                  link
-                  type="primary"
-                  :disabled="item.is_deleted"
-                  @click="onEdit(item)"
-                >编辑</el-button>
                 <el-popconfirm
                   :title="`确定删除「${item.name}」吗？`"
                   confirm-button-text="确认删除"
@@ -214,6 +208,7 @@
       v-model="editVisible"
       :product-id="editTargetId"
       :readonly="editReadonly"
+      :can-edit="editCanEdit"
       :prefill-data="importPrefill"
       @saved="loadList"
     />
@@ -248,6 +243,7 @@ const stats = ref(null)
 const editVisible = ref(false)
 const editTargetId = ref(null)
 const editReadonly = ref(false)
+const editCanEdit = ref(true)  // 关键：当前用户是否能编辑该产品（创建者/管理员 → true）
 const importPrefill = ref(null)  // Word 建库：后端返回的 product 草稿
 const importFileInput = ref(null)
 const importing = ref(false)
@@ -256,6 +252,27 @@ const searchMode = ref('keyword')
 // 管理员判断：用于显示"重建向量索引"按钮
 const userStore = useUserStore()
 const isAdmin = computed(() => !!userStore.userInfo?.is_admin)
+// 当前用户 ID：用于判定是否是某产品卡片的创建者
+const currentUserId = computed(() => userStore.userInfo?.user_id || '')
+
+/**
+ * 关键：判断当前用户能否编辑某产品
+ * 规则：
+ *   1. 管理员（is_admin）→ 永远可以编辑
+ *   2. 产品创建者（created_by === currentUserId）→ 可以编辑
+ *   3. 其他用户 → 不可编辑（即使在查看模式下，"编辑"按钮也不显示）
+ *
+ * 兜底：created_by 为空时（如老数据）→ 允许编辑（向后兼容）
+ */
+const canEditProduct = (item) => {
+  if (!item) return false
+  // 管理员永远可编辑
+  if (isAdmin.value) return true
+  // 创建者可编辑
+  const creator = item.created_by || ''
+  if (!creator) return true  // 兜底：老数据无 created_by 字段
+  return creator === currentUserId.value
+}
 // 重建向量加载状态
 const reindexing = ref(false)
 
@@ -380,15 +397,25 @@ const onAdd = () => {
 
 const onEdit = (item) => {
   // F1-2 / US003：编辑现有产品
+  // 关键：非创建者/非管理员不可编辑（双层校验：UI 不显示按钮 + 函数内防御）
+  if (!canEditProduct(item)) {
+    ElMessage.warning('您不是该产品的创建者，无权编辑')
+    return
+  }
   editTargetId.value = item.product_id
   editReadonly.value = false
+  editCanEdit.value = true
   editVisible.value = true
 }
 
-// 查看产品：以只读模式打开编辑弹窗，用户可在弹窗内点"编辑"切换
+// 查看产品：以只读模式打开编辑弹窗
+// 关键：根据当前用户与卡片创建者关系，决定是否显示底部"编辑"按钮
+//   - 创建者/管理员 → canEdit=true，弹窗内可点击"编辑"切换为可编辑
+//   - 其他用户 → canEdit=false，弹窗内只读，无法编辑
 const onDetail = (item) => {
   editTargetId.value = item.product_id
   editReadonly.value = true
+  editCanEdit.value = canEditProduct(item)
   editVisible.value = true
 }
 

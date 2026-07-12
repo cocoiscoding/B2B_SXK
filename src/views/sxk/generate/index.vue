@@ -399,22 +399,22 @@
                 <b>Agent 执行链路</b>
                 <span
                   class="sxk-generate__trace-stats"
-                  v-if="currentDraft.agent_trace?.length"
+                  v-if="currentDraft.agent_trace?.length || liveCurrentAgent"
                 >
                   <span class="sxk-generate__trace-stat is-success">
                     <el-icon><CircleCheckFilled /></el-icon>
-                    {{ currentDraft.agent_trace.length }} 步
+                    {{ currentDraft.agent_trace?.length || 0 }} 步
+                  </span>
+                  <span
+                    v-if="liveCurrentAgent"
+                    class="sxk-generate__trace-stat is-running"
+                  >
+                    <el-icon class="is-spin"><Loading /></el-icon>
+                    {{ liveCurrentAgent }} 执行中
                   </span>
                 </span>
               </div>
               <div class="sxk-generate__trace-right">
-                <span
-                  class="sxk-generate__status-pill"
-                  :class="currentDraft.validation?.validated ? 'is-pass' : 'is-warn'"
-                >
-                  <span class="sxk-generate__status-pill-dot" />
-                  {{ currentDraft.validation?.validated ? '已校验' : '待完善' }}
-                </span>
                 <span
                   class="sxk-generate__trace-toggle-btn"
                   @click="showAgentTrace = !showAgentTrace"
@@ -426,54 +426,15 @@
             </div>
           </template>
 
-          <!-- ============ Phase E: SSE 实时 Agent 状态（仅流式中显示） ============ -->
-          <div
-            v-if="sseEnabled && (liveCurrentAgent || liveSteps.length)"
-            class="sxk-generate__live-status"
-          >
-            <div class="sxk-generate__live-status__header">
-              <el-icon class="sxk-generate__live-status__icon" :class="{ 'is-pulse': liveCurrentAgent }">
-                <Loading v-if="liveCurrentAgent" />
-                <CircleCheckFilled v-else />
-              </el-icon>
-              <span>
-                <template v-if="liveCurrentAgent">
-                  Agent 工作中：<b>{{ liveCurrentAgent }}</b>
-                </template>
-                <template v-else>
-                  已完成 {{ liveSteps.length }} 个 Agent
-                </template>
-              </span>
-            </div>
-            <!-- 实时步骤列表 -->
-            <div class="sxk-generate__live-status__list">
-              <div
-                v-for="(step, i) in liveSteps"
-                :key="i"
-                class="sxk-generate__live-status__item"
-              >
-                <el-icon class="is-success"><CircleCheckFilled /></el-icon>
-                <span class="agent-name">{{ shortAgentName(step.agent) }}</span>
-                <span class="message">{{ step.message || '' }}</span>
-                <span v-if="step.duration_ms" class="duration">{{ step.duration_ms }}ms</span>
-              </div>
-              <div v-if="liveCurrentAgent" class="sxk-generate__live-status__item is-running">
-                <el-icon class="is-loading"><Loading /></el-icon>
-                <span class="agent-name">{{ liveCurrentAgent }}</span>
-                <span class="message">正在执行...</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- ============ 横向时间线节点 ============ -->
+          <!-- ============ 横向时间线节点（详情已融合到每个节点内，节点不可点击） ============ -->
           <div class="sxk-generate__timeline">
+            <!-- 已完成步骤：来自 currentDraft.agent_trace
+                 设计：每个节点直接显示详情（agent名 + 耗时 + 消息），节点本身不可点击 -->
             <div
               v-for="(s, i) in currentDraft.agent_trace"
-              :key="i"
+              :key="`agent-${i}`"
               class="sxk-generate__tl-node"
-              :class="`is-${s.status} ${activeStep === i ? 'is-active' : ''}`"
-              @click="activeStep = activeStep === i ? -1 : i"
-              :title="`${s.agent} · ${s.duration_ms}ms`"
+              :class="`is-${s.status}`"
             >
               <div class="sxk-generate__tl-dot">
                 <el-icon v-if="s.status === 'success'"><CircleCheckFilled /></el-icon>
@@ -482,36 +443,15 @@
                 <span v-else class="sxk-generate__tl-dot-num">{{ i + 1 }}</span>
               </div>
               <div class="sxk-generate__tl-info">
-                <div class="sxk-generate__tl-name">{{ shortAgentName(s.agent) }}</div>
-                <div class="sxk-generate__tl-time">{{ s.duration_ms }}ms</div>
-              </div>
-              <span
-                v-if="i < currentDraft.agent_trace.length - 1"
-                class="sxk-generate__tl-line"
-              />
-            </div>
-          </div>
-
-          <!-- ============ 当前选中节点详情 ============ -->
-          <transition name="sxk-fade">
-            <div
-              v-if="showAgentTrace && currentDraft.agent_trace[activeStep]"
-              class="sxk-generate__tl-detail"
-            >
-              <div
-                v-for="(s, i) in currentDraft.agent_trace"
-                v-show="activeStep === i"
-                :key="`detail-${i}`"
-                class="sxk-generate__tl-detail-card"
-                :class="`is-${s.status}`"
-              >
-                <div class="sxk-generate__tl-detail-head">
-                  <span class="sxk-generate__tl-detail-idx">步骤 {{ i + 1 }}</span>
-                  <span class="sxk-generate__tl-detail-name">{{ s.agent }}</span>
+                <!-- 节点头部：步骤号 + Agent 名 + 状态标签 + 耗时 -->
+                <div class="sxk-generate__tl-head">
+                  <span class="sxk-generate__tl-step-idx">步骤 {{ i + 1 }}</span>
+                  <span class="sxk-generate__tl-name">{{ s.agent }}</span>
                   <el-tag
                     size="small"
                     :type="s.status === 'success' ? 'success' : s.status === 'warning' ? 'warning' : 'danger'"
                     effect="light"
+                    class="sxk-generate__tl-status-tag"
                   >
                     <el-icon style="margin-right: 3px">
                       <CircleCheckFilled v-if="s.status === 'success'" />
@@ -519,48 +459,66 @@
                     </el-icon>
                     {{ STATUS_LABEL[s.status] }}
                   </el-tag>
-                  <span class="sxk-generate__tl-detail-time">
-                    <el-icon><Timer /></el-icon>
-                    {{ s.duration_ms }}ms
-                  </span>
+                  <span class="sxk-generate__tl-time">{{ s.duration_ms }}ms</span>
                 </div>
-                <div class="sxk-generate__tl-detail-msg">
-                  {{ s.message }}
-                </div>
-                <div class="sxk-generate__tl-detail-foot">
-                  <el-button
-                    size="small"
-                    link
-                    type="primary"
-                    @click="copyAgentMsg(s.message)"
-                  >
-                    <el-icon><CopyDocument /></el-icon>
-                    复制消息
-                  </el-button>
-                  <el-button
-                    v-if="i > 0"
-                    size="small"
-                    link
-                    type="info"
-                    @click="activeStep = i - 1"
-                  >
-                    <el-icon><ArrowLeft /></el-icon>
-                    上一步
-                  </el-button>
-                  <el-button
-                    v-if="i < currentDraft.agent_trace.length - 1"
-                    size="small"
-                    link
-                    type="info"
-                    @click="activeStep = i + 1"
-                  >
-                    下一步
-                    <el-icon><ArrowRight /></el-icon>
-                  </el-button>
+                <!-- 节点详情：消息 + issues 合并到同一个主题色块中
+                     - 成功节点：仅显示 s.message
+                     - 警告/错误节点：显示 s.message + 具体问题列表（视觉合二为一） -->
+                <div
+                  v-if="s.message || ((s.status === 'warning' || s.status === 'error') && s.output?.issues?.length)"
+                  class="sxk-generate__tl-msg"
+                >
+                  <!-- 警告/错误节点：摘要 + 列表（合并为一个块）
+                       关键：摘要中的数字使用 dedupIssues 后的真实数量（避免与列表条数不一致）-->
+                  <template v-if="s.status === 'warning' || s.status === 'error'">
+                    <div v-if="s.message || s.output?.issues?.length" class="sxk-generate__tl-msg-summary">
+                      {{ formatAgentMsg(s) }}
+                    </div>
+                    <ul
+                      v-if="s.output?.issues?.length"
+                      class="sxk-generate__tl-issues"
+                    >
+                      <li
+                        v-for="(issue, k) in dedupIssues(s.output.issues)"
+                        :key="k"
+                        class="sxk-generate__tl-issue"
+                      >
+                        <span class="sxk-generate__tl-issue-bullet">·</span>
+                        <span class="sxk-generate__tl-issue-text">{{ issue }}</span>
+                      </li>
+                    </ul>
+                  </template>
+                  <!-- 成功/运行中节点：仅消息 -->
+                  <template v-else>{{ s.message }}</template>
                 </div>
               </div>
+              <span
+                v-if="i < currentDraft.agent_trace.length - 1 || liveCurrentAgent"
+                class="sxk-generate__tl-line"
+              />
             </div>
-          </transition>
+            <!-- Phase E: SSE 流式中"正在执行"占位节点 -->
+            <div
+              v-if="liveCurrentAgent"
+              :key="`running-${liveCurrentAgent}`"
+              class="sxk-generate__tl-node is-running"
+            >
+              <div class="sxk-generate__tl-dot is-running-dot">
+                <el-icon class="is-spin"><Loading /></el-icon>
+              </div>
+              <div class="sxk-generate__tl-info">
+                <div class="sxk-generate__tl-head">
+                  <span class="sxk-generate__tl-step-idx">执行中</span>
+                  <span class="sxk-generate__tl-name">{{ liveCurrentAgent }}</span>
+                  <el-tag size="small" type="primary" effect="light" class="sxk-generate__tl-status-tag">
+                    <el-icon class="is-spin" style="margin-right: 3px"><Loading /></el-icon>
+                    进行中
+                  </el-tag>
+                </div>
+                <div class="sxk-generate__tl-msg is-running-msg">Agent 正在执行...</div>
+              </div>
+            </div>
+          </div>
 
           <!-- ============ 折叠时：摘要信息条 ============ -->
           <div v-if="!showAgentTrace" class="sxk-generate__tl-collapsed">
@@ -1141,12 +1099,18 @@
       </template>
     </el-dialog>
 
-    <!-- SEO 分析弹窗 -->
+    <!-- SEO 分析弹窗（与系统中其他弹窗保持一致：640px、居中、深色遮罩、圆角 12px、阴影） -->
     <el-dialog
       v-model="seoVisible"
       width="640px"
       align-center
       :show-close="true"
+      :close-on-click-modal="true"
+      :close-on-press-escape="true"
+      :modal="true"
+      :modal-append-to-body="true"
+      :append-to-body="true"
+      :lock-scroll="true"
       custom-class="sxk-generate__seo-dialog"
     >
       <template #header>
@@ -1443,6 +1407,59 @@ const liveCurrentAgent = ref('')
 const sseInstance = ref(null)
 // Agent 名缩写（去掉 "Agent" 后缀）
 const shortAgentName = (name) => String(name || '').replace(/Agent$/i, '').trim() || name
+
+// issues 去重（保留首次出现顺序；后端会重复推送相同问题）
+// 关键：规范化空白 + 标点差异（确保完全相同文本才视为重复）
+const dedupIssues = (issues) => {
+  if (!Array.isArray(issues)) return []
+  const normalize = (s) => String(s || '')
+    // 去除全角/半角空白差异
+    .replace(/[\s\u00A0\u3000]+/g, ' ')
+    // 统一全角「」/『』/[]/() 为半角
+    .replace(/[\u3010\u3011\uFF5B\uFF5D\u300A\u300B\u300C\u300D]/g, m => ({ '\u3010': '[', '\u3011': ']', '\uFF5B': '{', '\uFF5D': '}', '\u300A': '《', '\u300B': '》', '\u300C': '「', '\u300D': '」' }[m]))
+    // 统一冒号
+    .replace(/[:\uFF1A\uFF1B]/g, ':')
+    .trim()
+  const seen = new Set()
+  const result = []
+  for (const it of issues) {
+    const raw = String(it || '').trim()
+    if (!raw) continue
+    const key = normalize(raw)
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(raw)
+  }
+  return result
+}
+
+// 生成节点摘要消息（修正后端 s.message 中"数字与列表条数"不一致的问题）
+// - 警告/错误节点：若 s.message 含"发现 N 项..."格式，N 用 dedupIssues 后的真实数量
+// - 成功节点：原样返回
+// - 其他情况：原样返回
+const formatAgentMsg = (s) => {
+  if (!s) return ''
+  // 成功节点：直接用后端消息
+  if (s.status !== 'warning' && s.status !== 'error') {
+    return s.message || ''
+  }
+  const issues = dedupIssues(s.output?.issues)
+  // 后端消息格式："发现 N 项需关注的问题"
+  // 用真实去重后的 issues.length 替换
+  const realCount = issues.length
+  // 尝试匹配后端 message 中的数字（"发现 6 项需关注的问题"）
+  if (typeof s.message === 'string') {
+    const m = s.message.match(/(.*?发现\s*)\d+(\s*项.*)/)
+    if (m) {
+      return `${m[1]}${realCount}${m[2]}`
+    }
+  }
+  // 兜底：若 message 不含数字模式，根据是否有 issues 生成
+  if (realCount > 0) {
+    return `发现 ${realCount} 项需关注的问题`
+  }
+  return s.message || ''
+}
 
 // 阶段 2 渠道版本状态/分类
 const adaptedCount = computed(() => {
@@ -2049,6 +2066,11 @@ async function _generateDraftSSE(payload) {
   try {
     const sse = await sxkApi.createDraftStream(payload, {
       onStep: (step) => {
+        // 过滤非 Agent 步骤（后端 orchestrator 还会发 version_start/version_done/version_attempt 等事件）
+        // 这些事件没有 agent 字段，仅作为内部进度信号，前端不展示
+        if (!step || !step.agent) {
+          return  // 静默忽略（让后端内部进度事件"通过但不渲染"）
+        }
         // step 形如 {agent, status, message?, duration_ms?, output?}
         // 状态为 'running' 时是 Agent 开始；否则是完成
         if (step.status === 'running') {
@@ -2151,6 +2173,10 @@ async function _regenerateDraftSSE(draftId) {
   try {
     const sse = await sxkApi.regenerateDraftStream(draftId, {
       onStep: (step) => {
+        // 过滤非 Agent 步骤（与 _generateDraftSSE 一致）
+        if (!step || !step.agent) {
+          return
+        }
         if (step.status === 'running') {
           liveCurrentAgent.value = step.agent
         } else {
@@ -3434,84 +3460,9 @@ void renderMarkdown
 }
 
 // ============ Phase E: SSE 实时 Agent 状态卡 ============
-.sxk-generate__live-status {
-  margin: $spacing-md 0;
-  padding: $spacing-md;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.04), rgba(99, 102, 241, 0.04));
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: $radius-md;
-
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: $spacing-sm;
-    font-size: 14px;
-    font-weight: 500;
-    color: $primary-color;
-    margin-bottom: $spacing-sm;
-
-    b {
-      color: $text-primary;
-      margin-left: 4px;
-    }
-  }
-
-  &__icon {
-    font-size: 18px;
-
-    &.is-pulse {
-      animation: sse-pulse 1.4s ease-in-out infinite;
-    }
-  }
-
-  &__list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  &__item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: $bg-card;
-    border-radius: $radius-sm;
-    font-size: 13px;
-
-    .agent-name {
-      font-weight: 500;
-      color: $text-primary;
-    }
-
-    .message {
-      flex: 1;
-      color: $text-secondary;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .duration {
-      font-size: 12px;
-      color: $text-placeholder;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .is-success {
-      color: #10b981;
-    }
-
-    .is-loading {
-      color: $primary-color;
-      animation: spin 1s linear infinite;
-    }
-
-    &.is-running {
-      background: rgba(59, 130, 246, 0.06);
-    }
-  }
-}
+// ============ Phase E: SSE 动画 ============
+// 关键：保留 sse-pulse 和 spin 动画（用于 tl-node.is-running 占位节点的脉动/旋转效果）
+// 旧的 __live-status 卡片 UI 已删除（与下方时间线重复），但动画效果迁移到时间线节点
 
 @keyframes sse-pulse {
   0%, 100% { opacity: 1; }
@@ -3621,7 +3572,7 @@ void renderMarkdown
   flex-direction: row;
   align-items: flex-start; // 圆点与文字顶部对齐
   gap: 12px;
-  cursor: pointer;
+  cursor: default;          // Phase E: 节点不可点击（详情已融合到节点内）
   padding: 12px 10px 32px 6px; // 加大底部 32px 给箭头充足空间（防止被下节点 hover 挡住）
   border-radius: $radius-md;
   transition: all 0.2s ease;
@@ -3819,6 +3770,37 @@ void renderMarkdown
   font-size: 13px;
   font-weight: 600;
 }
+
+// ============ Phase E: SSE 流式中"执行中"占位节点样式 ============
+.sxk-generate__tl-node.is-running {
+  cursor: default;
+  .sxk-generate__tl-dot.is-running-dot {
+    background: $primary-color;
+    color: white;
+    border-color: $primary-color;
+    box-shadow: 0 0 0 2px $primary-color, 0 0 12px rgba(59, 130, 246, 0.4);
+    animation: sse-pulse 1.4s ease-in-out infinite;
+  }
+  .sxk-generate__tl-info {
+    color: $primary-color;
+    .sxk-generate__tl-time {
+      color: $primary-color;
+      font-weight: 500;
+    }
+  }
+  .sxk-generate__tl-name {
+    font-weight: 600;
+  }
+}
+.sxk-generate__trace-stat.is-running {
+  color: $primary-color;
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.sxk-generate__trace-stat.is-running .is-spin {
+  animation: spin 1s linear infinite;
+}
+
 .sxk-generate__tl-info {
   text-align: left;
   transition: color 0.18s ease;
@@ -3827,23 +3809,106 @@ void renderMarkdown
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 6px;
   overflow: hidden;
 }
-.sxk-generate__tl-name {
-  font-size: 12.5px;
+// ============ 节点内详情（替代独立详情卡） ============
+.sxk-generate__tl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sxk-generate__tl-step-idx {
+  font-size: 10.5px;
+  color: $text-placeholder;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  padding: 1px 6px;
+  border-radius: 999px;
   font-weight: 500;
-  color: $text-regular;
+  flex-shrink: 0;
+}
+.sxk-generate__tl-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-primary;
   line-height: 1.4;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+.sxk-generate__tl-status-tag {
+  flex-shrink: 0;
 }
 .sxk-generate__tl-time {
   font-size: 11px;
   color: $text-placeholder;
   font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.sxk-generate__tl-msg {
+  font-size: 12.5px;
+  color: $text-regular;
+  line-height: 1.65;
+  padding: 6px 10px;
+  background: $gray-50;
+  border-radius: $radius-sm;
+  border-left: 3px solid $border-base;
+  word-break: break-word;
+}
+.sxk-generate__tl-msg.is-running-msg {
+  background: rgba(59, 130, 246, 0.06);
+  border-left-color: $primary-color;
+  color: $primary-color;
+  font-style: italic;
+}
+// 警告/错误节点：消息块用对应主题色（与下方 issues 列表呼应）
+.sxk-generate__tl-node.is-warning .sxk-generate__tl-msg {
+  background: #fffbe6;
+  border-left-color: $warning-color;
+  color: #ad6800;
+}
+.sxk-generate__tl-node.is-error .sxk-generate__tl-msg {
+  background: #fff2f0;
+  border-left-color: $danger-color;
+  color: #cf1322;
+}
+
+// ============ 警告/错误节点：具体问题列表（嵌入 __tl-msg 内，与消息块合并为一个黄/红块） ============
+.sxk-generate__tl-msg-summary {
+  font-weight: 500;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px dashed currentColor;
+  opacity: 0.9;
+}
+.sxk-generate__tl-issues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+.sxk-generate__tl-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  color: inherit;          // 继承父节点主题色（黄/红）
+  opacity: 0.85;
+
+  & + & {
+    margin-top: 3px;
+  }
+}
+.sxk-generate__tl-issue-bullet {
+  flex-shrink: 0;
+  font-weight: 700;
+  margin-right: 2px;
+}
+.sxk-generate__tl-issue-text {
+  flex: 1;
+  word-break: break-word;
 }
 
 // 折叠时摘要条
@@ -3873,6 +3938,71 @@ void renderMarkdown
 }
 
 // ============ 节点详情卡 ============
+.sxk-generate__tl-detail {
+  margin-top: 10px;
+  animation: fadeInUp 0.25s ease;
+}
+.sxk-generate__tl-detail-card {
+  padding: 12px 14px;
+  border-radius: $radius-md;
+  background: $bg-hover;
+  border-left: 3px solid $border-base;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+
+  &.is-success { border-left-color: $success-color; background: #f6ffed; }
+  &.is-warning { border-left-color: $warning-color; background: #fffbe6; }
+  &.is-error { border-left-color: $danger-color; background: #fff2f0; }
+}
+.sxk-generate__tl-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sxk-generate__tl-detail-idx {
+  font-size: 10.5px;
+  color: $text-placeholder;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.sxk-generate__tl-detail-name {
+  font-size: $font-size-sm;
+  font-weight: 600;
+  color: $text-primary;
+}
+.sxk-generate__tl-detail-time {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: $text-regular;
+  background: $bg-card;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid $border-light;
+  font-variant-numeric: tabular-nums;
+}
+.sxk-generate__tl-detail-msg {
+  font-size: $font-size-sm;
+  color: $text-regular;
+  line-height: 1.65;
+  padding: 6px 0;
+}
+.sxk-generate__tl-detail-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed $border-light;
+}
+
 .sxk-generate__tl-detail {
   margin-top: 10px;
   animation: fadeInUp 0.25s ease;
@@ -5103,17 +5233,28 @@ void renderMarkdown
   // 不设 min-height，让高度跟随内容自适应
 }
 // 自定义 dialog 弹窗样式
+// 关键：固定高度 + 内容滚动（不撑开弹窗）
 :deep(.sxk-generate__done-dialog) {
   border-radius: 12px;
   overflow: hidden;
+  // 弹窗主体高度受限
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto; // 居中
   .el-dialog__body {
     padding: 0;
+    flex: 1;
+    overflow-y: auto; // 内容滚动
+    min-height: 0;   // flex 子项允许收缩
+    -webkit-overflow-scrolling: touch;
   }
   .el-dialog__header {
     display: none;
   }
   .el-dialog__footer {
     padding: 0;
+    flex-shrink: 0;
   }
 }
 .sxk-generate__done-bg {
@@ -5280,13 +5421,63 @@ void renderMarkdown
 }
 
 // ---------- SEO 弹窗 ----------
-// 自定义弹窗：去掉默认内边距，由内部容器控制
+// 关键：与系统中其他弹窗保持视觉一致（圆角 12px、阴影、padding、深色遮罩）
+// 1) 弹窗遮罩：Element Plus 2.x 用 el-overlay
+//    注：element-plus 全局遮罩默认是 rgba(0,0,0,0.5) 已经很深，
+//    但在 scoped 样式 + dialog wrapper 影响下可能颜色变浅。这里强制加深并覆盖。
+:deep(.el-overlay-dialog) {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
 :deep(.sxk-generate__seo-dialog) {
+  // ============ 1. 弹窗主体样式 ============
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+  // 关键：固定高度 + 内容滚动
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto; // 居中
+  // ============ 2. 头部 ============
+  .el-dialog__header {
+    padding: 18px 24px 14px;
+    border-bottom: 1px solid $border-light;
+    margin-right: 0;
+    flex-shrink: 0;
+  }
+  // ============ 3. 关闭按钮（圆形、悬浮变红）============
+  .el-dialog__headerbtn {
+    top: 16px;
+    right: 16px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: $gray-50;
+    transition: all 0.2s ease;
+
+    .el-dialog__close {
+      font-size: 16px;
+      color: $text-regular;
+    }
+
+    &:hover {
+      background: $danger-color;
+      .el-dialog__close {
+        color: white;
+      }
+    }
+  }
+  // ============ 4. 主体（去掉默认内边距 + 滚动）============
   .el-dialog__body {
     padding: 16px 24px;
+    flex: 1;
+    overflow-y: auto;        // 内容超出时滚动
+    min-height: 0;           // flex 子项允许收缩
+    -webkit-overflow-scrolling: touch;
   }
   .el-dialog__footer {
     padding: 12px 24px 20px;
+    flex-shrink: 0;
   }
 }
 

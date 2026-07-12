@@ -28,7 +28,7 @@
  *   sse.abort()                       // 主动中断
  */
 import { getToken } from '@/util/auth'
-import { baseUrl, env } from '@/config/env'
+import { env } from '@/config/env'
 export class SSEClient {
   /**
    * @param {Object} opts
@@ -58,11 +58,12 @@ export class SSEClient {
     try {
       // 拼接 fullUrl：dev 模式直接连真实后端，绕过 Vite proxy 的 SSE 缓冲问题
       // - dev: ${VITE_API_TARGET}${url}  （如 http://localhost:8000/api/drafts/stream）
+      //   注意：opts.url 已经包含 /api 前缀（与 axios 一致），不能再加 baseUrl
       // - prod: baseUrl + url  （同源部署）
       let fullUrl
       if (env.DEV) {
         const apiTarget = (env.VITE_API_TARGET || 'http://localhost:8000').replace(/\/$/, '')
-        fullUrl = apiTarget + baseUrl + this.opts.url
+        fullUrl = apiTarget + this.opts.url
       } else {
         fullUrl = baseUrl + this.opts.url
       }

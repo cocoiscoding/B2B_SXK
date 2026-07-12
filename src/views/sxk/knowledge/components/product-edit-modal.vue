@@ -12,9 +12,13 @@
   <el-dialog
     :model-value="modelValue"
     width="640px"
-    top="7vh"
+    align-center
+    :modal-append-to-body="true"
+    :append-to-body="true"
+    :lock-scroll="true"
     :show-close="false"
     :close-on-click-modal="false"
+    :close-on-press-escape="true"
     class="product-edit-dialog"
     @update:model-value="(v) => $emit('update:modelValue', v)"
     @open="initForm"
@@ -218,10 +222,13 @@
     <!-- 底部 -->
     <template #footer>
       <div class="pe-foot">
+        <!-- 只读查看态：editing=false -->
         <template v-if="!editing">
           <el-button @click="cancel">关闭</el-button>
-          <el-button type="primary" @click="startEdit">编辑</el-button>
+          <!-- 关键：canEdit=false（不是创建者）→ 不显示"编辑"按钮 -->
+          <el-button v-if="canEdit" type="primary" @click="startEdit">编辑</el-button>
         </template>
+        <!-- 编辑态：editing=true -->
         <template v-else>
           <el-button @click="cancel">取消</el-button>
           <el-button type="primary" :loading="saving" @click="submit">
@@ -380,6 +387,9 @@ const props = defineProps({
   modelValue: { type: Boolean, default: false },
   productId: { type: String, default: null },
   readonly: { type: Boolean, default: false },
+  // 关键：当前用户是否有编辑权限（产品创建者或管理员）
+  // false → 即使是查看模式也只读，底部不显示"编辑"按钮
+  canEdit: { type: Boolean, default: true },
   // Word 建库预填数据（真实后端 import-docx 返回的 product 草稿）
   prefillData: { type: Object, default: null }
 })
@@ -554,27 +564,42 @@ const submit = async () => {
 
 <style lang="scss">
 // 全局样式：覆盖 el-dialog 默认 padding（弹窗 teleport 到 body，scoped 无法穿透）
+// 关键：与系统中其他弹窗保持视觉一致（圆角 12px、阴影、深色遮罩、滚动）
 .product-edit-dialog {
+  // 弹窗总高上限 80vh（依赖全局 .el-dialog 的 max-height + flex 列布局）
+  max-height: 80vh !important;
+  display: flex;
+  flex-direction: column;
   .el-dialog__header {
     display: none;
   }
   .el-dialog__body {
+    // 关键：body 不滚动，body 内的 .pe-body 自己滚动
     padding: 0;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; // 防止 body 自身出现滚动条
   }
   .el-dialog__footer {
-    padding: 0;
+    // 恢复 padding，让按钮距弹窗底 16px
+    padding: 12px 24px 16px;
+    border-top: 1px solid $border-light;
+    flex-shrink: 0;
   }
 }
 </style>
 
 <style lang="scss" scoped>
-// ========== 头部 ==========
+// ========== 头部（关键：固定不动，不随 body 滚动） ==========
 .pe-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   padding: $spacing-lg $spacing-lg $spacing-md;
   border-bottom: 1px solid $border-light;
+  flex-shrink: 0;  // 关键：不收缩，固定在顶部
 
   &__title {
     display: flex;
@@ -617,11 +642,26 @@ const submit = async () => {
   }
 }
 
-// ========== 可滚动内容区 ==========
+// ========== 可滚动内容区（关键：自身滚动，标题和底部固定） ==========
+// 关键：标题 .pe-head 在外层不滚动，.pe-body 自身滚动
 .pe-body {
-  max-height: calc(86vh - 180px);
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;          // 关键：允许 flex 子项收缩
+  overflow-y: auto;       // 关键：内容超出时滚动
+  -webkit-overflow-scrolling: touch;
   padding: $spacing-lg;
+
+  // 自定义滚动条样式（与其他弹窗一致）
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $border-base;
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
 
 // ========== 底部 ==========
@@ -630,8 +670,10 @@ const submit = async () => {
   align-items: center;
   justify-content: flex-end;
   gap: $spacing-sm;
-  padding: $spacing-sm $spacing-lg $spacing-md;
-  border-top: 1px solid $border-light;
+  // 关键：padding 由 .el-dialog__footer 提供（12px 24px 16px），此处不重复
+  // border-top 也由 footer 提供
+  padding: 0;
+  border: none;
 }
 
 .dynamic-list {
