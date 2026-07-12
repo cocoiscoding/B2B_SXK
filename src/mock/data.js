@@ -20,6 +20,8 @@ export const mockCurrentUser = {
   user_id: 'u_8f1d2c4a6e9b4f7d8a3c5e7b9d2f1a4c',
   username: 'alice.li',
   role: 'user',
+  // 关键：mock 阶段视为管理员，方便测试 members/competitors 等高级功能
+  is_admin: true,
   status: 'active',
   created_at: '2026-04-12T10:08:31+08:00',
   last_login_at: '2026-07-07T08:55:11+08:00',

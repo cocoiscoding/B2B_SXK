@@ -79,6 +79,8 @@ export const useUserStore = defineStore('user', {
           // 构造 BladeX OAuth2 兼容的响应壳
           // Mock 阶段补充完整用户资料字段，供"个人信息"页展示
           const nowStr = new Date().toISOString()
+          // 关键：mock 阶段所有登录用户都视为管理员（方便测试 members/competitors 等高级功能）
+          const isAdmin = true
           const fakeTokenResp = {
             data: {
               access_token: `mock-access-${Date.now()}`,
@@ -86,6 +88,7 @@ export const useUserStore = defineStore('user', {
               tenant_id: userInfo.tenantId || website.tenantId,
               user_id: 'u_mock',
               user_name: username,
+              is_admin: isAdmin,
               token_type: 'bearer',
               expires_in: 3600,
               // —— 个人信息展示字段 ——
@@ -199,7 +202,7 @@ export const useUserStore = defineStore('user', {
       return new Promise((resolve, reject) => {
         getUserInfo()
           .then((res) => {
-            // Mock 壳格式：{ code: 0, data: { user_id, username, role, roles } }
+            // Mock 壳格式：{ code: 0, data: { user_id, username, role, roles, is_admin } }
             // 后端裸格式：{ id, name, color, username, email, is_admin, created_at }
             const payload = res.data || {}
             const isMock = payload.code !== undefined
@@ -211,6 +214,9 @@ export const useUserStore = defineStore('user', {
                 ? [{ role_id: 'admin', role_name: '管理员', role_alias: 'admin' }]
                 : [{ role_id: 'user', role_name: '用户', role_alias: 'user' }]
             }
+            // 关键：把 userInfo 写入 store 并重新初始化菜单
+            // 之前 getUserInfo 只 resolve 不写 store，导致 sidebar 不会更新
+            this.setUserInfo(data)
             resolve(data)
           })
           .catch((err) => {
@@ -335,6 +341,9 @@ export const useUserStore = defineStore('user', {
       }
       this.userInfo = userInfo
       setStore({ name: 'userInfo', content: this.userInfo })
+      // 关键：每次 userInfo 更新（如 mock 切换 admin、API 返回 is_admin）后重新初始化菜单
+      // 否则侧边栏不会自动出现"成员管理"等管理员菜单项
+      this.initSxkMenu()
     },
     setPermission(permission) {
       let result = []

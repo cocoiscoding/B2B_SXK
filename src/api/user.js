@@ -165,8 +165,10 @@ export const getUserInfo = () => {
     return ok({
       user_id: 'u_mock',
       username: 'mock-user',
-      role: 'user',
-      roles: ['user']
+      // 关键：mock 阶段视为管理员，方便测试 members/competitors
+      is_admin: true,
+      role: 'admin',
+      roles: ['admin']
     })
   }
   return request({

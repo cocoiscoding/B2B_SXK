@@ -349,6 +349,8 @@ export const sxkApi = {
         user_id: raw.id,
         username: raw.username || raw.name,
         role: raw.is_admin ? 'admin' : 'user',
+        // 关键：把 is_admin 字段也透传出去，store 用它判断是否显示"成员管理"菜单
+        is_admin: !!raw.is_admin,
         status: 'active',
         created_at: raw.created_at || '',
         last_login_at: '',
