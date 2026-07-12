@@ -1760,6 +1760,88 @@ export const sxkApi = {
     })
   },
 
+  /**
+   * Phase E：SSE 流式创建草稿
+   *
+   * - 真实链路：POST /api/drafts/stream（text/event-stream）
+   *   事件协议：
+   *     event: step  data: {agent, status, message?, duration_ms?, output?}
+   *     event: done  data: {完整 Draft}
+   *     event: error data: {message}
+   *
+   * - Mock 链路：抛出错误（mock 阶段走原 createDraft，保持同步体验）
+   *
+   * @param {Object} payload
+   * @param {Object} callbacks - { onStep, onDone, onError }
+   * @returns {{ abort: Function }} 返回 abort 函数
+   */
+  createDraftStream: (payload, callbacks = {}) => {
+    if (USE_MOCK_BIZ) {
+      // mock 阶段不支持流式，调用方应走 createDraft
+      const err = new Error('Mock 阶段不支持 SSE 流式生成')
+      err.code = 'MOCK_UNSUPPORTED'
+      throw err
+    }
+    // 动态 import 避免循环依赖
+    // eslint-disable-next-line no-undef
+    return import('@/util/sse-client').then(({ default: SSEClient }) => {
+      const sse = new SSEClient({
+        url: '/api/drafts/stream',
+        method: 'POST',
+        data: {
+          product_id: payload.product_id,
+          scenario_id: payload.scene_code,
+          template_id: payload.template_id,
+          style: payload.style,
+          params: payload.params,
+          version_count: payload.version_count || 3
+        },
+        onStep: callbacks.onStep,
+        onDone: callbacks.onDone,
+        onError: callbacks.onError
+      })
+      sse.start()
+      return { abort: () => sse.abort() }
+    })
+  },
+
+  /**
+   * Phase E：SSE 流式重新生成
+   * POST /api/drafts/{id}/regenerate/stream
+   */
+  regenerateDraftStream: (draftId, callbacks = {}) => {
+    if (USE_MOCK_BIZ) {
+      const err = new Error('Mock 阶段不支持 SSE 流式重新生成')
+      err.code = 'MOCK_UNSUPPORTED'
+      throw err
+    }
+    return import('@/util/sse-client').then(({ default: SSEClient }) => {
+      const sse = new SSEClient({
+        url: `/api/drafts/${draftId}/regenerate/stream`,
+        method: 'POST',
+        data: {},
+        onStep: callbacks.onStep,
+        onDone: callbacks.onDone,
+        onError: callbacks.onError
+      })
+      sse.start()
+      return { abort: () => sse.abort() }
+    })
+  },
+
+  /**
+   * Phase E 能力探测：真实后端是否支持 SSE
+   * 探测方式：尝试连接 stream 端点，看是否返回 text/event-stream
+   *
+   * 注意：此函数会发送实际请求，仅在用户点击"生成"前调用
+   * 真实实现可在后端加 GET /api/drafts/stream-capabilities 探测端点
+   *
+   * 当前简化处理：直接信任 USE_MOCK_BIZ 开关
+   */
+  isSSEEnabled: () => {
+    return !USE_MOCK_BIZ
+  },
+
   /** 步骤 0->1：选定一个版本（写回 selected_version） */
   selectDraftVersion: (draftId, version) => {
     if (!USE_MOCK_BIZ) {

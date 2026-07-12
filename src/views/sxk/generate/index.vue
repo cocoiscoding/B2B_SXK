@@ -426,6 +426,45 @@
             </div>
           </template>
 
+          <!-- ============ Phase E: SSE 实时 Agent 状态（仅流式中显示） ============ -->
+          <div
+            v-if="sseEnabled && (liveCurrentAgent || liveSteps.length)"
+            class="sxk-generate__live-status"
+          >
+            <div class="sxk-generate__live-status__header">
+              <el-icon class="sxk-generate__live-status__icon" :class="{ 'is-pulse': liveCurrentAgent }">
+                <Loading v-if="liveCurrentAgent" />
+                <CircleCheckFilled v-else />
+              </el-icon>
+              <span>
+                <template v-if="liveCurrentAgent">
+                  Agent 工作中：<b>{{ liveCurrentAgent }}</b>
+                </template>
+                <template v-else>
+                  已完成 {{ liveSteps.length }} 个 Agent
+                </template>
+              </span>
+            </div>
+            <!-- 实时步骤列表 -->
+            <div class="sxk-generate__live-status__list">
+              <div
+                v-for="(step, i) in liveSteps"
+                :key="i"
+                class="sxk-generate__live-status__item"
+              >
+                <el-icon class="is-success"><CircleCheckFilled /></el-icon>
+                <span class="agent-name">{{ shortAgentName(step.agent) }}</span>
+                <span class="message">{{ step.message || '' }}</span>
+                <span v-if="step.duration_ms" class="duration">{{ step.duration_ms }}ms</span>
+              </div>
+              <div v-if="liveCurrentAgent" class="sxk-generate__live-status__item is-running">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span class="agent-name">{{ liveCurrentAgent }}</span>
+                <span class="message">正在执行...</span>
+              </div>
+            </div>
+          </div>
+
           <!-- ============ 横向时间线节点 ============ -->
           <div class="sxk-generate__timeline">
             <div
@@ -1392,6 +1431,16 @@ const STATUS_LABEL = {
   error: '失败',
   pending: '等待'
 }
+
+// ========== Phase E: SSE 流式生成状态 ==========
+// 是否启用 SSE 流式（真实链路才启用，mock 走原 createDraft 同步流程）
+const sseEnabled = sxkApi.isSSEEnabled()
+// Agent 实时步骤（SSE 推送中追加，完成后并入 currentDraft.agent_trace）
+const liveSteps = ref([])
+// 当前正在执行的 Agent 名
+const liveCurrentAgent = ref('')
+// SSE 流实例（用于 abort）
+const sseInstance = ref(null)
 // Agent 名缩写（去掉 "Agent" 后缀）
 const shortAgentName = (name) => String(name || '').replace(/Agent$/i, '').trim() || name
 
@@ -1943,6 +1992,17 @@ async function onTrigger() {
     return
   }
   triggering.value = true
+  // Phase E: 真实链路用 SSE 流式，mock 链路用原同步接口
+  if (sseEnabled) {
+    await _generateDraftSSE({
+      product_id: form.product_id,
+      scene_code: form.scene_code,
+      template_id: form.template_id,
+      style: '专业严谨',
+      params: form.params
+    })
+    return
+  }
   try {
     const resp = await sxkApi.createDraft({
       product_id: form.product_id,
@@ -1970,8 +2030,99 @@ async function onTrigger() {
   }
 }
 
+/**
+ * Phase E: SSE 流式生成草稿
+ *
+ * - 显示 Agent 实时工作卡片（liveSteps + liveCurrentAgent）
+ * - 收到 step 事件 → 追加到 liveSteps
+ * - 收到 done 事件 → 把完整 draft 写入 currentDraft
+ * - 收到 error 事件 → 弹错
+ * - 失败 → 自动 fallback 到 sxkApi.createDraft（兼容旧后端）
+ */
+async function _generateDraftSSE(payload) {
+  // 重置实时状态
+  liveSteps.value = []
+  liveCurrentAgent.value = ''
+  showAgentTrace.value = true
+  configPanelVisible.value = false
+
+  try {
+    const sse = await sxkApi.createDraftStream(payload, {
+      onStep: (step) => {
+        // step 形如 {agent, status, message?, duration_ms?, output?}
+        // 状态为 'running' 时是 Agent 开始；否则是完成
+        if (step.status === 'running') {
+          liveCurrentAgent.value = step.agent
+        } else {
+          // 完成事件：移除对应的 running，加入完整 step
+          liveSteps.value.push(step)
+          liveCurrentAgent.value = ''
+        }
+      },
+      onDone: (draft) => {
+        // 流式完成：合并 liveSteps 到 agent_trace
+        currentDraft.value = {
+          ...draft,
+          agent_trace: [...liveSteps.value]
+        }
+        draftVersionIndex.value = '1'
+        activeStep.value = -1
+        localStorage.setItem(DRAFT_STORAGE_KEY, draft.id)
+        sseInstance.value = null
+        triggering.value = false
+        ElMessage.success(
+          '已生成 ' + (draft.draft_versions?.length || 0) + ' 个初稿（流式）'
+        )
+      },
+      onError: (err) => {
+        console.error('[SSE] createDraftStream 错误:', err)
+        sseInstance.value = null
+        triggering.value = false
+        // SSE 失败时 fallback 到同步接口
+        ElMessage.warning('流式生成失败，降级到同步接口：' + (err.message || ''))
+        _generateDraftFallback(payload)
+      }
+    })
+    sseInstance.value = sse
+  } catch (e) {
+    // sse-client 自身异常（如 import 失败、连接失败）→ fallback
+    console.error('[SSE] init 失败:', e)
+    triggering.value = false
+    _generateDraftFallback(payload)
+  }
+}
+
+/**
+ * Phase E 兼容：SSE 失败时降级到同步接口
+ */
+async function _generateDraftFallback(payload) {
+  triggering.value = true
+  try {
+    const resp = await sxkApi.createDraft(payload)
+    triggering.value = false
+    if (resp.code !== 0) {
+      ElMessage.error(resp.msg || '创建草稿失败')
+      return
+    }
+    currentDraft.value = resp.data
+    draftVersionIndex.value = '1'
+    activeStep.value = -1
+    showAgentTrace.value = false
+    localStorage.setItem(DRAFT_STORAGE_KEY, resp.data.id)
+    liveSteps.value = []
+    ElMessage.success('已生成 ' + (resp.data.draft_versions?.length || 0) + ' 个初稿')
+  } catch (e) {
+    ElMessage.error('创建草稿失败：' + (e?.message || '未知错误'))
+  }
+}
+
 async function onRegenerateDraft() {
   if (!currentDraft.value) return
+  // Phase E: 真实链路用 SSE 流式
+  if (sseEnabled) {
+    await _regenerateDraftSSE(currentDraft.value.id)
+    return
+  }
   triggering.value = true
   try {
     const resp = await sxkApi.regenerateDraft(currentDraft.value.id)
@@ -1986,6 +2137,68 @@ async function onRegenerateDraft() {
     ElMessage.error('重新生成失败：' + (e?.message || '未知错误'))
   } finally {
     triggering.value = false
+  }
+}
+
+/**
+ * Phase E: SSE 流式重新生成
+ */
+async function _regenerateDraftSSE(draftId) {
+  liveSteps.value = []
+  liveCurrentAgent.value = ''
+  showAgentTrace.value = true
+  triggering.value = true
+  try {
+    const sse = await sxkApi.regenerateDraftStream(draftId, {
+      onStep: (step) => {
+        if (step.status === 'running') {
+          liveCurrentAgent.value = step.agent
+        } else {
+          liveSteps.value.push(step)
+          liveCurrentAgent.value = ''
+        }
+      },
+      onDone: (draft) => {
+        currentDraft.value = {
+          ...draft,
+          agent_trace: [...liveSteps.value]
+        }
+        draftVersionIndex.value = '1'
+        sseInstance.value = null
+        triggering.value = false
+        ElMessage.success('已重新生成初稿（流式）')
+      },
+      onError: (err) => {
+        console.error('[SSE] regenerateDraftStream 错误:', err)
+        sseInstance.value = null
+        triggering.value = false
+        ElMessage.warning('流式重新生成失败，降级到同步接口')
+        _regenerateDraftFallback(draftId)
+      }
+    })
+    sseInstance.value = sse
+  } catch (e) {
+    console.error('[SSE] init 失败:', e)
+    triggering.value = false
+    _regenerateDraftFallback(draftId)
+  }
+}
+
+async function _regenerateDraftFallback(draftId) {
+  triggering.value = true
+  try {
+    const resp = await sxkApi.regenerateDraft(draftId)
+    triggering.value = false
+    if (resp.code !== 0) {
+      ElMessage.error(resp.msg || '重新生成失败')
+      return
+    }
+    currentDraft.value = resp.data
+    draftVersionIndex.value = '1'
+    liveSteps.value = []
+    ElMessage.success('已重新生成初稿')
+  } catch (e) {
+    ElMessage.error('重新生成失败：' + (e?.message || '未知错误'))
   }
 }
 
@@ -3218,6 +3431,96 @@ void renderMarkdown
       transform: rotate(90deg);
     }
   }
+}
+
+// ============ Phase E: SSE 实时 Agent 状态卡 ============
+.sxk-generate__live-status {
+  margin: $spacing-md 0;
+  padding: $spacing-md;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.04), rgba(99, 102, 241, 0.04));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: $radius-md;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: 14px;
+    font-weight: 500;
+    color: $primary-color;
+    margin-bottom: $spacing-sm;
+
+    b {
+      color: $text-primary;
+      margin-left: 4px;
+    }
+  }
+
+  &__icon {
+    font-size: 18px;
+
+    &.is-pulse {
+      animation: sse-pulse 1.4s ease-in-out infinite;
+    }
+  }
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: $bg-card;
+    border-radius: $radius-sm;
+    font-size: 13px;
+
+    .agent-name {
+      font-weight: 500;
+      color: $text-primary;
+    }
+
+    .message {
+      flex: 1;
+      color: $text-secondary;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .duration {
+      font-size: 12px;
+      color: $text-placeholder;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .is-success {
+      color: #10b981;
+    }
+
+    .is-loading {
+      color: $primary-color;
+      animation: spin 1s linear infinite;
+    }
+
+    &.is-running {
+      background: rgba(59, 130, 246, 0.06);
+    }
+  }
+}
+
+@keyframes sse-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 // 链路图标（圆角方块）
