@@ -169,10 +169,10 @@
         <div class="analytics-card">
           <div class="analytics-card__header">
             <h4 class="analytics-card__title">内容质量评分</h4>
-            <el-tag size="small" type="warning" effect="light" round>AI 评估</el-tag>
+            <span class="analytics-card__sub">SEO 评估 · 共 {{ qualityData.total }} 篇</span>
           </div>
           <div class="quality-body">
-            <!-- 环形图 -->
+            <!-- 环形图居中 -->
             <div class="quality-ring">
               <svg viewBox="0 0 120 120" class="ring-svg">
                 <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10" />
@@ -187,16 +187,22 @@
               </svg>
               <div class="ring-center">
                 <div class="ring-score">{{ Math.round(qualityData.avgScore) }}</div>
-                <div class="ring-label">平均分</div>
+                <div class="ring-label">SEO 平均分</div>
               </div>
             </div>
-            <!-- 分布 -->
-            <div class="quality-dist">
-              <div v-for="d in qualityData.distribution" :key="d.label" class="dist-item">
-                <div class="dist-dot" :style="{ background: d.color }"></div>
-                <span class="dist-label">{{ d.label }}</span>
-                <span class="dist-count">{{ d.count }} 篇</span>
-                <span class="dist-pct">{{ d.pct }}%</span>
+            <!-- 分布柱状条 -->
+            <div class="quality-bars">
+              <div v-for="d in qualityData.distribution" :key="d.label" class="quality-bar-item">
+                <div class="quality-bar__head">
+                  <span class="quality-bar__label">
+                    <span class="quality-bar__dot" :style="{ background: d.color }"></span>
+                    {{ d.label }}
+                  </span>
+                  <span class="quality-bar__count">{{ d.count }} 篇 · {{ d.pct }}%</span>
+                </div>
+                <div class="quality-bar__track">
+                  <div class="quality-bar__fill" :style="{ width: d.pct + '%', background: d.color }"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -693,37 +699,22 @@ const assetData = computed(() => {
   const items = recentListForStats.value || []
   const counts = {}
   for (const h of items) {
-    const code = h.scene_code || 'other'
-    counts[code] = (counts[code] || 0) + 1
+    // 直接用后端返回的 scenario_name 作为标签
+    const label = h.scene_name || h.scene_code || '其他'
+    counts[label] = (counts[label] || 0) + 1
   }
-  // 映射到名称和颜色
-  const labelMap = {
-    product_intro: '产品介绍', product_introduction: '产品介绍',
-    S001: '展会物料', S002: '产品介绍',
-    competitor: '竞品分析', competitor_analysis: '竞品分析', S003: '竞品分析',
-    channel_adapt: '多渠道适配', multi_channel: '多渠道适配', S005: '演讲大纲', S006: '社交媒体',
-    email: '邮件营销', email_marketing: '邮件营销',
-    event: '活动推广', event_promotion: '活动推广',
-    other: '其他'
-  }
-  const colorMap = {
-    '产品介绍': '#2563eb', '竞品分析': '#ea580c', '多渠道适配': '#16a34a',
-    '展会物料': '#0891b2', '演讲大纲': '#dc2626', '社交媒体': '#9333ea',
-    '邮件营销': '#7c3aed', '活动推广': '#f59e0b', '其他': '#6b7280'
-  }
+  // 配色池（按出现顺序循环分配）
+  const palette = [
+    '#2563eb', '#ea580c', '#16a34a', '#0891b2',
+    '#9333ea', '#dc2626', '#f59e0b', '#0d9488'
+  ]
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
   const entries = Object.entries(counts)
-    .map(([code, count]) => {
-      const label = labelMap[code] || code
-      return { label, count, color: colorMap[label] || '#6b7280' }
-    })
-    // 合并同 label
-    .reduce((acc, cur) => {
-      const existing = acc.find((x) => x.label === cur.label)
-      if (existing) existing.count += cur.count
-      else acc.push(cur)
-      return acc
-    }, [])
+    .map(([label, count], i) => ({
+      label,
+      count,
+      color: palette[i % palette.length]
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6)
   entries.forEach((e) => { e.pct = total > 0 ? Math.round(e.count / total * 100) : 0 })
@@ -2891,6 +2882,14 @@ onMounted(load)
   margin-bottom: 0;
 }
 
+.analytics-row {
+  align-items: stretch; // 关键：让两列等高
+
+  .el-col {
+    display: flex;
+  }
+}
+
 .analytics-card {
   background: $bg-card;
   border: 1px solid $border-base;
@@ -2898,7 +2897,9 @@ onMounted(load)
   box-shadow: $shadow-sm;
   padding: 16px 18px;
   margin-bottom: $spacing-lg;
-  min-height: 200px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 
   &__header {
     display: flex;
@@ -2922,15 +2923,17 @@ onMounted(load)
 
 // 质量评分
 .quality-body {
+  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 18px;
 }
 
 .quality-ring {
   position: relative;
-  width: 100px;
-  height: 100px;
+  width: 110px;
+  height: 110px;
   flex-shrink: 0;
 
   .ring-svg {
@@ -2947,7 +2950,7 @@ onMounted(load)
   }
 
   .ring-score {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     color: $gray-900;
     line-height: 1;
@@ -2960,46 +2963,62 @@ onMounted(load)
   }
 }
 
-.quality-dist {
-  flex: 1;
+.quality-bars {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+}
 
-  .dist-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-  }
+.quality-bar-item {
+  // 每个柱状项
+}
 
-  .dist-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
+.quality-bar__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
 
-  .dist-label {
-    color: $text-regular;
-    font-weight: 500;
-    min-width: 70px;
-  }
+.quality-bar__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: $text-regular;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
-  .dist-count {
-    color: $text-secondary;
-    font-size: 11px;
-  }
+.quality-bar__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 
-  .dist-pct {
-    margin-left: auto;
-    font-weight: 700;
-    color: $gray-900;
-  }
+.quality-bar__count {
+  font-size: 11px;
+  color: $text-secondary;
+}
+
+.quality-bar__track {
+  height: 8px;
+  background: $border-light;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.quality-bar__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
 }
 
 // 资产统计
 .asset-body {
+  flex: 1;
+
   .asset-empty {
     text-align: center;
     color: $text-placeholder;
