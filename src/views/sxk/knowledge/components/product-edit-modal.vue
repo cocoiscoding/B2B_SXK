@@ -562,11 +562,26 @@ const initForm = async () => {
 const cancel = () => emit('update:modelValue', false)
 
 const submit = async () => {
-  // 关键：保存前主动触发所有 tag-input 的 commit()
-  // 确保未回车的输入也被收集到 form（v-model + blur 都不可靠时唯一保险做法）
+  // 关键：保存前主动触发所有 tag-input 的 commit() 收集未回车的输入
   tagInputTarget.value?.commit?.()
   tagInputCompetitors.value?.commit?.()
   tagInputSelling.value?.commit?.()
+  // 暴力兜底：直接读取所有 tag-input 内部 input 的 value，强制同步到 form
+  // 适用场景：tag-input 内部 ref 或 v-model 出问题时的最终保底
+  const tagInputs = document.querySelectorAll('.tag-input__native')
+  const tagForms = [form.target_customers, form.competitors, form.selling_points]
+  let i = 0
+  for (const inp of tagInputs) {
+    const v = String(inp.value || '').trim()
+    if (v && tagForms[i] && !tagForms[i].includes(v)) {
+      tagForms[i].push(v)
+    }
+    if (tagForms[i]) {
+      // 统一清理：去掉空字符串和非字符串
+      tagForms[i] = tagForms[i].filter((x) => typeof x === 'string' && x.trim())
+    }
+    i++
+  }
   // 等待 Vue 完成 v-model reactive 更新
   await nextTick()
   try {
