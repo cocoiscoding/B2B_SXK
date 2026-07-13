@@ -4,7 +4,7 @@
 import router from './router/router'
 import { useUserStore } from './store/modules/user'
 import { useCommonStore } from './store/modules/common'
-import { useTagsStore } from './store/modules/tags'
+import { useTagsStore, generateTabId } from './store/modules/tags'
 import { validatenull } from './util/validate'
 import { getToken } from './util/auth'
 import { ElMessage } from 'element-plus'
@@ -14,6 +14,9 @@ import 'nprogress/nprogress.css'
 NProgress.configure({ showSpinner: false })
 
 const whiteList = ['/login', '/register', '/lock', '/404', '/403', '/500']
+
+// 首页路径（不需要 tabId，使用固定 tabId 'tab_welcome'）
+const isDashboard = (path) => path === '/dashboard' || path === '/dashboard/index'
 
 router.beforeEach((to, from, next) => {
   const meta = to.meta || {}
@@ -45,19 +48,46 @@ router.beforeEach((to, from, next) => {
           next({ path: '/dashboard/index' })
           return
         }
-        // 添加标签页
-        const tagsStore = useTagsStore()
-        const value = to.query.src || to.fullPath
-        const label = to.query.name || to.name
-        if (meta.isTab !== false && !validatenull(value) && !validatenull(label)) {
-          tagsStore.addTag({
-            label: label,
-            value: value,
-            params: to.params,
-            query: to.query,
-            meta: meta,
-            group: []
+
+        // ====== 多 Tab：tabId 生成 ======
+        // 非首页的业务页面，如果没有 tabId，则生成一个并重定向
+        if (meta.isTab !== false && !isDashboard(to.path) && !to.query.tabId) {
+          const tabId = generateTabId()
+          next({
+            path: to.path,
+            query: { ...to.query, tabId }
           })
+          return
+        }
+
+        // ====== 添加标签页 ======
+        const tagsStore = useTagsStore()
+        const label = to.query.name || to.name
+        if (meta.isTab !== false && !validatenull(label)) {
+          if (isDashboard(to.path)) {
+            // 首页：固定 tabId，不可关闭
+            tagsStore.addTag({
+              label: label,
+              value: '/dashboard',
+              tabId: 'tab_welcome',
+              params: to.params,
+              query: {},
+              meta: meta,
+              group: [],
+              close: false
+            })
+          } else {
+            tagsStore.addTag({
+              label: label,
+              value: to.fullPath,
+              tabId: to.query.tabId,
+              params: to.params,
+              query: to.query,
+              meta: meta,
+              group: [],
+              close: true
+            })
+          }
         }
         next()
       }

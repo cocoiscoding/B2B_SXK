@@ -64,6 +64,7 @@
 .avue-tags {
   height: $tags-height;
   flex-shrink: 0;
+  // 与顶栏分隔线拉开距离：顶部留白，底部用渐变淡边线过渡到主内容区
   background-color: $bg-card;
   border-bottom: 1px solid $border-light;
 }

@@ -423,16 +423,18 @@ const openDetailFromQuery = async () => {
     return
   }
   const scene = sceneSchemasList.value.find((s) => s.scene_code === code)
+  // 多 Tab：清除 openDetail 但保留 tabId，避免 permission.js 重新生成 tabId
+  const cleanQuery = { tabId: route.query.tabId }
   if (scene) {
     // 关键：用 nextTick 等待弹窗绑定完成
     nextTick(() => {
       onDetail(scene)
       // 清除 query，避免刷新或后退时再次触发
-      router.replace({ path: '/templates/index', query: {} })
+      router.replace({ path: '/templates/index', query: cleanQuery })
     })
   } else {
     ElMessage.warning(`未找到场景「${code}」，可能已被删除`)
-    router.replace({ path: '/templates/index', query: {} })
+    router.replace({ path: '/templates/index', query: cleanQuery })
   }
 }
 </script>

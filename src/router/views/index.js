@@ -24,7 +24,7 @@ export default [
       {
         path: 'index',
         name: '首页',
-        meta: { keepAlive: false, isTab: true, title: '首页' },
+        meta: { keepAlive: true, isTab: true, title: '首页' },
         component: () => import('@/views/sxk/dashboard/index.vue')
       }
     ]
@@ -50,7 +50,7 @@ export default [
       {
         path: 'index',
         name: '内容生成',
-        meta: { keepAlive: false, isTab: true, title: '内容生成' },
+        meta: { keepAlive: true, isTab: true, title: '内容生成' },
         component: () => import('@/views/sxk/generate/index.vue')
       }
     ]
@@ -102,7 +102,7 @@ export default [
       {
         path: 'index',
         name: '竞品分析',
-        meta: { keepAlive: false, isTab: true, title: '竞品分析' },
+        meta: { keepAlive: true, isTab: true, title: '竞品分析' },
         component: () => import('@/views/sxk/competitors/index.vue')
       }
     ]
@@ -118,7 +118,7 @@ export default [
         path: 'index',
         name: '工作台',
         meta: {
-          keepAlive: false,
+          keepAlive: true,
           isTab: true
         },
         component: () => import('@/views/workbenches/index.vue')

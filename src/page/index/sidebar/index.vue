@@ -77,14 +77,11 @@ const resolvePath = (basePath, childPath) => {
   return `/${basePath}/${childPath}`.replace(/\/+/g, '/')
 }
 
-// 菜单点击事件：从侧边栏点击"内容生成"时清空 localStorage 草稿，回到初始空白页
-// 用户场景：完成 3 阶段 → 查看历史 → 返回"内容生成"时，期望重新开始
+// 菜单点击事件：多 Tab 模式下，el-menu router 属性会 push 裸路径（如 /generate/index），
+// permission.js 路由守卫会自动拦截并生成新的 tabId，从而每次点击都创建新 Tab。
+// 草稿隔离由 generate/index.vue 内部按 tabId 隔离 localStorage，无需在此处理。
 const onMenuSelect = (index) => {
-  // index 是菜单项的 :index（可能是完整路径，如 '/sxk/generate/index'）
-  if (typeof index === 'string' && index.includes('generate/index')) {
-    // 关键：清空草稿持久化（让"内容生成"页面重新初始化）
-    localStorage.removeItem('sxk-draft-id')
-  }
+  // 预留：未来可在此添加菜单点击的额外逻辑
 }
 </script>
 

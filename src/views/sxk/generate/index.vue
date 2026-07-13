@@ -1498,7 +1498,7 @@
  *   阶段 2：多渠道版本展示 → 文生图 → finalize → 落 history
  *
  * 草稿状态机：stage ∈ draft | editing | adapted | done
- * 持久化：localStorage['sxk-draft-id']，刷新自动恢复
+ * 持久化：localStorage[`sxk-draft-id-${tabId}`]，每个 Tab 独立，刷新自动恢复
  */
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -2179,7 +2179,9 @@ function renderArticle(body, images, title) {
 }
 
 // ---------- 初始化 ----------
-const DRAFT_STORAGE_KEY = 'sxk-draft-id'
+// 多 Tab 隔离：每个 Tab 的草稿 ID 独立存储，key 带 tabId
+// setup() 在组件创建时执行一次，此时 route.query.tabId 是本 Tab 的 ID
+const DRAFT_STORAGE_KEY = `sxk-draft-id-${route.query.tabId || 'default'}`
 
 onMounted(async () => {
   // 1) 拉取基础数据
@@ -2216,7 +2218,15 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  // 草稿持久化由 sxkApi 内部管理；此处无需清理
+  // keep-alive 缓存淘汰时（超过 max=15）触发，关闭残留 SSE 连接
+  if (sseInstance.value) {
+    try {
+      sseInstance.value.abort?.()
+    } catch {
+      // ignore
+    }
+    sseInstance.value = null
+  }
 })
 
 // 监听场景切换

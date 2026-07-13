@@ -262,6 +262,9 @@ import HistoryDetailModal from './components/history-detail-modal.vue'
 const router = useRouter()
 const route = useRoute()
 
+// 多 Tab：捕获本 Tab 的 tabId（setup 时执行一次）
+const _tabId = route.query.tabId || ''
+
 // ========== 状态 ==========
 const filters = reactive({ keyword: '', scene_code: '', validated: '' })
 const list = ref([])
@@ -392,10 +395,12 @@ onMounted(async () => {
 })
 
 // 监听 query.openDetail 变化（用户从其他页面再次携带参数进来时也能响应）
+// 多 Tab 守卫：仅当当前路由的 tabId 与本组件实例的 tabId 一致时才处理
+// （避免 keep-alive 下其他 history Tab 的路由变化误触发本组件）
 watch(
   () => route.query.openDetail,
   (newVal) => {
-    if (newVal) handleOpenDetailFromQuery()
+    if (newVal && route.query.tabId === _tabId) handleOpenDetailFromQuery()
   }
 )
 

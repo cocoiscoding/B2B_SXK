@@ -10,13 +10,16 @@
         <div class="avue-header">
           <Top ref="topRef" />
         </div>
-        <!-- 主体视图层（原型 SXK.html 无标签栏，顶栏下方直接是 main 内容区） -->
+        <!-- 标签栏（多 Tab 导航） -->
+        <div class="avue-tags">
+          <Tags />
+        </div>
+        <!-- 主体视图层 -->
         <div class="avue-view">
           <router-view v-slot="{ Component, route }">
-            <keep-alive>
-              <component :is="Component" :key="route.fullPath" v-if="route.meta.keepAlive" />
+            <keep-alive :max="15">
+              <component :is="Component" :key="route.path + '@' + (route.query.tabId || '')" />
             </keep-alive>
-            <component :is="Component" :key="route.fullPath" v-if="!route.meta.keepAlive" />
           </router-view>
         </div>
       </div>
@@ -30,6 +33,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import Top from './top/index.vue'
 import Sidebar from './sidebar/index.vue'
+import Tags from './tags.vue'
 import { useCommonStore } from '@/store/modules/common'
 import { getScreenSize } from '@/util/admin'
 

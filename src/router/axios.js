@@ -16,8 +16,8 @@ import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 import router from '@/router/router'
 
-// 默认超时时间
-axios.defaults.timeout = 60000
+// 默认超时时间（5 分钟：内容生成的 adapt/finalize 在多 Tab 并发时需调多次 LLM，耗时长）
+axios.defaults.timeout = 300000
 // 返回其他状态码
 axios.defaults.validateStatus = function (status) {
   return status >= 200 && status <= 500
