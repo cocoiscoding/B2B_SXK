@@ -11,7 +11,7 @@ import path from 'node:path'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const port = env.VITE_PORT || 52400
-  const target = env.VITE_API_TARGET || 'http://localhost:8080'
+  const target = env.VITE_API_TARGET || 'http://localhost:8000'
 
   return {
     base: '/',

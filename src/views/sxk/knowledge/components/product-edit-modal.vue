@@ -48,33 +48,36 @@
       :class="{ 'form-readonly': !editing }"
     >
       <el-form-item label="产品名称" prop="name">
-        <el-input v-model="form.name" :disabled="!editing" placeholder="如：智能数据平台 X" maxlength="64" show-word-limit />
+        <el-input v-if="editing" v-model="form.name" placeholder="如：智能数据平台 X" maxlength="64" show-word-limit />
+        <div v-else class="pe-readonly-text">{{ form.name || '无' }}</div>
       </el-form-item>
 
       <el-form-item label="产品分类" prop="category">
-        <el-select v-model="form.category" :disabled="!editing" placeholder="请选择" style="width: 100%">
+        <el-select v-if="editing" v-model="form.category" placeholder="请选择" style="width: 100%">
           <el-option label="数据分析" value="数据分析" />
           <el-option label="CRM" value="CRM" />
           <el-option label="营销自动化" value="营销自动化" />
           <el-option label="其他" value="其他" />
         </el-select>
+        <div v-else class="pe-readonly-text">{{ form.category || '无' }}</div>
       </el-form-item>
 
       <el-form-item label="产品描述" prop="description">
         <el-input
+          v-if="editing"
           v-model="form.description"
-          :disabled="!editing"
           type="textarea"
           :rows="3"
           placeholder="建议至少 10 字符，简明描述产品定位"
           maxlength="500"
           show-word-limit
         />
+        <div v-else class="pe-readonly-text pe-readonly-text--pre">{{ form.description || '无' }}</div>
       </el-form-item>
 
       <!-- 功能特性：动态列表 -->
       <el-form-item label="功能特性" prop="features" required>
-        <div class="dynamic-list">
+        <div v-if="editing" class="dynamic-list">
           <div
             v-for="(f, idx) in form.features"
             :key="idx"
@@ -82,49 +85,69 @@
           >
             <el-input
               v-model="f.name"
-              :disabled="!editing"
               placeholder="功能名称"
               style="width: 160px"
             />
             <el-input
               v-model="f.description"
-              :disabled="!editing"
               placeholder="功能描述（可选）"
               style="flex: 1"
             />
             <el-button
-              v-if="editing"
               :disabled="form.features.length <= 1"
               link
               type="danger"
               @click="removeFeature(idx)"
             >删除</el-button>
           </div>
-          <el-button v-if="editing" link type="primary" @click="addFeature">
+          <el-button link type="primary" @click="addFeature">
             + 添加功能
           </el-button>
         </div>
+        <ul v-else class="pe-readonly-list">
+          <li
+            v-for="(f, idx) in form.features.filter((x) => x.name)"
+            :key="idx"
+          >
+            <span class="pe-readonly-list__name">{{ f.name }}</span>
+            <span v-if="f.description" class="pe-readonly-list__desc">{{ f.description }}</span>
+          </li>
+          <li v-if="!form.features.some((x) => x.name)" class="pe-readonly-text">无</li>
+        </ul>
       </el-form-item>
 
       <el-form-item label="目标客户">
-        <tag-input v-model="form.target_customers" :disabled="!editing" placeholder="回车添加（如：制造业）" />
+        <tag-input v-if="editing" v-model="form.target_customers" placeholder="回车添加（如：制造业）" />
+        <div v-else class="pe-readonly-tags">
+          <el-tag v-for="t in form.target_customers" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
+          <span v-if="!form.target_customers.length" class="pe-readonly-text">无</span>
+        </div>
       </el-form-item>
 
       <el-form-item label="价格信息">
         <el-input
+          v-if="editing"
           v-model="form.pricing"
-          :disabled="!editing"
           placeholder="如：基础版 ¥50,000/年"
           maxlength="255"
         />
+        <div v-else class="pe-readonly-text">{{ form.pricing || '无' }}</div>
       </el-form-item>
 
       <el-form-item label="竞品名称">
-        <tag-input v-model="form.competitors" :disabled="!editing" placeholder="回车添加（如：产品 Y）" />
+        <tag-input v-if="editing" v-model="form.competitors" placeholder="回车添加（如：产品 Y）" />
+        <div v-else class="pe-readonly-tags">
+          <el-tag v-for="t in form.competitors" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
+          <span v-if="!form.competitors.length" class="pe-readonly-text">无</span>
+        </div>
       </el-form-item>
 
       <el-form-item label="产品卖点">
-        <tag-input v-model="form.selling_points" :disabled="!editing" placeholder="回车添加（如：部署快）" />
+        <tag-input v-if="editing" v-model="form.selling_points" placeholder="回车添加（如：部署快）" />
+        <div v-else class="pe-readonly-tags">
+          <el-tag v-for="t in form.selling_points" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
+          <span v-if="!form.selling_points.length" class="pe-readonly-text">无</span>
+        </div>
       </el-form-item>
 
       <!-- 产品图片（封面/截图等） -->
@@ -912,6 +935,70 @@ const submit = async () => {
     cursor: default;
     -webkit-text-fill-color: $text-primary;
   }
+}
+
+/* ===== 只读模式：纯文本展示（关键：无文本框，仅文字）===== */
+.pe-readonly-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: $text-primary;
+  padding: 4px 0;
+  word-break: break-word;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  // 当显示"无"占位时使用浅灰
+  &:empty::before {
+    content: '无';
+    color: $text-placeholder;
+  }
+}
+.pe-readonly-text--pre {
+  white-space: pre-wrap;
+  display: block;
+}
+
+.pe-readonly-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  width: 100%;
+
+  li {
+    display: flex;
+    align-items: baseline;
+    gap: $spacing-sm;
+    font-size: 14px;
+    line-height: 1.6;
+    color: $text-primary;
+    padding: 6px 10px;
+    background: $gray-50;
+    border-radius: $radius-sm;
+  }
+  .pe-readonly-list__name {
+    font-weight: 600;
+    color: $text-primary;
+    flex-shrink: 0;
+  }
+  .pe-readonly-list__desc {
+    color: $text-secondary;
+    font-size: 13px;
+  }
+}
+
+.pe-readonly-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-xs;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 0;
+}
+.pe-readonly-tag {
+  font-size: 12px;
 }
 
 .empty-text {
