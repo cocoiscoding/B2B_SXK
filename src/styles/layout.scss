@@ -70,6 +70,7 @@
 
 // 主内容区：对齐原型 main p-6（24px 内边距）
 .avue-view {
+  position: relative; // 关键：让 sxk-generate 等子页面能 absolute 撑满
   flex: 1;
   min-height: 0; // 关键：让子页面（如 generate）能 100% 撑满
   min-width: 0; // 关键：让子页面在水平方向也能 100% 撑满

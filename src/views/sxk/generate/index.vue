@@ -2693,8 +2693,14 @@ void renderMarkdown
   flex-direction: column; // 关键：纵向布局（顶 welcome + 下方左右分栏）
   gap: $spacing-md;
   align-items: stretch;
-  width: 100% !important; // 关键：撑满父容器 .avue-view 宽度
-  height: 100% !important; // 关键：撑满父容器 .avue-view 高度
+  // 关键：使用 absolute 定位强制撑满 .avue-view 父级（不受 flex 子项宽度计算影响）
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100% !important;
+  height: 100% !important;
   min-height: 520px; // 极小屏时仍保留可读性
   overflow: hidden; // 防止整体页面滚动
   box-sizing: border-box; // 关键：避免 padding 撑大
