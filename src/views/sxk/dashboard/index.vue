@@ -47,6 +47,28 @@
       <el-button type="primary" link @click="goGenerate">查看进度</el-button>
     </div>
 
+    <!-- ========== 系统公告 / 使用小贴士（轮播） ========== -->
+    <div class="notice-bar">
+      <div class="notice-bar__icon" :style="{ background: currentNotice.bg, color: currentNotice.color }">
+        <el-icon :size="16"><component :is="currentNotice.icon" /></el-icon>
+      </div>
+      <transition name="notice-slide" mode="out-in">
+        <div :key="noticeIndex" class="notice-bar__content">
+          <span class="notice-bar__tag" :style="{ color: currentNotice.color, background: currentNotice.bg }">{{ currentNotice.tag }}</span>
+          <span class="notice-bar__text">{{ currentNotice.text }}</span>
+        </div>
+      </transition>
+      <div class="notice-bar__dots">
+        <span
+          v-for="(n, i) in notices"
+          :key="i"
+          class="notice-dot"
+          :class="{ 'notice-dot--active': i === noticeIndex }"
+          @click="switchNotice(i)"
+        ></span>
+      </div>
+    </div>
+
     <!-- ========== 数据看板（升级：3 个区块，每个包含多个指标） ==========
          关键：参考 SaaS 平台指标看板，每个区块展示一组关联指标 -->
     <el-row :gutter="20" class="stat-row">
@@ -98,6 +120,109 @@
                 <div class="mini-stat__label">{{ mini.label }}</div>
                 <div class="mini-stat__value">
                   {{ mini.value }}<span v-if="mini.unit" class="mini-stat__unit">{{ mini.unit }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
+    <!-- ========== NEW: 产品动态（横向卡片列表） ========== -->
+    <div class="section-block">
+      <div class="section-header">
+        <h3 class="section-title">产品动态</h3>
+        <el-button text type="primary" @click="goKnowledge">
+          查看全部产品
+          <el-icon><ArrowRight /></el-icon>
+        </el-button>
+      </div>
+      <div v-if="recentProducts.length === 0" class="empty-tip">暂无产品记录</div>
+      <div v-else class="product-activity-grid">
+        <div
+          v-for="p in recentProducts"
+          :key="p.product_id"
+          class="product-activity-card"
+          @click="goProductDetail(p)"
+        >
+          <div class="product-activity__icon">
+            <el-icon :size="18"><Goods /></el-icon>
+          </div>
+          <div class="product-activity__body">
+            <div class="product-activity__name">{{ p.name }}</div>
+            <div class="product-activity__meta">
+              <span v-if="p.category && p.category.length" class="pa-category">
+                {{ Array.isArray(p.category) ? p.category[0] : p.category }}
+              </span>
+              <span class="pa-time">{{ relativeTime(p.updated_at) }}</span>
+            </div>
+          </div>
+          <el-icon class="product-activity__arrow"><ArrowRight /></el-icon>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== NEW: 质量评分 + 内容资产统计（2 列） ========== -->
+    <el-row :gutter="20" class="analytics-row">
+      <!-- 左：内容质量评分 -->
+      <el-col :xs="24" :md="12">
+        <div class="analytics-card">
+          <div class="analytics-card__header">
+            <h4 class="analytics-card__title">内容质量评分</h4>
+            <el-tag size="small" type="warning" effect="light" round>AI 评估</el-tag>
+          </div>
+          <div class="quality-body">
+            <!-- 环形图 -->
+            <div class="quality-ring">
+              <svg viewBox="0 0 120 120" class="ring-svg">
+                <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10" />
+                <circle
+                  cx="60" cy="60" r="50" fill="none"
+                  :stroke="qualityRingColor"
+                  stroke-width="10"
+                  stroke-linecap="round"
+                  :stroke-dasharray="qualityRingDash"
+                  transform="rotate(-90 60 60)"
+                />
+              </svg>
+              <div class="ring-center">
+                <div class="ring-score">{{ qualityData.avgScore.toFixed(1) }}</div>
+                <div class="ring-label">平均分</div>
+              </div>
+            </div>
+            <!-- 分布 -->
+            <div class="quality-dist">
+              <div v-for="d in qualityData.distribution" :key="d.label" class="dist-item">
+                <div class="dist-dot" :style="{ background: d.color }"></div>
+                <span class="dist-label">{{ d.label }}</span>
+                <span class="dist-count">{{ d.count }} 篇</span>
+                <span class="dist-pct">{{ d.pct }}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </el-col>
+
+      <!-- 右：内容资产统计 -->
+      <el-col :xs="24" :md="12">
+        <div class="analytics-card">
+          <div class="analytics-card__header">
+            <h4 class="analytics-card__title">内容资产统计</h4>
+            <span class="analytics-card__sub">按场景类型分布 · 共 {{ assetData.total }} 篇</span>
+          </div>
+          <div class="asset-body">
+            <div v-if="assetData.total === 0" class="asset-empty">暂无生成内容</div>
+            <div v-else class="asset-bars">
+              <div v-for="item in assetData.items" :key="item.label" class="asset-bar-item">
+                <div class="asset-bar__head">
+                  <span class="asset-bar__label">{{ item.label }}</span>
+                  <span class="asset-bar__count">{{ item.count }} 篇</span>
+                </div>
+                <div class="asset-bar__track">
+                  <div
+                    class="asset-bar__fill"
+                    :style="{ width: item.pct + '%', background: item.color }"
+                  ></div>
                 </div>
               </div>
             </div>
@@ -467,6 +592,144 @@ const stats = ref({
 })
 
 const recentList = ref([])
+
+// ========== NEW: 产品动态 ==========
+const recentProducts = ref([])
+
+// ========== NEW: 系统公告 / 使用小贴士 ==========
+const notices = [
+  {
+    tag: '新功能',
+    text: '「内容生成」采用多 Agent 协同架构，产品分析、竞品对比、内容润色全流程自动化，生成后可在「生成历史」查看完整链路。',
+    icon: MagicStick,
+    color: '#6366f1',
+    bg: '#eef2ff'
+  },
+  {
+    tag: '使用技巧',
+    text: '「产品知识库」中编辑产品时可添加竞品、目标客户和卖点标签，信息越完整，生成内容质量越高。',
+    icon: Goods,
+    color: '#2563eb',
+    bg: '#eff6ff'
+  },
+  {
+    tag: '使用技巧',
+    text: '「场景模板管理」内置展会物料、产品介绍、竞品分析等场景，选择场景后一键生成对应渠道内容。',
+    icon: Promotion,
+    color: '#ea580c',
+    bg: '#fff7ed'
+  },
+  {
+    tag: '小贴士',
+    text: '「竞品分析」页面可查看各产品的竞品对比信息，支持删除和更新竞品列表。',
+    icon: DataAnalysis,
+    color: '#16a34a',
+    bg: '#f0fdf4'
+  }
+]
+const noticeIndex = ref(0)
+const currentNotice = computed(() => notices[noticeIndex.value])
+let noticeTimer = null
+const switchNotice = (i) => {
+  noticeIndex.value = i
+  resetNoticeTimer()
+}
+const resetNoticeTimer = () => {
+  if (noticeTimer) clearInterval(noticeTimer)
+  noticeTimer = setInterval(() => {
+    noticeIndex.value = (noticeIndex.value + 1) % notices.length
+  }, 5000)
+}
+onMounted(() => {
+  resetNoticeTimer()
+})
+
+// ========== NEW: 质量评分 ==========
+const qualityData = computed(() => {
+  const items = recentListForStats.value || []
+  let totalScore = 0
+  let scored = 0
+  let excellent = 0, good = 0, fair = 0
+  for (const h of items) {
+    // 从 agent_trace 或顶层提取评分
+    let score = h.score || h.quality_score || 0
+    if (!score && Array.isArray(h.agent_trace)) {
+      const evalStep = h.agent_trace.find((s) => s.score || s.quality_score)
+      score = evalStep?.score || evalStep?.quality_score || 0
+    }
+    if (score > 0) {
+      totalScore += score
+      scored++
+      if (score >= 8) excellent++
+      else if (score >= 6) good++
+      else fair++
+    }
+  }
+  const total = excellent + good + fair
+  const pct = (n) => total > 0 ? Math.round(n / total * 100) : 0
+  return {
+    avgScore: scored > 0 ? totalScore / scored : 0,
+    distribution: [
+      { label: '优秀(≥8)', count: excellent, pct: pct(excellent), color: '#16a34a' },
+      { label: '良好(6-8)', count: good, pct: pct(good), color: '#f59e0b' },
+      { label: '需优化(<6)', count: fair, pct: pct(fair), color: '#ef4444' }
+    ]
+  }
+})
+const qualityRingDash = computed(() => {
+  const score = qualityData.value.avgScore
+  const ratio = Math.min(score / 10, 1)
+  const circ = 2 * Math.PI * 50  // r=50
+  return `${circ * ratio} ${circ}`
+})
+const qualityRingColor = computed(() => {
+  const s = qualityData.value.avgScore
+  if (s >= 8) return '#16a34a'
+  if (s >= 6) return '#f59e0b'
+  return '#ef4444'
+})
+
+// ========== NEW: 内容资产统计 ==========
+const assetData = computed(() => {
+  const items = recentListForStats.value || []
+  const counts = {}
+  for (const h of items) {
+    const code = h.scene_code || 'other'
+    counts[code] = (counts[code] || 0) + 1
+  }
+  // 映射到名称和颜色
+  const labelMap = {
+    product_intro: '产品介绍', product_introduction: '产品介绍',
+    S001: '展会物料', S002: '产品介绍',
+    competitor: '竞品分析', competitor_analysis: '竞品分析', S003: '竞品分析',
+    channel_adapt: '多渠道适配', multi_channel: '多渠道适配', S005: '演讲大纲', S006: '社交媒体',
+    email: '邮件营销', email_marketing: '邮件营销',
+    event: '活动推广', event_promotion: '活动推广',
+    other: '其他'
+  }
+  const colorMap = {
+    '产品介绍': '#2563eb', '竞品分析': '#ea580c', '多渠道适配': '#16a34a',
+    '展会物料': '#0891b2', '演讲大纲': '#dc2626', '社交媒体': '#9333ea',
+    '邮件营销': '#7c3aed', '活动推广': '#f59e0b', '其他': '#6b7280'
+  }
+  const total = Object.values(counts).reduce((a, b) => a + b, 0)
+  const entries = Object.entries(counts)
+    .map(([code, count]) => {
+      const label = labelMap[code] || code
+      return { label, count, color: colorMap[label] || '#6b7280' }
+    })
+    // 合并同 label
+    .reduce((acc, cur) => {
+      const existing = acc.find((x) => x.label === cur.label)
+      if (existing) existing.count += cur.count
+      else acc.push(cur)
+      return acc
+    }, [])
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6)
+  entries.forEach((e) => { e.pct = total > 0 ? Math.round(e.count / total * 100) : 0 })
+  return { total, items: entries }
+})
 
 // ========== 数据看板（升级：3 个区块，每块含多个指标 + sparkline + 子指标） ==========
 // 关键：每张卡片包含：主指标 + 同比 + 趋势线 + 3 个关联子指标
@@ -895,6 +1158,11 @@ const greetingTagType = computed(() => greeting.value.type)
 const goKnowledge = () => router.push('/knowledge/index')
 const goTemplates = () => router.push('/templates/index')
 const goHistory = () => router.push('/history/index')
+
+// NEW: 产品详情跳转
+const goProductDetail = (p) => {
+  router.push({ path: '/knowledge/index', query: { pid: p.product_id } })
+}
 const quickActions = [
   {
     label: '产品知识库',
@@ -1065,6 +1333,16 @@ const load = async () => {
     if (statRes.status === 'fulfilled' && statRes.value?.data) stats.value = statRes.value.data
     if (recentRes.status === 'fulfilled' && recentRes.value?.data) recentList.value = recentRes.value.data.items || []
     if (userRes.status === 'fulfilled' && userRes.value?.data) welcomeName.value = userRes.value.data.username || '营销专家'
+
+    // NEW: 加载产品动态（最近 6 个，按 updated_at 排序）
+    try {
+      const prodRes = await sxkApi.listProducts({ page: 1, size: 6, sort: '-updated_at' })
+      if (prodRes?.data) {
+        recentProducts.value = (prodRes.data.items || prodRes.data || []).slice(0, 6)
+      }
+    } catch (e) {
+      console.warn('[Dashboard] 加载产品动态失败', e)
+    }
     // 关键：单独加载全量场景（用于"最新"排序模式）
     // 这里不复用 getTemplateMeta 是因为它只返回 code+name（不含 created_at）
     try {
@@ -1134,6 +1412,21 @@ onMounted(load)
   display: flex;
   flex-direction: column;
   gap: $spacing-xl;              // 24px（原型 space-y-6）
+  height: 100%;                  // 撑满 .avue-view
+  overflow-y: auto;              // 内容超出时滚动
+  padding-right: 4px;            // 避免滚动条遮挡内容
+
+  // 自定义滚动条
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: $border-base;
+    border-radius: 3px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: $text-placeholder;
+  }
 }
 
 // ========== 欢迎区（优化：渐变背景 + 4 个快捷操作） ==========
@@ -2510,6 +2803,336 @@ onMounted(load)
     opacity: 0.6;
     transition: $transition-base;
   }
+}
+
+// ========== NEW: 产品动态 ==========
+.product-activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.product-activity-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-md;
+  cursor: pointer;
+  transition: $transition-base;
+
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: $shadow-sm;
+    transform: translateY(-1px);
+
+    .product-activity__arrow {
+      color: $primary-color;
+      transform: translateX(2px);
+    }
+  }
+
+  .product-activity__icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-md;
+    background: #eff6ff;
+    color: #2563eb;
+    flex-shrink: 0;
+  }
+
+  .product-activity__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .product-activity__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: $gray-900;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .product-activity__meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 3px;
+  }
+
+  .pa-category {
+    font-size: 11px;
+    padding: 1px 8px;
+    background: #f0fdf4;
+    color: #16a34a;
+    border-radius: $radius-round;
+  }
+
+  .pa-time {
+    font-size: 11px;
+    color: $text-placeholder;
+  }
+
+  .product-activity__arrow {
+    color: $text-placeholder;
+    transition: $transition-base;
+    flex-shrink: 0;
+  }
+}
+
+// ========== NEW: 质量评分 + 资产统计 ==========
+.analytics-row {
+  margin-bottom: 0;
+}
+
+.analytics-card {
+  background: $bg-card;
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  box-shadow: $shadow-sm;
+  padding: 16px 18px;
+  margin-bottom: $spacing-lg;
+  min-height: 200px;
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: $gray-900;
+  }
+
+  &__sub {
+    font-size: 12px;
+    color: $text-secondary;
+  }
+}
+
+// 质量评分
+.quality-body {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.quality-ring {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+
+  .ring-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .ring-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+  }
+
+  .ring-score {
+    font-size: 24px;
+    font-weight: 700;
+    color: $gray-900;
+    line-height: 1;
+  }
+
+  .ring-label {
+    font-size: 11px;
+    color: $text-placeholder;
+    margin-top: 2px;
+  }
+}
+
+.quality-dist {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .dist-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .dist-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dist-label {
+    color: $text-regular;
+    font-weight: 500;
+    min-width: 70px;
+  }
+
+  .dist-count {
+    color: $text-secondary;
+    font-size: 11px;
+  }
+
+  .dist-pct {
+    margin-left: auto;
+    font-weight: 700;
+    color: $gray-900;
+  }
+}
+
+// 资产统计
+.asset-body {
+  .asset-empty {
+    text-align: center;
+    color: $text-placeholder;
+    padding: 20px 0;
+    font-size: 13px;
+  }
+
+  .asset-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .asset-bar-item {
+    // 每个柱状项
+  }
+
+  .asset-bar__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 5px;
+  }
+
+  .asset-bar__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: $text-regular;
+  }
+
+  .asset-bar__count {
+    font-size: 11px;
+    color: $text-secondary;
+  }
+
+  .asset-bar__track {
+    height: 8px;
+    background: $border-light;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .asset-bar__fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+}
+
+// ========== NEW: 系统公告 / 使用小贴士 ==========
+.notice-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: $bg-card;
+  border: 1px solid $border-light;
+  border-radius: $radius-md;
+  box-shadow: $shadow-sm;
+  min-height: 48px;
+
+  &__icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: $radius-sm;
+    flex-shrink: 0;
+  }
+
+  &__content {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  &__tag {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: $radius-sm;
+    flex-shrink: 0;
+    line-height: 1.4;
+  }
+
+  &__text {
+    font-size: 13px;
+    color: $text-regular;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__dots {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    padding-left: 8px;
+  }
+}
+
+.notice-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: $border-base;
+  cursor: pointer;
+  transition: $transition-base;
+
+  &--active {
+    background: $primary-color;
+    width: 16px;
+    border-radius: 3px;
+  }
+}
+
+// 轮播过渡动画
+.notice-slide-enter-active,
+.notice-slide-leave-active {
+  transition: all 0.3s ease;
+}
+.notice-slide-enter-from {
+  opacity: 0;
+  transform: translateX(12px);
+}
+.notice-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-12px);
 }
 
 .empty-tip {
