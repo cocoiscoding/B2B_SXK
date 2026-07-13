@@ -276,7 +276,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Close, Delete, PictureFilled, UploadFilled, View, EditPen, Plus } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
@@ -559,6 +559,13 @@ const initForm = async () => {
 const cancel = () => emit('update:modelValue', false)
 
 const submit = async () => {
+  // 关键：保存前主动 blur 当前活动元素（如 tag-input 的 input）
+  // 触发 onBlur → commit()，确保未回车的内容被收集到 form
+  if (typeof document !== 'undefined' && document.activeElement?.blur) {
+    document.activeElement.blur()
+  }
+  // 等待 Vue 完成 onBlur 触发的 reactive 更新
+  await nextTick()
   try {
     console.log('[product-edit-modal] submit start', { category: form.category, name: form.name, competitors: form.competitors })
     await formRef.value?.validate()
