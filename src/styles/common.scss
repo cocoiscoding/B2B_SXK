@@ -434,9 +434,11 @@ mark,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  background: linear-gradient(135deg, #eef2ff 0%, #ede9fe 50%, #f0f9ff 100%);
+  padding: 24px 28px;
+  background: linear-gradient(135deg, #eef2ff 0%, #eff6ff 50%, #f0fdf4 100%);
+  border: 1px solid rgba(99, 102, 241, 0.1);
   border-radius: $radius-lg;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
   margin-bottom: $spacing-md;
   position: relative;
   overflow: hidden;
@@ -463,7 +465,7 @@ mark,
     font-size: 20px;
     font-weight: 700;
     margin: 0 0 4px;
-    background: linear-gradient(135deg, #6366f1, #4f46e5, #3b82f6);
+    background: linear-gradient(135deg, #1e293b, #4338ca);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
