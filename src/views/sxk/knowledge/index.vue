@@ -16,10 +16,6 @@
         <p class="sxk-page-welcome__desc">上传并解析产品文档，为 AI Agent 提供精准的事实依据</p>
       </div>
       <div class="sxk-page-welcome__actions">
-        <el-button v-if="isAdmin" @click="onReindex" :loading="reindexing">
-          <el-icon><Refresh /></el-icon>
-          <span>重建向量索引</span>
-        </el-button>
         <el-button @click="onImport">
           <el-icon><Upload /></el-icon>
           <span>Word 建库</span>
@@ -470,36 +466,6 @@ const onImportFileChange = async (e) => {
   } catch (err) {
     importing.value = false
     ElMessage.error('Word 上传失败：' + (err.message || err))
-  }
-}
-
-// 重建向量索引（仅管理员可见，Phase B-4）
-const onReindex = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '重建向量索引可能需要数分钟，期间会阻塞搜索功能，确认执行？',
-      '重建向量索引',
-      { type: 'warning', confirmButtonText: '确认重建', cancelButtonText: '取消' }
-    )
-  } catch {
-    return
-  }
-  reindexing.value = true
-  try {
-    const res = await sxkApi.reindexProducts()
-    reindexing.value = false
-    if (res.code === 0) {
-      ElMessage.success(
-        res.data?.count !== undefined
-          ? `重建完成，已索引 ${res.data.count} 个产品`
-          : '重建完成'
-      )
-    } else {
-      ElMessage.error(res.msg || '重建失败')
-    }
-  } catch (e) {
-    reindexing.value = false
-    // axios 拦截器已提示
   }
 }
 
