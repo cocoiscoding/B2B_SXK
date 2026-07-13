@@ -1678,6 +1678,24 @@ const onStartNew = () => {
       localStorage.removeItem(DRAFT_STORAGE_KEY)
       // 恢复左栏配置卡（生成前显示，生成后隐藏）
       configPanelVisible.value = true
+      // 关键：清空表单所有字段（产品、场景、模板、提示词、动态参数）
+      form.product_id = ''
+      form.scene_code = 'product_intro'
+      form.template_id = ''
+      form.params = { prompt: '' }
+      // 清空 Element Plus 表单校验状态
+      if (formRef.value) formRef.value.clearValidate()
+      // 关键：清空草稿相关 UI 状态（版本选择 / 渠道选择等）
+      draftVersionIndex.value = ''
+      adaptVersionIndex.value = ''
+      showAgentTrace.value = false
+      // 关键：清空 SEO 评分缓存
+      seoResult.value = null
+      seoVisible.value = false
+      // 关键：清空编辑模式
+      genEditMode.value = false
+      // 提示用户
+      ElMessage.success('已开始新创作')
     })
     .catch(() => {})
 }
@@ -2548,6 +2566,14 @@ function onDiscardDraft() {
       draftEditingVersion.value = null
       selectedChannels.value = []
       localStorage.removeItem(DRAFT_STORAGE_KEY)
+      // 关键：清空表单字段（保持与 onStartNew 一致）
+      form.product_id = ''
+      form.scene_code = 'product_intro'
+      form.template_id = ''
+      form.params = { prompt: '' }
+      if (formRef.value) formRef.value.clearValidate()
+      draftVersionIndex.value = ''
+      adaptVersionIndex.value = ''
       ElMessage.info('已放弃草稿')
     })
     .catch(() => {})
