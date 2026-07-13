@@ -427,6 +427,8 @@ const editing = ref(true)
 
 const blankForm = () => ({
   name: '',
+  // 后端 ProductBase.category 是 list[str]，前端用 el-select 单选绑字符串，
+  // 这里仍存字符串以适配下拉；提交时通过 toBackendCategory 转回数组
   category: '',
   description: '',
   pricing: '',
@@ -438,6 +440,13 @@ const blankForm = () => ({
 const form = reactive(blankForm())
 
 const isEdit = computed(() => !!props.productId)
+
+// 把表单里的字符串分类（el-select 单选值）转成后端要求的 list[str]
+// 空值/未选 → 后端 list[str] 默认 []（Pydantic default_factory=list）
+const toBackendCategory = () => {
+  const v = (form.category || '').trim()
+  return v ? [v] : []
+}
 
 // 弹窗标题：只读查看 → "产品详情"，编辑已有 → "编辑产品"，新增 → "添加产品"
 const dialogTitle = computed(() => {
@@ -485,6 +494,10 @@ const initForm = async () => {
   if (props.prefillData) {
     Object.assign(form, {
       ...props.prefillData,
+      // 后端返回 category 是 list[str]，前端单选下拉只取第一个
+      category: Array.isArray(props.prefillData.category)
+        ? props.prefillData.category[0] || ''
+        : (props.prefillData.category || ''),
       features: props.prefillData.features?.length
         ? props.prefillData.features
         : [{ name: '', description: '' }]
@@ -498,6 +511,10 @@ const initForm = async () => {
   if (res.data) {
     Object.assign(form, {
       ...res.data,
+      // 后端返回 category 是 list[str]，前端单选下拉只取第一个
+      category: Array.isArray(res.data.category)
+        ? res.data.category[0] || ''
+        : (res.data.category || ''),
       features: res.data.features?.length
         ? res.data.features
         : [{ name: '', description: '' }]
@@ -547,10 +564,12 @@ const submit = async () => {
   }
   const payload = {
     ...form,
-    features: validFeatures.map((f, i) => ({
+    // 后端 ProductBase.category 期望 list[str]，把 el-select 字符串转回数组
+    category: toBackendCategory(),
+    // 后端 Feature 模型只有 name/description，去掉 sort_order 避免 Pydantic 校验失败
+    features: validFeatures.map((f) => ({
       name: f.name.trim(),
-      description: f.description?.trim() || '',
-      sort_order: i + 1
+      description: f.description?.trim() || ''
     })),
     target_customers: form.target_customers.filter((s) => s.trim()),
     competitors: form.competitors.filter((s) => s.trim()),
