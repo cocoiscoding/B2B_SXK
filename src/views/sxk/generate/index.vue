@@ -2700,6 +2700,7 @@ void renderMarkdown
   margin-right: 0 !important;
   box-sizing: border-box;
   position: relative;
+  overflow: hidden; // 关键：禁止任何方向溢出（避免横向滚动条）
   // 关键：内部用 flex 嵌套实现横向排列
   & > .sxk-page-welcome,
   & > .sxk-generate__body {
@@ -2756,6 +2757,7 @@ void renderMarkdown
   // 固定高度 = 父级（动态跟随浏览器尺寸变化）
   height: 100% !important; // 关键：撑满父级 body 高度
   min-height: 0;
+  overflow: hidden; // 关键：禁止横向溢出
 
   // 关键：当父级是 .sxk-generate__body（有右栏兄弟）时，左栏占 50%
   .sxk-generate__body > & {
@@ -3728,6 +3730,7 @@ void renderMarkdown
   display: flex;
   flex-direction: column;
   align-self: stretch;
+  overflow: hidden; // 关键：禁止横向溢出（避免出现横向滚动条）
   // 减少 basic-block 内边距：让卡片与页面底部更紧凑
   :deep(.basic-block) {
     padding: $spacing-md $spacing-lg $spacing-sm; // 上 16 / 左右 24 / 下 8
@@ -3739,7 +3742,8 @@ void renderMarkdown
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    overflow-y: auto; // 关键：内容超出时滚动
+    overflow-y: auto; // 关键：内容超出时纵向滚动
+    overflow-x: hidden; // 关键：禁止横向滚动
     // 美化滚动条
     &::-webkit-scrollbar { width: 8px; }
     &::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
