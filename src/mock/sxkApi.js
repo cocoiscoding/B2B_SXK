@@ -181,12 +181,12 @@ const adaptProduct = (p) => {
   return {
     product_id: p.id,
     name: p.name,
-    category: Array.isArray(cat) ? cat.join(', ') : (cat || ''),
+    category: Array.isArray(cat) ? cat : (cat ? [cat] : []),
     description: p.description || '',
     pricing: p.pricing || '',
     features: p.features || [],
     target_customers: p.target_customers || [],
-    competitors: [],
+    competitors: p.competitors || [],
     selling_points: p.selling_points || [],
     attachments: {
       images: p.images || [],
@@ -224,6 +224,7 @@ const adaptProductToBackend = (payload) => {
     pricing: payload.pricing || '',
     features: payload.features || [],
     target_customers: payload.target_customers || [],
+    competitors: payload.competitors || [],
     selling_points: payload.selling_points || [],
     images: cleanImages,
     documents: cleanDocs
@@ -2177,8 +2178,22 @@ export const sxkApi = {
    */
   listCompetitors: (productId) => {
     if (!USE_MOCK_BIZ) {
-      return real({ url: `/api/products/${productId}/competitors`, method: 'get' })
-        .then((raw) => ok(raw))
+      // 真实链路：竞品名存在 products.competitors 数组中，直接取产品详情构造
+      // （后端 /api/products/{pid}/competitors 查的是 competitor_analyses 表，
+      //  该表需内容生成阶段才会填充，与页面"展示已填竞品"的意图不符）
+      return real({ url: `/api/products/${productId}`, method: 'get' })
+        .then((raw) => {
+          const p = adaptProduct(raw)
+          const comps = (p && p.competitors) || []
+          const list = comps.map((name, i) => ({
+            name,
+            score: 0,
+            summary: `${name} 是与本产品具有相似定位的竞品。`,
+            source: 'manual',
+            last_updated: p.updated_at || new Date().toISOString()
+          }))
+          return ok(list)
+        })
     }
     return delay(200).then(() => {
       // mock：从产品的 competitors 字段构造
@@ -2200,10 +2215,16 @@ export const sxkApi = {
    */
   removeCompetitor: (productId, name) => {
     if (!USE_MOCK_BIZ) {
-      return real({
-        url: `/api/products/${productId}/competitors/${encodeURIComponent(name)}`,
-        method: 'delete'
-      }).then(() => ok(null))
+      // 真实链路：竞品名存在 products.competitors 数组中，
+      // 删除 = 取出当前数组，过滤掉目标后整体 PUT 回写
+      return real({ url: `/api/products/${productId}`, method: 'get' })
+        .then((raw) => {
+          const p = adaptProduct(raw)
+          const newComps = (p.competitors || []).filter((n) => n !== name)
+          const backendPayload = adaptProductToBackend({ ...p, competitors: newComps })
+          return real({ url: `/api/products/${productId}`, method: 'put', data: backendPayload })
+        })
+        .then(() => ok(null))
     }
     return delay().then(() => {
       const p = (mockProducts || []).find((x) => x.product_id === productId)
