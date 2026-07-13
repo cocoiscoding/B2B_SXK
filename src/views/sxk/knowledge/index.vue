@@ -31,8 +31,8 @@
     <basic-block>
       <div class="search-bar">
         <el-radio-group v-model="searchMode" size="small" @change="search">
-          <el-radio-button label="keyword">关键词</el-radio-button>
-          <el-radio-button label="semantic">语义</el-radio-button>
+          <el-radio-button value="keyword">关键词</el-radio-button>
+          <el-radio-button value="semantic">语义</el-radio-button>
         </el-radio-group>
 
         <el-input
