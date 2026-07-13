@@ -2688,32 +2688,38 @@ void renderMarkdown
 // ============================================================
 
 // ---------- 主框架 ----------
-// 关键：使用普通 block 布局 + 显式 100% 宽高（避免 flex 子项不被拉伸问题）
+// 关键：flex column 容器 + 显式 100% 宽高，让高度能撑满父级，宽度靠 width: 100% 而非 stretch
 .sxk-generate {
-  display: block; // 关键：普通 block 布局，每个子项都是 block 自动 100% 宽
+  display: flex;
+  flex-direction: column;
   width: 100% !important;
+  height: 100% !important; // 关键：撑满父级 .avue-view 高度
   max-width: 100% !important;
   margin: 0 !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   box-sizing: border-box;
-  position: relative; // 关键：让子项可以相对定位
-  // 关键：内部用 flex 嵌套实现纵向排列（仅作用于子项容器）
+  position: relative;
+  // 关键：内部用 flex 嵌套实现横向排列
   & > .sxk-page-welcome,
   & > .sxk-generate__body {
-    display: flex; // 局部恢复 flex
-    width: 100% !important; // 关键：显式撑满父容器
+    display: flex;
+    width: 100% !important; // 关键：显式撑满父容器宽度（不依赖 stretch）
     box-sizing: border-box;
   }
   & > .sxk-page-welcome {
     flex-direction: row;
     align-items: center;
     margin-bottom: 12px;
+    flex-shrink: 0; // 关键：welcome 不被压缩
   }
   & > .sxk-generate__body {
     flex-direction: row;
     gap: 12px;
     align-items: stretch;
+    flex: 1 1 auto !important; // 关键：body 撑满剩余高度
+    height: auto !important;
+    min-height: 0; // 关键：允许内容滚动
   }
 }
 
@@ -2748,13 +2754,14 @@ void renderMarkdown
   flex-direction: column;
   align-self: stretch;
   // 固定高度 = 父级（动态跟随浏览器尺寸变化）
-  height: 100%;
+  height: 100% !important; // 关键：撑满父级 body 高度
   min-height: 0;
 
   // 关键：当父级是 .sxk-generate__body（有右栏兄弟）时，左栏占 50%
   .sxk-generate__body > & {
     flex: 1 1 0% !important; // 关键：flex row 中各占 1 等分
     width: 50% !important;
+    height: 100% !important; // 关键：撑满父级 body 高度
     min-width: 0;
   }
 
@@ -3716,9 +3723,11 @@ void renderMarkdown
   flex: 1 1 0% !important; // 关键：与 config 等分
   width: 50% !important;
   min-width: 0;  // 关键：允许缩小
+  height: 100% !important; // 关键：撑满父级 body 高度
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  align-self: stretch;
   // 减少 basic-block 内边距：让卡片与页面底部更紧凑
   :deep(.basic-block) {
     padding: $spacing-md $spacing-lg $spacing-sm; // 上 16 / 左右 24 / 下 8
@@ -3730,6 +3739,11 @@ void renderMarkdown
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow-y: auto; // 关键：内容超出时滚动
+    // 美化滚动条
+    &::-webkit-scrollbar { width: 8px; }
+    &::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+    &::-webkit-scrollbar-track { background: transparent; }
   }
   // 关键：basic-block__body 内的 el-form 撑满 + 独立滚动（初始页面）
   :deep(.basic-block__body) > .el-form {

@@ -75,8 +75,7 @@
   min-width: 0; // 关键：让子页面在水平方向也能 100% 撑满
   width: 100%; // 关键：显式撑满父容器宽度
   padding: $spacing-xl;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden; // 关键：让子页面（如 generate）自身控制滚动，不让外层滚动
 
   // 移动端缩小内边距
   @media (max-width: 768px) {
