@@ -37,7 +37,7 @@
                 class="member-color"
                 :style="{ background: row.color || '#3b82f6' }"
               ></span>
-              <span>{{ row.nickname || row.username }}</span>
+              <span>{{ row.name || row.username }}</span>
             </div>
           </template>
         </el-table-column>
@@ -58,7 +58,7 @@
           <template #default="{ row }">
             <el-button link type="primary" @click="onEdit(row)">编辑</el-button>
             <el-popconfirm
-              :title="`确认删除「${row.nickname || row.username}」？`"
+              :title="`确认删除「${row.name || row.username}」？`"
               @confirm="onDelete(row)"
             >
               <template #reference>
@@ -84,6 +84,7 @@ import { onMounted, ref } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import sxkApi from '@/mock/sxkApi'
+import MemberEditModal from './components/member-edit-modal.vue'
 
 const list = ref([])
 const loading = ref(false)

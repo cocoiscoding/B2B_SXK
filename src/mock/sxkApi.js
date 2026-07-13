@@ -2091,7 +2091,7 @@ export const sxkApi = {
 
   /**
    * 4.x.1 列出成员 GET /api/members
-   * 真实后端响应：[{id, username, nickname, email, color, is_admin, created_at}, ...]
+   * 真实后端响应：[{id, username, name, email, color, is_admin, created_at}, ...]
    */
   listMembers: () => {
     if (!USE_MOCK_BIZ) {
@@ -2103,7 +2103,7 @@ export const sxkApi = {
 
   /**
    * 4.x.2 创建成员 POST /api/members
-   * 请求：{username, password, nickname, email, color, is_admin}
+   * 请求：{username, password, name, email, color, is_admin}
    */
   createMember: (payload) => {
     if (!USE_MOCK_BIZ) {
@@ -2118,7 +2118,7 @@ export const sxkApi = {
       const newM = {
         id: `m_${Date.now()}`,
         username: payload.username,
-        nickname: payload.nickname || payload.username,
+        name: payload.name || payload.username,
         email: payload.email || '',
         color: payload.color || '#3b82f6',
         is_admin: !!payload.is_admin,
@@ -2131,7 +2131,7 @@ export const sxkApi = {
 
   /**
    * 4.x.3 更新成员 PUT /api/members/{id}
-   * 请求：{nickname?, email?, color?, is_admin?, password?}
+   * 请求：{name?, email?, color?, is_admin?, new_password?}
    */
   updateMember: (id, payload) => {
     if (!USE_MOCK_BIZ) {

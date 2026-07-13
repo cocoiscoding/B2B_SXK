@@ -34,7 +34,7 @@ export const mockMembers = [
   {
     id: 'm_001',
     username: 'admin',
-    nickname: '系统管理员',
+    name: '系统管理员',
     email: 'admin@sxk.example.com',
     color: '#ef4444',
     is_admin: true,
@@ -43,7 +43,7 @@ export const mockMembers = [
   {
     id: 'm_002',
     username: 'alice.li',
-    nickname: '李知微',
+    name: '李知微',
     email: 'alice@sxk.example.com',
     color: '#3b82f6',
     is_admin: false,
@@ -52,7 +52,7 @@ export const mockMembers = [
   {
     id: 'm_003',
     username: 'bob.wang',
-    nickname: '王运营',
+    name: '王运营',
     email: 'bob@sxk.example.com',
     color: '#10b981',
     is_admin: false,

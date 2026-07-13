@@ -47,8 +47,8 @@
         />
       </el-form-item>
 
-      <el-form-item label="昵称" prop="nickname">
-        <el-input v-model="form.nickname" placeholder="显示名称" maxlength="32" />
+      <el-form-item label="昵称" prop="name">
+        <el-input v-model="form.name" placeholder="显示名称" maxlength="32" />
       </el-form-item>
 
       <el-form-item label="邮箱" prop="email">
@@ -113,7 +113,7 @@ const saving = ref(false)
 const blankForm = () => ({
   username: '',
   password: '',
-  nickname: '',
+  name: '',
   email: '',
   color: '#3b82f6',
   is_admin: false
@@ -142,7 +142,7 @@ const rules = {
       trigger: 'blur'
     }
   ],
-  nickname: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入昵称', trigger: 'blur' }],
   email: [
     {
       validator: (rule, value, cb) => {
@@ -170,7 +170,7 @@ const initForm = async () => {
       if (target) {
         Object.assign(form, {
           username: target.username,
-          nickname: target.nickname || '',
+          name: target.name || '',
           email: target.email || '',
           color: target.color || '#3b82f6',
           is_admin: !!target.is_admin
@@ -195,13 +195,13 @@ const submit = async () => {
   if (isEdit.value) {
     // 编辑：仅在有密码时才传 password（否则后端可能误清空）
     const payload = {
-      nickname: form.nickname,
+      name: form.name,
       email: form.email,
       color: form.color,
       is_admin: form.is_admin
     }
     if (form.password) {
-      payload.password = form.password
+      payload.new_password = form.password
     }
     res = await sxkApi.updateMember(props.memberId, payload)
   } else {
