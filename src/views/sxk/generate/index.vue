@@ -19,6 +19,35 @@
 -->
 <template>
   <div class="sxk-generate" :class="{ 'is-empty': !currentDraft }">
+    <!-- ============================== 生成中 Loading 覆盖层 ============================== -->
+    <transition name="gen-loading-fade">
+      <div v-if="genLoadingVisible" class="sxk-gen-loading">
+        <div class="sxk-gen-loading__card">
+          <!-- 动画图标 -->
+          <div class="sxk-gen-loading__icon">
+            <div class="sxk-gen-loading__orb" />
+            <div class="sxk-gen-loading__pulse" />
+          </div>
+          <!-- 标题 -->
+          <h3 class="sxk-gen-loading__title">{{ genLoadingTitle }}</h3>
+          <p class="sxk-gen-loading__sub">
+            {{ genLoadingSub }}
+          </p>
+          <!-- 步骤指示 -->
+          <div class="sxk-gen-loading__steps">
+            <div
+              v-for="(s, i) in genLoadingSteps"
+              :key="i"
+              class="sxk-gen-loading__step"
+              :class="s.state"
+            >
+              <span class="sxk-gen-loading__step-dot" />
+              <span class="sxk-gen-loading__step-name">{{ s.label }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
     <!-- ============================== 顶部欢迎条（与其他页面一致） ============================== -->
     <div v-if="configPanelVisible" class="sxk-page-welcome">
       <div class="sxk-page-welcome__left">
@@ -1563,6 +1592,63 @@ const liveCurrentAgent = ref('')
 const sseInstance = ref(null)
 // Agent 名缩写（去掉 "Agent" 后缀）
 const shortAgentName = (name) => String(name || '').replace(/Agent$/i, '').trim() || name
+
+// ========== 生成中 Loading 状态 ==========
+// Agent 中文名映射
+const AGENT_LABELS = {
+  '产品信息检索 Agent': '产品信息检索',
+  '竞品分析 Agent': '竞品分析',
+  '内容生成 Agent': '内容生成',
+  '内容校验 Agent': '内容校验',
+  '渠道适配 Agent': '渠道适配',
+  '文生图配图 Agent': '文生图配图'
+}
+// 草稿生成阶段的标准 Agent 顺序
+const DRAFT_AGENT_FLOW = ['产品信息检索 Agent', '竞品分析 Agent', '内容生成 Agent', '内容校验 Agent']
+// 渠道适配阶段的 Agent 顺序
+const ADAPT_AGENT_FLOW = ['渠道适配 Agent']
+// 配图保存阶段的 Agent 顺序
+const FINALIZE_AGENT_FLOW = ['文生图配图 Agent']
+
+// Loading 是否显示（阶段 0 生成 + 阶段 1 适配 + 阶段 2 配图保存）
+const genLoadingVisible = computed(() => {
+  if (triggering.value && !currentDraft.value) return true
+  if (adaptingDraft.value) return true
+  if (finalizingDraft.value) return true
+  return false
+})
+
+// Loading 标题
+const genLoadingTitle = computed(() => {
+  if (adaptingDraft.value) return 'AI 正在适配渠道…'
+  if (finalizingDraft.value) return 'AI 正在生成配图…'
+  return 'AI 正在生成文案…'
+})
+
+// Loading 副标题
+const genLoadingSub = computed(() => {
+  if (adaptingDraft.value) {
+    return liveCurrentAgent.value ? `${liveCurrentAgent.value} 执行中` : '正在为选定渠道生成适配版本'
+  }
+  if (finalizingDraft.value) {
+    return liveCurrentAgent.value ? `${liveCurrentAgent.value} 执行中` : '正在为各渠道生成配图并保存'
+  }
+  return liveCurrentAgent.value ? `${liveCurrentAgent.value} 执行中` : '正在调度多个 Agent 协同工作'
+})
+
+// 步骤指示（done / running / wait）
+const genLoadingSteps = computed(() => {
+  const agentFlow = adaptingDraft.value ? ADAPT_AGENT_FLOW
+    : finalizingDraft.value ? FINALIZE_AGENT_FLOW
+    : DRAFT_AGENT_FLOW
+  const completedAgents = liveSteps.value.map((s) => s.agent)
+  return agentFlow.map((agent) => {
+    const label = AGENT_LABELS[agent] || shortAgentName(agent)
+    if (completedAgents.includes(agent)) return { label, state: 'done' }
+    if (liveCurrentAgent.value === agent) return { label, state: 'running' }
+    return { label, state: 'wait' }
+  })
+})
 
 // issues 去重（保留首次出现顺序；后端会重复推送相同问题）
 // 关键：规范化空白 + 标点差异（确保完全相同文本才视为重复）
@@ -6500,5 +6586,119 @@ void renderMarkdown
     content: '💡';
     margin-right: 4px;
   }
+}
+
+// ========== 生成中 Loading 覆盖层 ==========
+.sxk-gen-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(6px);
+
+  &__card {
+    text-align: center;
+    padding: 40px 48px;
+    max-width: 400px;
+  }
+
+  // 动画图标
+  &__icon {
+    position: relative;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 20px;
+  }
+  &__orb {
+    position: absolute;
+    inset: 12px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    box-shadow: 0 0 24px rgba(99, 102, 241, 0.4);
+    animation: gen-orb-bounce 1.2s ease-in-out infinite;
+  }
+  &__pulse {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(99, 102, 241, 0.3);
+    animation: gen-pulse 1.8s ease-out infinite;
+  }
+  @keyframes gen-orb-bounce {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.85); }
+  }
+  @keyframes gen-pulse {
+    0% { transform: scale(0.8); opacity: 1; }
+    100% { transform: scale(1.5); opacity: 0; }
+  }
+
+  &__title {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 700;
+    color: $gray-900;
+  }
+  &__sub {
+    margin: 0 0 24px;
+    font-size: 13px;
+    color: $text-secondary;
+    min-height: 20px;
+  }
+
+  // 步骤指示
+  &__steps {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  &__step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: $text-placeholder;
+
+    &.done {
+      color: #16a34a;
+      .sxk-gen-loading__step-dot { background: #22c55e; }
+    }
+    &.running {
+      color: #6366f1;
+      font-weight: 600;
+      .sxk-gen-loading__step-dot {
+        background: #6366f1;
+        animation: gen-dot-blink 0.8s ease-in-out infinite;
+      }
+    }
+  }
+  &__step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d1d5db;
+    flex-shrink: 0;
+  }
+  @keyframes gen-dot-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+}
+
+// 过渡动画
+.gen-loading-fade-enter-active,
+.gen-loading-fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.gen-loading-fade-enter-from,
+.gen-loading-fade-leave-to {
+  opacity: 0;
 }
 </style>
