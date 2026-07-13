@@ -212,46 +212,9 @@ const formatDate = (iso) => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-// ========== 场景图标 / 配色：基于场景名称关键词智能匹配 ==========
-const ICON_MAP = {
-  product_intro: Document,
-  competitor: PieChart,
-  channel_adapt: Share,
-  email: Message,
-  event: Promotion,
-  other: Document
-}
-
-// 按场景名称关键词匹配图标+配色（顺序优先）
-const SCENE_STYLE_RULES = [
-  { keywords: ['banner', '官网', '首页'],     icon: Monitor,      bg: '#eff6ff', color: '#2563eb' },  // 蓝
-  { keywords: ['产品介绍', '产品功能', '白皮书'], icon: Histogram,    bg: '#f0fdf4', color: '#16a34a' },  // 绿
-  { keywords: ['竞品', '对比', '竞争'],        icon: TrendCharts,  bg: '#fff7ed', color: '#ea580c' },  // 橙
-  { keywords: ['案例', '客户', '成功'],        icon: Medal,        bg: '#faf5ff', color: '#9333ea' },  // 紫
-  { keywords: ['ppt', '演示', '大纲', '路演'],  icon: Film,         bg: '#fee2e2', color: '#dc2626' },  // 红
-  { keywords: ['社交', '媒体', '帖子', '传播'],  icon: ChatDotRound, bg: '#ecfdf5', color: '#059669' },  // 翠绿
-  { keywords: ['邮件', 'email', 'edm'],       icon: Message,      bg: '#fffbeb', color: '#d97706' },  // 琥珀
-  { keywords: ['活动', 'event', '推广'],       icon: Promotion,    bg: '#fef2f2', color: '#e11d48' },  // 玫红
-]
-
-const FALLBACK_STYLE = { icon: Document, bg: '#f1f5f9', color: '#475569' }  // slate
-
-const tplColor = (sceneCode, sceneName = '') => {
-  // 1) 先尝试按 code 直接匹配旧版 key
-  if (ICON_MAP[sceneCode]) {
-    const c = COLOR_MAP_LEGACY[sceneCode] || FALLBACK_STYLE
-    return { bg: c.bg, color: c.color, icon: ICON_MAP[sceneCode] }
-  }
-  // 2) 按场景名称关键词匹配
-  const name = (sceneName || '').toLowerCase()
-  for (const rule of SCENE_STYLE_RULES) {
-    if (rule.keywords.some((kw) => name.includes(kw.toLowerCase()))) {
-      return { bg: rule.bg, color: rule.color, icon: rule.icon }
-    }
-  }
-  // 3) 兜底
-  return { ...FALLBACK_STYLE }
-}
+// ========== 场景图标 / 配色：使用共享 util（与 dashboard 页面保持完全一致） ==========
+// 关键：从 src/util/scene-style 引入，避免两个页面展示同一场景时样式不一致
+import { getSceneStyle as tplColor } from '@/util/scene-style'
 
 // 旧版 code → 配色映射（兼容）
 const COLOR_MAP_LEGACY = {

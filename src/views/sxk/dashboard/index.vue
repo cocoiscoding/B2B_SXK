@@ -132,12 +132,12 @@
           <el-radio-button label="brand">品牌</el-radio-button>
         </el-radio-group>
         <!-- 右侧：排序 -->
-        <!-- <div class="section-toolbar__right">
+        <div class="section-toolbar__right">
           <el-radio-group v-model="sceneSort" size="small">
             <el-radio-button label="usage">使用最多</el-radio-button>
             <el-radio-button label="recent">最新</el-radio-button>
           </el-radio-group>
-        </div> -->
+        </div>
       </div>
 
       <!-- 加载中：骨架屏 -->
@@ -150,8 +150,8 @@
         </div>
       </div>
 
-      <!-- 加载完成：5 卡片统一网格 -->
-      <div v-else-if="topScenesByUsage.length > 0" class="scenes-grid">
+      <!-- 加载完成：5 卡片统一网格（关键：用 displayedScenes 判断，因为"最新"模式数据源不同） -->
+      <div v-else-if="displayedScenes.length > 0" class="scenes-grid">
         <div
           v-for="(tpl, idx) in displayedScenes"
           :key="tpl.scene_code"
@@ -426,11 +426,14 @@ import {
   Moon,
   DataLine,
   View,
+  TrendCharts,
   Clock,
   Plus,
   Histogram,
   DataAnalysis,
   Promotion,
+  Present,
+  Message,
   CircleCheck,
   CircleClose,
   Loading as LoadingIcon,
@@ -443,6 +446,8 @@ import {
   Lightning
 } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
+// 关键：场景图标/配色共享 util（与 templates 页面保持完全一致）
+import { getSceneStyle } from '@/util/scene-style'
 
 // ========== 响应式数据 ==========
 const router = useRouter()
@@ -576,6 +581,39 @@ const SCENE_META = {
 }
 const getSceneMeta = (sceneCode) => SCENE_META[sceneCode] || SCENE_META.product_intro
 
+// 关键：英文颜色名 → hex 映射（用于"最新"模式处理后端返回的非 hex 颜色）
+const COLOR_NAME_TO_HEX = {
+  blue: { color: '#2563eb', bg: '#eff6ff' },
+  green: { color: '#16a34a', bg: '#f0fdf4' },
+  orange: { color: '#ea580c', bg: '#fff7ed' },
+  red: { color: '#dc2626', bg: '#fee2e2' },
+  purple: { color: '#9333ea', bg: '#faf5ff' },
+  cyan: { color: '#0891b2', bg: '#ecfeff' },
+  pink: { color: '#db2777', bg: '#fdf2f8' },
+  yellow: { color: '#ca8a04', bg: '#fef9c3' },
+  gray: { color: '#6b7280', bg: '#f3f4f6' },
+  black: { color: '#1f2937', bg: '#f9fafb' }
+}
+
+// 关键：后端 icon 字符串 → Element Plus 组件映射
+const ICON_NAME_TO_COMP = {
+  document: Document,
+  chart: DataAnalysis,        // 关键：竞品对比用 TrendCharts
+  present: Present,
+  email: Message,
+  promotion: Promotion,
+  share: Share,
+  money: Money,
+  calendar: Calendar,
+  data: DataLine,
+  ai: MagicStick,
+  files: Files,
+  trend: TrendCharts,
+  // Element Plus 组件名（首字母大写）直接兼容
+  Document, DataAnalysis, Present, Message, Promotion, Share,
+  Money, Calendar, DataLine, MagicStick, Files, TrendCharts
+}
+
 const recentIconComp = (item) => getSceneMeta(item.template?.scene_code).icon
 const recentIconStyle = (item) => {
   const m = getSceneMeta(item.template?.scene_code)
@@ -683,19 +721,74 @@ const toggleFavorite = (sceneCode) => {
 }
 
 // 关键：根据分类 + 排序过滤后返回
+// 关键：分类映射表（按 scene_code 推导 category，用于分类筛选）
+const sceneCategoryMap = {
+  product_intro: 'product', S001: 'product', S002: 'product',
+  competitor: 'sales', S003: 'sales',
+  channel_adapt: 'marketing', S005: 'marketing', S006: 'marketing',
+  email: 'marketing', event: 'brand', social: 'brand', speech: 'brand',
+  // 系统默认 6 个场景的扩展
+  'product_introduction': 'product',
+  'competitor_analysis': 'sales',
+  'multi_channel': 'marketing',
+  'email_marketing': 'marketing',
+  'event_promotion': 'brand',
+  'other': 'brand'
+}
+
+// 关键：标签映射（按 scene_code 推导 tag）
+const sceneTagMap = {
+  product_intro: { text: '文案', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } },
+  product_introduction: { text: '文案', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } },
+  competitor: { text: '分析', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } },
+  competitor_analysis: { text: '分析', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } },
+  channel_adapt: { text: '渠道', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } },
+  multi_channel: { text: '渠道', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } },
+  email: { text: '邮件', style: { color: '#9333ea', backgroundColor: '#faf5ff' } },
+  email_marketing: { text: '邮件', style: { color: '#9333ea', backgroundColor: '#faf5ff' } },
+  event: { text: '活动', style: { color: '#dc2626', backgroundColor: '#fee2e2' } },
+  event_promotion: { text: '活动', style: { color: '#dc2626', backgroundColor: '#fee2e2' } }
+}
+
+// 关键：把原始场景数据（来自 /api/scenarios）转成 dashboard 展示卡片结构
+// 用于"最新"模式
+const transformSceneToCard = (scene, idx) => {
+  const code = scene.scene_code
+  // 关键：使用共享的 getSceneStyle（与 templates/index.vue 完全一致）
+  // 优先级：按 code 精确匹配 → 按名称关键词匹配 → 兜底
+  // 这样 dashboard 和 templates 展示同一场景时图标/颜色绝对一致
+  const style = getSceneStyle(code, scene.name)
+  return {
+    scene_code: code,
+    name: scene.name,
+    use_count: 0,
+    desc: scene.description || '全新模板，立即体验',
+    icon: style.icon,
+    color: style.color,
+    bg: style.bg,
+    tags: [sceneTagMap[code] || { text: '模板', style: { color: '#6b7280', backgroundColor: '#f3f4f6' } }],
+    category: sceneCategoryMap[code] || 'marketing',
+    created_at: scene.created_at,
+    template_count: 1,
+    rating: '4.5'
+  }
+}
+
 const displayedScenes = computed(() => {
-  let list = [...topScenesByUsage.value]
-  // 分类筛选
-  if (sceneCategory.value !== 'all') {
+  // 关键：根据 sceneSort 选择数据源
+  let list
+  if (sceneSort.value === 'recent') {
+    // 最新：来自 /api/scenarios 全量，按 created_at 排序
+    list = topScenesByRecent.value.map(transformSceneToCard)
+  } else {
+    // 使用最多：来自 history 聚合
+    list = [...topScenesByUsage.value]
+  }
+  // 分类筛选（仅"使用最多"支持分类筛选，因为聚合数据含 category 字段）
+  if (sceneCategory.value !== 'all' && list.length > 0 && 'category' in list[0]) {
     list = list.filter((s) => s.category === sceneCategory.value)
   }
-  // 排序
-  if (sceneSort.value === 'recent') {
-    list.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))
-  } else {
-    list.sort((a, b) => b.use_count - a.use_count)
-  }
-  return list.slice(0, 5)
+  return list.slice(0, 3)  // 关键：严格取前 3 条
 })
 
 // 关键：按状态分组的统计（顶部 chips）
@@ -871,10 +964,11 @@ const topScenesByUsage = computed(() => {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
 
-  // 转为展示卡片结构（关键：增加 category / created_at / template_count / rating 字段）
+  // 转为展示卡片结构（关键：使用 getSceneStyle 与 templates 保持一致）
   const aggregated = sorted.map(([code, count], idx) => {
-    const meta = getSceneMeta(code)
     const name = sceneCodeToName.value[code] || (code)  // 降级显示 code
+    // 关键：使用共享的 getSceneStyle（与 templates/index.vue 完全一致）
+    const style = getSceneStyle(code, name)
     // tags 优先使用常见标签，否则空
     const tag = (() => {
       if (code === 'product_intro' || code === 'S001' || code === 'S002') {
@@ -906,9 +1000,9 @@ const topScenesByUsage = computed(() => {
       name,
       use_count: count,
       desc: '基于真实使用历史推荐',
-      icon: meta.icon,
-      color: meta.color,
-      bg: meta.bg,
+      icon: style.icon,
+      color: style.color,
+      bg: style.bg,
       tags: [tag],
       // ============ 新增字段 ============
       category: categoryMap[code] || 'marketing',
@@ -941,6 +1035,21 @@ const maxUsageCount = computed(() => {
   return Math.max(1, ...counts)  // 避免除以 0
 })
 
+// 关键：最新场景（来自 /api/scenarios，按 created_at 降序取前 3）
+// 与 topScenesByUsage 不同：此数据源来自场景模板表，包含未使用过的场景
+const allScenesCache = ref([])  // 缓存全量场景，避免每次切换都重新请求
+const topScenesByRecent = computed(() => {
+  if (!allScenesCache.value.length) return []
+  return [...allScenesCache.value]
+    .filter((s) => s.created_at)  // 必须有 created_at 才能排序
+    .sort((a, b) => {
+      // created_at 是 ISO 字符串（如 '2026-07-07T09:01:48+08:00'）
+      // 字符串比较即可正确排序（ISO 8601 字典序=时间序）
+      return String(b.created_at).localeCompare(String(a.created_at))
+    })
+    .slice(0, 3)
+})
+
 // ========== 数据加载 ==========
 const load = async () => {
   try {
@@ -956,6 +1065,16 @@ const load = async () => {
     if (statRes.status === 'fulfilled' && statRes.value?.data) stats.value = statRes.value.data
     if (recentRes.status === 'fulfilled' && recentRes.value?.data) recentList.value = recentRes.value.data.items || []
     if (userRes.status === 'fulfilled' && userRes.value?.data) welcomeName.value = userRes.value.data.username || '营销专家'
+    // 关键：单独加载全量场景（用于"最新"排序模式）
+    // 这里不复用 getTemplateMeta 是因为它只返回 code+name（不含 created_at）
+    try {
+      const scenesRes = await sxkApi.getSceneSchemas()
+      if (scenesRes?.data?.scenes) {
+        allScenesCache.value = scenesRes.data.scenes
+      }
+    } catch (e) {
+      console.warn('[Dashboard] 加载全量场景失败，"最新"模式将不可用', e)
+    }
     // 聚合：scene_code 使用次数
     if (historyRes.status === 'fulfilled' && historyRes.value?.data) {
       const items = historyRes.value.data.items || historyRes.value.data || []
