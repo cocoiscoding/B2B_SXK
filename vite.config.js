@@ -120,7 +120,8 @@ export default defineConfig(({ mode }) => {
       // 关键修复：Windows 上绑定 0.0.0.0（通配地址）需要管理员权限，否则会
       // 触发 EACCES: permission denied。改为 127.0.0.1 可以正常启动且无需权限。
       // 如需局域网访问，临时改为 '0.0.0.0' 或以管理员身份运行。
-      host: '127.0.0.1',
+      // host: '127.0.0.1',
+      host: '0.0.0.0',
       port: Number(port),
       // 关键修复：Windows 上其他进程占用端口会触发 EACCES。
       // 当 strictPort=true 时 Vite 直接报错退出，导致开发体验极差。
