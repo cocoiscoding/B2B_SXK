@@ -186,7 +186,7 @@
                 />
               </svg>
               <div class="ring-center">
-                <div class="ring-score">{{ qualityData.avgScore.toFixed(1) }}</div>
+                <div class="ring-score">{{ Math.round(qualityData.avgScore) }}</div>
                 <div class="ring-label">平均分</div>
               </div>
             </div>
@@ -651,18 +651,17 @@ const qualityData = computed(() => {
   let scored = 0
   let excellent = 0, good = 0, fair = 0
   for (const h of items) {
-    // 从 agent_trace 或顶层提取评分
-    let score = h.score || h.quality_score || 0
-    if (!score && Array.isArray(h.agent_trace)) {
-      const evalStep = h.agent_trace.find((s) => s.score || s.quality_score)
-      score = evalStep?.score || evalStep?.quality_score || 0
-    }
-    if (score > 0) {
-      totalScore += score
-      scored++
-      if (score >= 8) excellent++
-      else if (score >= 6) good++
-      else fair++
+    // SEO 分数存储在 versions[].seo.score（0-100）
+    const versions = Array.isArray(h.versions) ? h.versions : []
+    for (const v of versions) {
+      const score = v?.seo?.score || 0
+      if (score > 0) {
+        totalScore += score
+        scored++
+        if (score >= 80) excellent++
+        else if (score >= 60) good++
+        else fair++
+      }
     }
   }
   const total = excellent + good + fair
@@ -670,22 +669,22 @@ const qualityData = computed(() => {
   return {
     avgScore: scored > 0 ? totalScore / scored : 0,
     distribution: [
-      { label: '优秀(≥8)', count: excellent, pct: pct(excellent), color: '#16a34a' },
-      { label: '良好(6-8)', count: good, pct: pct(good), color: '#f59e0b' },
-      { label: '需优化(<6)', count: fair, pct: pct(fair), color: '#ef4444' }
+      { label: '优秀(≥80)', count: excellent, pct: pct(excellent), color: '#16a34a' },
+      { label: '良好(60-79)', count: good, pct: pct(good), color: '#f59e0b' },
+      { label: '需优化(<60)', count: fair, pct: pct(fair), color: '#ef4444' }
     ]
   }
 })
 const qualityRingDash = computed(() => {
   const score = qualityData.value.avgScore
-  const ratio = Math.min(score / 10, 1)
+  const ratio = Math.min(score / 100, 1)
   const circ = 2 * Math.PI * 50  // r=50
   return `${circ * ratio} ${circ}`
 })
 const qualityRingColor = computed(() => {
   const s = qualityData.value.avgScore
-  if (s >= 8) return '#16a34a'
-  if (s >= 6) return '#f59e0b'
+  if (s >= 80) return '#16a34a'
+  if (s >= 60) return '#f59e0b'
   return '#ef4444'
 })
 

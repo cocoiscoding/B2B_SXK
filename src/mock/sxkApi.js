@@ -252,6 +252,7 @@ const adaptVersion = (v) => {
     image: v.image || null,
     votes: v.votes || { like: 0, dislike: 0 },
     voters: v.voters || {},
+    seo: v.seo || null,
     // 兼容旧版式模板/老接口的字段
     version_key: letter,
     name: v.title || `版本 ${letter}`,
