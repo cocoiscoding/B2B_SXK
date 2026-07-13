@@ -501,10 +501,13 @@ export const sxkApi = {
         if (withFiles && productId) {
           return uploadAllFiles(productId, withFiles).then((uploaded) => {
             // 把上传结果写回 product.images/documents（用 PUT 增量更新）
+            // 关键：后端 PUT 走的是 ProductCreate 校验，必须发完整字段，不能只发 images/documents
+            const basePayload = adaptProductToBackend(payload)
             return real({
               url: `/api/products/${productId}`,
               method: 'put',
               data: {
+                ...basePayload,
                 images: uploaded.images,
                 documents: uploaded.documents
               }
@@ -568,10 +571,12 @@ export const sxkApi = {
         if (withFiles && productId) {
           return uploadAllFiles(productId, withFiles).then((uploaded) => {
             // 合并到原 images/documents 再 PUT 一次
+            // 关键：后端 PUT 走的是 ProductCreate 校验，必须发完整字段，不能只发 images/documents
             return real({
               url: `/api/products/${productId}`,
               method: 'put',
               data: {
+                ...backendPayload,
                 images: [...(backendPayload.images || []), ...uploaded.images],
                 documents: [...(backendPayload.documents || []), ...uploaded.documents]
               }
