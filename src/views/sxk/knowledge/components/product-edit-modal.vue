@@ -476,7 +476,16 @@ const startEdit = () => {
 
 const rules = {
   name: [{ required: true, message: '请输入产品名称', trigger: 'blur' }],
-  category: [{ required: true, message: '请选择分类', trigger: 'change' }]
+  // category 改为自定义校验：避免空数组 [] 触发静默 required 失败
+  category: [
+    {
+      validator: (rule, value, cb) => {
+        if (Array.isArray(value) && value.length > 0) cb()
+        else cb(new Error('请至少选择一个产品分类'))
+      },
+      trigger: 'change'
+    }
+  ]
 }
 
 // ========== 动态功能列表 ==========
@@ -551,8 +560,12 @@ const cancel = () => emit('update:modelValue', false)
 
 const submit = async () => {
   try {
+    console.log('[product-edit-modal] submit start', { category: form.category, name: form.name, competitors: form.competitors })
     await formRef.value?.validate()
-  } catch {
+  } catch (err) {
+    // 关键：不再静默 return，提示用户校验失败的具体字段
+    console.warn('[product-edit-modal] form validate failed', err)
+    ElMessage.error('请检查表单填写是否完整')
     return
   }
   // BR-K-03 自定义校验：功能列表至少 1 项且 name 非空
