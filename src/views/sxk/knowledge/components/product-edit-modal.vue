@@ -445,6 +445,16 @@ const dialogTitle = computed(() => {
   return isEdit.value ? '编辑产品' : '添加产品'
 })
 
+// 弹窗副标题：与产品场景对应
+const dialogSubTitle = computed(() => {
+  if (!isEdit.value) return '为 AI Agent 提供产品信息'
+  if (!editing.value) return '只读模式 · 点击底部"编辑"按钮可切换到编辑'
+  return '编辑后点击"保存修改"以应用变更'
+})
+
+// 弹窗标题图标
+const dialogIcon = computed(() => (isEdit.value ? EditPen : Plus))
+
 // 点击底部"编辑"按钮，从只读切换到可编辑
 const startEdit = () => {
   editing.value = true
