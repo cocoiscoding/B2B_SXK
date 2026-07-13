@@ -2688,49 +2688,47 @@ void renderMarkdown
 // ============================================================
 
 // ---------- 主框架 ----------
+// 关键：使用普通 block 布局 + 显式 100% 宽高（避免 flex 子项不被拉伸问题）
 .sxk-generate {
-  display: flex;
-  flex-direction: column; // 关键：纵向布局（顶 welcome + 下方左右分栏）
-  gap: $spacing-md;
-  align-items: stretch;
-  // 关键：使用 absolute 定位强制撑满 .avue-view 父级（不受 flex 子项宽度计算影响）
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  display: block; // 关键：普通 block 布局，每个子项都是 block 自动 100% 宽
   width: 100% !important;
-  height: 100% !important;
-  min-height: 520px; // 极小屏时仍保留可读性
-  overflow: hidden; // 防止整体页面滚动
-  box-sizing: border-box; // 关键：避免 padding 撑大
-  flex: 1 1 auto !important; // 关键：flex 项强制增长
-  min-width: 0; // 关键：允许缩小
-  min-height: 0; // 关键：允许缩小
-
-  @media (max-width: 1100px) {
-    height: auto; // 移动端不锁高度
-    min-height: auto;
+  max-width: 100% !important;
+  margin: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box;
+  position: relative; // 关键：让子项可以相对定位
+  // 关键：内部用 flex 嵌套实现纵向排列（仅作用于子项容器）
+  & > .sxk-page-welcome,
+  & > .sxk-generate__body {
+    display: flex; // 局部恢复 flex
+    width: 100% !important; // 关键：显式撑满父容器
+    box-sizing: border-box;
+  }
+  & > .sxk-page-welcome {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  & > .sxk-generate__body {
+    flex-direction: row;
+    gap: 12px;
+    align-items: stretch;
   }
 }
 
-// 关键：本页用 flex column + gap 布局，标准欢迎条需防压缩且去掉重叠 margin
+// 关键：本页用 block 布局，欢迎条只需基础宽度撑满
 .sxk-page-welcome {
-  flex-shrink: 0;
-  margin-bottom: 0;
+  width: 100%;
+  box-sizing: border-box;
+  // margin-bottom 由 .sxk-generate > & 子选择器控制
 }
 
 // 关键：内容区（左侧 config + 右侧 result 的水平分栏）
 .sxk-generate__body {
-  flex: 1 1 auto !important; // 关键：占满剩余高度
   width: 100% !important; // 关键：撑满父容器宽度
-  height: 100% !important; // 关键：撑满父容器高度
-  min-height: 0;
   box-sizing: border-box; // 关键：避免 padding 撑大
-  display: grid !important; // 关键：用 grid 布局严格等分
-  grid-template-columns: 1fr 1fr !important; // 关键：左右两列等分
-  gap: $spacing-md;
-  align-items: stretch;
+  // display 和 gap 由 .sxk-generate 的子选择器接管
   overflow: hidden;
 
   @media (max-width: 1100px) {
@@ -2755,9 +2753,9 @@ void renderMarkdown
 
   // 关键：当父级是 .sxk-generate__body（有右栏兄弟）时，左栏占 50%
   .sxk-generate__body > & {
-    width: 100%;      // 关键：grid 布局下占满网格单元
-    max-width: 100%;  // 关键：解除 50% 限制
-    min-width: 0;     // 关键：允许缩小
+    flex: 1 1 0% !important; // 关键：flex row 中各占 1 等分
+    width: 50% !important;
+    min-width: 0;
   }
 
   // 关键：配置区头部（与首页彩色长条风格一致，嵌在 basic-block header 区域）
@@ -3715,13 +3713,11 @@ void renderMarkdown
 
 // ---------- 右栏：主区域 ----------
 .sxk-generate__main {
-  width: 100%;  // 关键：grid 布局下占满网格单元
-  max-width: 100%; // 关键：解除 70% 限制
+  flex: 1 1 0% !important; // 关键：与 config 等分
+  width: 50% !important;
   min-width: 0;  // 关键：允许缩小
-  height: 100%; // 关键：撑满父容器高度
-  align-self: stretch; // 关键：拉伸至与左栏等高
-  min-height: 0; // 关键：flex 子项可滚动
-  display: flex; // 让内部 stage 撑满
+  box-sizing: border-box;
+  display: flex;
   flex-direction: column;
   // 减少 basic-block 内边距：让卡片与页面底部更紧凑
   :deep(.basic-block) {
