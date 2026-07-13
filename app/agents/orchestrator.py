@@ -24,7 +24,7 @@ from app.agents.channel_agent import ChannelAgent
 from app.agents.validation_agent import ValidationAgent
 from app.agents.image_agent import ImageAgent
 from app.agents.llm_provider import get_provider
-from app.database import query_one, transaction, _parse_json_fields
+from app.database import query_one, transaction, _parse_json_fields, execute
 from app.models import GenerateResponse, VersionContent, AgentStep
 from app.seo_analyzer import analyze as seo_analyze
 
@@ -79,7 +79,7 @@ class Orchestrator:
                 "SELECT * FROM templates WHERE id = %s AND scenario_id = %s",
                 (template_id, scenario_id),
             )
-            if tmpl_row:
+            if tmpl_row and tmpl_row.get("status") == "approved":
                 # 将模板的 prompt 注入到 scenario 中，供后续 Agent 使用
                 scenario["template"] = tmpl_row["prompt"]
                 scenario["template_name"] = tmpl_row["name"]
@@ -92,8 +92,13 @@ class Orchestrator:
                 scenario["template_diff_dims"] = tmpl_row.get("differentiation_dims") or []
                 # 适用渠道：供 ChannelAgent 做适配性告警（留空表示不限渠道）
                 scenario["template_applicable_channels"] = tmpl_row.get("applicable_channels") or []
+            elif tmpl_row:
+                print(f"[orchestrator] 模板 {template_id} 未通过审核（{tmpl_row.get('status')}），使用场景默认逻辑")
             else:
                 print(f"[orchestrator] 模板 {template_id} 不存在，使用场景默认逻辑")
+        # 模板被采用 -> 使用次数 +1（仅 approved 模板会加载成功，scenario 带 template_name）
+        if template_id and scenario.get("template_name"):
+            self._bump_template_use(template_id)
         # 兼容旧数据：如果 scenario 本身没有 template 字段，提供一个默认值
         if "template" not in scenario or not scenario.get("template"):
             scenario["template"] = f"根据场景「{scenario['name']}」生成内容，用户参数：{params}"
@@ -253,7 +258,7 @@ class Orchestrator:
                 "SELECT * FROM templates WHERE id = %s AND scenario_id = %s",
                 (template_id, scenario_id),
             )
-            if tmpl:
+            if tmpl and tmpl.get("status") == "approved":
                 scenario["template"] = tmpl["prompt"]
                 scenario["template_name"] = tmpl["name"]
                 scenario["template_constraints"] = tmpl.get("constraints") or {}
@@ -261,9 +266,24 @@ class Orchestrator:
                 scenario["template_examples"] = tmpl.get("examples") or []
                 scenario["template_diff_dims"] = tmpl.get("differentiation_dims") or []
                 scenario["template_applicable_channels"] = tmpl.get("applicable_channels") or []
+            elif tmpl:
+                # 模板未通过审核 -> 不采用，回退场景默认（前端选择器已只显示 approved，这是兜底）
+                print(f"[orchestrator] 模板 {template_id} 未通过审核（{tmpl.get('status')}），使用场景默认逻辑")
         if "template" not in scenario or not scenario.get("template"):
             scenario["template"] = f"根据场景「{scenario['name']}」生成内容"
         return scenario
+
+    def _bump_template_use(self, template_id: str | None) -> None:
+        """模板被用于生成时使用次数 +1。仅 approved 模板会加载成功（非 approved 不计）。
+
+        计数失败不影响生成流程。
+        """
+        if not template_id:
+            return
+        try:
+            execute("UPDATE templates SET use_count = use_count + 1 WHERE id = %s", (template_id,))
+        except Exception:
+            pass
 
     def run_draft(self, product_id: str, scenario_id: str, template_id: str | None,
                   style: str, params: dict, version_count: int = 3,
@@ -279,6 +299,9 @@ class Orchestrator:
         """
         product = self._load_product(product_id)
         scenario = self._load_scenario(scenario_id, template_id)
+        # 模板被采用 -> 使用次数 +1（仅 approved 模板会加载成功）
+        if template_id and scenario.get("template_name"):
+            self._bump_template_use(template_id)
 
         ctx = AgentContext(
             product=product,
@@ -420,6 +443,27 @@ class Orchestrator:
         ctx.versions = versions
         image_step = self.image.execute(ctx)
         return {"versions": ctx.versions, "image_step": image_step}
+
+    # ===== 单版本微调（初稿阶段）=====
+    def run_rewrite(self, draft: dict, version_index: int, instruction: str) -> dict:
+        """微调初稿中指定版本：重写 -> 重校验 -> 重算 SEO。不落库（由路由层持久化）。
+
+        返回 {"version": 重写后的版本, "issues": [...], "validated": bool}。
+        """
+        versions = draft.get("draft_versions") or []
+        target = next((v for v in versions if v.get("index") == version_index), None)
+        if target is None:
+            raise ValueError(f"版本 {version_index} 不存在")
+        scenario = self._load_scenario(draft["scenario_id"], draft.get("template_id"))
+        ctx = AgentContext(
+            scenario=scenario,
+            retrieved_info=draft.get("retrieved_info") or {},
+            params=draft.get("params") or {},
+        )
+        rewritten = self.generation.rewrite_one(target, instruction, ctx)
+        val = self.validation.validate_single(rewritten, ctx)
+        rewritten["seo"] = seo_analyze(rewritten.get("title", ""), rewritten.get("body", ""))
+        return {"version": rewritten, "issues": val["issues"], "validated": val["validated"]}
 
 
 # 单例模式：全局只创建一个 Orchestrator 实例

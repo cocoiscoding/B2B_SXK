@@ -102,10 +102,17 @@ CREATE TABLE templates (
     differentiation_dims JSONB NOT NULL DEFAULT '[]'::jsonb,
     applicable_channels JSONB NOT NULL DEFAULT '[]'::jsonb,
     tags                 JSONB NOT NULL DEFAULT '[]'::jsonb,
+    status               VARCHAR(20)  NOT NULL DEFAULT 'approved',  -- pending/approved/rejected；默认 approved 保证内置+存量模板可用
+    created_by           VARCHAR(20),                               -- 创建人（用户 id）
+    reviewed_by          VARCHAR(20),                               -- 审核管理员
+    reviewed_at          TIMESTAMP WITH TIME ZONE,                  -- 审核时间
+    review_note          TEXT,                                      -- 驳回原因/审核备注
+    use_count            INT          NOT NULL DEFAULT 0,           -- 生成使用次数
+    is_featured          BOOLEAN      NOT NULL DEFAULT FALSE,       -- 管理员推荐
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-COMMENT ON TABLE templates IS '模板表：每个场景下可关联多个模板，定义不同的提示词及产出格式';
+COMMENT ON TABLE templates IS '模板表：每个场景下可关联多个模板，定义不同的提示词及产出格式；用户创建的模板需管理员审核（status）通过才能在生成中使用';
 
 COMMENT ON COLUMN templates.id          IS '模板唯一标识，如 T001';
 COMMENT ON COLUMN templates.scenario_id IS '关联的场景 ID';

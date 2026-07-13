@@ -11,7 +11,7 @@ import base64
 import io
 import re
 from app.database import query, query_one, transaction, _parse_json_fields
-from app.models import HistoryItem, HistoryUpdate, FeedbackRequest, VoteRequest
+from app.models import HistoryItem, HistoryUpdate, FeedbackRequest
 from app.auth import get_current_user, is_owner_or_admin
 from app.seo_analyzer import analyze as seo_analyze
 
@@ -364,60 +364,5 @@ def set_feedback(history_id: str, body: FeedbackRequest, user: dict = Depends(ge
         cur.execute(
             "UPDATE history SET feedback_voters = %s WHERE id = %s",
             (Json(voters), history_id),
-        )
-    return get_history(history_id, user)
-
-
-# ===== 加分项：A/B 测试（按版本投票，对比哪个版本更受欢迎）=====
-
-@router.put("/{history_id}/vote", response_model=HistoryItem)
-def vote_version(history_id: str, body: VoteRequest, user: dict = Depends(get_current_user)):
-    """对某条历史的指定版本投票（A/B 测试）。任何登录用户可投。
-
-    PUT /api/history/H001/vote
-    {"version_index": 1, "vote": "like"}
-
-    投票人由登录令牌决定（user.id），同一用户再次投票=改票，vote 为空=取消。
-    body.member_id 已弃用（不再信任前端传入）。
-    """
-    row = query_one("SELECT * FROM history WHERE id = %s", (history_id,))
-    if not row:
-        raise HTTPException(404, f"历史记录 {history_id} 不存在")
-
-    data = _parse_json_fields(row, JSON_FIELDS)
-    versions = data.get("versions", [])
-
-    # 找到目标版本（按 index 匹配）
-    target = next((v for v in versions if v.get("index") == body.version_index), None)
-    if target is None:
-        raise HTTPException(404, f"版本 {body.version_index} 不存在")
-
-    vote = (body.vote or "").strip()
-    if vote and vote not in ("like", "dislike"):
-        raise HTTPException(400, "vote 取值需为 like / dislike / 空字符串")
-
-    votes = target.get("votes") or {"like": 0, "dislike": 0}
-    voters = target.get("voters") or {}
-
-    # 投票人 = 当前登录用户（来自令牌，不可伪造）
-    member_id = user["id"]
-    # 先撤销该用户的旧票（如有），再计新票
-    old = voters.get(member_id)
-    if old:
-        votes[old] = max(0, votes.get(old, 0) - 1)
-    if vote:
-        voters[member_id] = vote
-        votes[vote] = votes.get(vote, 0) + 1
-    else:
-        voters.pop(member_id, None)    # 取消投票
-
-    target["votes"] = votes
-    target["voters"] = voters
-
-    # 整个 versions 数组写回（JSONB）
-    with transaction() as cur:
-        cur.execute(
-            "UPDATE history SET versions = %s WHERE id = %s",
-            (Json(versions), history_id),
         )
     return get_history(history_id, user)

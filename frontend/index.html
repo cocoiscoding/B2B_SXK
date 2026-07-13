@@ -415,9 +415,9 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                     </el-option-group>
                   </el-select>
                 </el-form-item>
-                <el-form-item label="选择模板" v-if="genForm.scenario_id && templatesOf(genForm.scenario_id).length">
+                <el-form-item label="选择模板" v-if="genForm.scenario_id && approvedTemplatesOf(genForm.scenario_id).length">
                   <el-select v-model="genForm.template_id" placeholder="请选择模板" style="width:100%">
-                    <el-option v-for="t in templatesOf(genForm.scenario_id)" :key="t.id" :label="t.name + (t.tag ? ' ('+t.tag+')' : '')" :value="t.id"/>
+                    <el-option v-for="t in approvedTemplatesOf(genForm.scenario_id)" :key="t.id" :label="t.name + (t.tag ? ' ('+t.tag+')' : '')" :value="t.id"/>
                   </el-select>
                 </el-form-item>
                 <!-- 渠道后置到阶段2：选定初稿后多选渠道 -->
@@ -428,6 +428,13 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                     <el-option label="亲和走心" value="亲和走心"/>
                   </el-select>
                 </el-form-item>
+                <el-form-item label="版本数量">
+                  <el-select v-model="genForm.version_count" style="width:100%">
+                    <el-option :value="1" label="1 个版本"/>
+                    <el-option :value="2" label="2 个版本"/>
+                    <el-option :value="3" label="3 个版本"/>
+                  </el-select>
+                </el-form-item>
                 <!-- 动态参数：简化为名称+描述，前端表现为文本输入框 -->
                 <el-form-item v-for="param in currentParams" :key="param.name" :label="param.name">
                   <el-input v-model="genForm.params[param.name]" :placeholder="param.description || '请输入' + param.name"/>
@@ -435,7 +442,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                 <el-form-item>
                   <el-button type="primary" size="large" style="width:100%;background:var(--primary);border-color:var(--primary)" @click="startDraft" :loading="generating">
                     <el-icon v-if="!generating"><MagicStick/></el-icon>
-                    {{ generating ? '检索-生成-校验中...' : '开始生成（3 个初稿）' }}
+                    {{ generating ? '检索-生成-校验中...' : `开始生成（${genForm.version_count} 个初稿）` }}
                   </el-button>
                 </el-form-item>
                 <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
@@ -534,7 +541,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                   </div>
                 </template>
                 <el-tabs v-model="activeVersion" type="card" class="version-tabs">
-                  <el-tab-pane v-for="v in genResult.versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index + '  👍' + (v.votes?.like||0) + '/👎' + (v.votes?.dislike||0) + (v.seo ? ' · SEO '+v.seo.score : '')">
+                  <el-tab-pane v-for="v in genResult.versions" :key="v.index" :name="String(v.index)" :label="'版本 ' + v.index + (v.seo ? ' · SEO '+v.seo.score : '')">
                     <div class="version-tab-pane">
                       <div style="text-align:right;margin-bottom:8px">
                         <el-button size="small" @click="genEditMode = !genEditMode">{{ genEditMode ? '预览' : '编辑' }}</el-button>
@@ -567,8 +574,6 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                       </div>
                       <!-- 操作按钮 -->
                       <div class="version-tools">
-                        <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(genResult.history_id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
-                        <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(genResult.history_id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
                         <el-button text size="small" @click="analyzeSeo(v)">🔍 SEO 分析</el-button>
                       </div>
                     </div>
@@ -641,6 +646,14 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                       <el-tag v-if="v.feature" size="small" type="primary" effect="plain" style="margin:2px">特色：{{ v.feature }}</el-tag>
                       <el-tag v-for="t in v.tags" :key="t" size="small" style="margin:2px">{{ t }}</el-tag>
                       <el-tag v-if="v.seo" size="small" effect="plain" :style="{color: seoColor(v.seo.score), borderColor: seoColor(v.seo.score)}">SEO {{ v.seo.score }}</el-tag>
+                    </div>
+                    <!-- 微调（局部 AI 重写）：输入指令让 LLM 重写这一版，保留产品事实 -->
+                    <div style="margin:8px 0">
+                      <el-input v-model="rewriteInstr[v.index]" size="small" placeholder="如：标题再短一点、卖点换成成本、语气活泼些" @keyup.enter="rewriteDraftVersion(v)">
+                        <template #append>
+                          <el-button :loading="rewritingIdx===v.index" @click="rewriteDraftVersion(v)">✨ 微调</el-button>
+                        </template>
+                      </el-input>
                     </div>
                     <div style="text-align:right">
                       <el-button text size="small" @click="analyzeSeo(v)">🔍 SEO 分析</el-button>
@@ -770,27 +783,45 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
               </div>
               <div v-if="templatesOf(s.id).length===0" style="text-align:center;padding:20px 0;color:var(--text-muted);font-size:13px">暂无模板，点击上方按钮新建</div>
               <el-table :data="templatesOf(s.id)" stripe size="small" v-else>
-                <el-table-column prop="name" label="模板名称" width="150"/>
+                <el-table-column prop="name" label="模板名称" width="150">
+                  <template #default="{row}">
+                    <span v-if="row.is_featured">⭐</span> {{ row.name }}
+                  </template>
+                </el-table-column>
                 <el-table-column prop="tag" label="标签" width="100">
                   <template #default="{row}">
                     <el-tag v-if="row.tag" size="small">{{ row.tag }}</el-tag>
-                    <span v-else style="color:var(--text-muted)">—</span>
+                    <span v-else style="color:var(--text-muted)">-</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="description" label="描述" min-width="200">
+                <el-table-column prop="description" label="描述" min-width="180">
                   <template #default="{row}">
                     <span style="font-size:13px;color:var(--text-secondary)">{{ row.description }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="prompt" label="提示词" min-width="200">
+                <el-table-column label="状态" width="130">
                   <template #default="{row}">
-                    <span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:250px">{{ row.prompt }}</span>
+                    <el-tag v-if="row.status==='approved'" size="small" type="success">已通过</el-tag>
+                    <el-tag v-else-if="row.status==='pending'" size="small" type="warning">待审核</el-tag>
+                    <el-tag v-else-if="row.status==='rejected'" size="small" type="danger" :title="row.review_note || '已驳回'">已驳回</el-tag>
+                    <el-tag v-else size="small" type="success">已通过</el-tag>
+                    <span style="font-size:11px;color:var(--text-muted);margin-left:4px">用{{ row.use_count||0 }}次</span>
                   </template>
                 </el-table-column>
-                <el-table-column label="操作" width="140">
+                <el-table-column prop="prompt" label="提示词" min-width="180">
+                  <template #default="{row}">
+                    <span style="font-size:12px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:220px">{{ row.prompt }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="240">
                   <template #default="{row}">
                     <el-button text size="small" @click="openTemplateDialog(s.id, row)">编辑</el-button>
                     <el-button text size="small" type="danger" @click="deleteTemplate(s.id, row)">删除</el-button>
+                    <template v-if="currentUser.is_admin">
+                      <el-button v-if="row.status==='pending'" text size="small" type="success" @click="reviewTemplate(row,'approved')">通过</el-button>
+                      <el-button v-if="row.status==='pending'" text size="small" type="danger" @click="reviewTemplate(row,'rejected')">驳回</el-button>
+                      <el-button text size="small" @click="featureTemplate(row, !row.is_featured)">{{ row.is_featured ? '取消推荐' : '推荐' }}</el-button>
+                    </template>
                   </template>
                 </el-table-column>
               </el-table>
@@ -826,8 +857,8 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
               </div>
             </div>
             <div class="hc-actions" @click.stop>
-              <el-button text size="small" :type="row.feedback==='like'?'success':'info'" @click="setFeedback(row,'like')">👍 {{row.like_count||0}}</el-button>
-              <el-button text size="small" :type="row.feedback==='dislike'?'danger':'info'" @click="setFeedback(row,'dislike')">👎 {{row.dislike_count||0}}</el-button>
+              <el-button text size="small" :type="row.feedback==='like'?'success':'info'" title="点赞帮助系统学习偏好，优化该产品后续生成" @click="setFeedback(row,'like')">👍 {{row.like_count||0}}</el-button>
+              <el-button text size="small" :type="row.feedback==='dislike'?'danger':'info'" title="踩表示不认可，系统会避免类似风格" @click="setFeedback(row,'dislike')">👎 {{row.dislike_count||0}}</el-button>
               <el-button text size="small" @click="exportHistory(row)">导出</el-button>
               <el-button text size="small" type="danger" @click="deleteHistory(row)">删除</el-button>
             </div>
@@ -851,21 +882,19 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
               <el-descriptions-item label="反馈">
                 <el-button text size="small" :type="currentHistory.feedback==='like'?'success':'info'" @click="setFeedback(currentHistory,'like')">👍 {{currentHistory.like_count||0}}{{ currentHistory.feedback==='like'?' 已赞':'' }}</el-button>
                 <el-button text size="small" :type="currentHistory.feedback==='dislike'?'danger':'info'" @click="setFeedback(currentHistory,'dislike')">👎 {{currentHistory.dislike_count||0}}{{ currentHistory.feedback==='dislike'?' 已踩':'' }}</el-button>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:4px">点赞帮助系统学习你的偏好，将优化该产品后续生成</div>
               </el-descriptions-item>
               <el-descriptions-item label="创建人">
                 <span v-if="memberName(currentHistory.created_by)" :style="{color:memberColor(currentHistory.created_by)}">● {{ memberName(currentHistory.created_by) }}</span>
                 <span v-else style="color:#bbb">未标记</span>
               </el-descriptions-item>
             </el-descriptions>
-            <el-alert v-if="leadingVersion(currentHistory.versions)" type="success" :closable="false" style="margin-bottom:12px">
-              🏆 A/B 领先版本：版本 {{ leadingVersion(currentHistory.versions).index }}（👍{{ leadingVersion(currentHistory.versions).votes.like }} / 👎{{ leadingVersion(currentHistory.versions).votes.dislike }}）
-            </el-alert>
             <div style="text-align:right;margin-bottom:8px">
               <el-button size="small" @click="historyEditMode=!historyEditMode">{{ historyEditMode ? '预览' : '编辑' }}</el-button>
               <el-button v-if="historyEditMode" size="small" type="primary" style="background:var(--primary);border-color:var(--primary)" @click="saveHistoryDetail">保存修改</el-button>
             </div>
             <el-tabs type="card">
-              <el-tab-pane v-for="v in currentHistory.versions" :key="v.index" :label="'版本 '+v.index+' (👍'+(v.votes?.like||0)+'/👎'+(v.votes?.dislike||0)+')' + (v.seo ? ' · SEO '+v.seo.score : '')">
+              <el-tab-pane v-for="v in currentHistory.versions" :key="v.index" :label="'版本 '+v.index + (v.seo ? ' · SEO '+v.seo.score : '')">
                 <template v-if="historyEditMode">
                   <el-input v-model="v.title" style="margin-bottom:8px"><template #prepend>标题</template></el-input>
                   <div class="version-body-input"><el-input type="textarea" :rows="8" v-model="v.body"/></div>
@@ -883,8 +912,6 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                   </div>
                 </template>
                 <div class="version-tools" style="margin-top:8px">
-                  <el-button text size="small" :type="votedDir(v)==='like'?'success':'info'" @click="castVote(currentHistory.id, v, 'like')">👍 {{ v.votes?.like||0 }}</el-button>
-                  <el-button text size="small" :type="votedDir(v)==='dislike'?'danger':'info'" @click="castVote(currentHistory.id, v, 'dislike')">👎 {{ v.votes?.dislike||0 }}</el-button>
                   <el-button text size="small" @click="analyzeSeo(v)">🔍 SEO 分析</el-button>
                 </div>
               </el-tab-pane>
@@ -1169,6 +1196,8 @@ const app = createApp({
     const selectedChannels = ref([]);          // Step1 多选渠道
     const adaptingDraft = ref(false);          // 渠道适配中
     const finalizingDraft = ref(false);        // 文生图保存中
+    const rewriteInstr = reactive({});          // 每个初稿版本的微调指令 {version_index: 指令文本}
+    const rewritingIdx = ref(null);            // 正在微调的版本 index（loading 态）
     const draftStep = computed(() => {         // 由草稿阶段推导当前步骤（刷新恢复后自动正确）
       const s = currentDraft.value?.stage;
       if (!s || s === 'draft') return 0;
@@ -1228,6 +1257,7 @@ const app = createApp({
 
     // 获取指定场景下的模板
     const templatesOf = (scenarioId) => templates.value.filter(t => t.scenario_id === scenarioId);
+    const approvedTemplatesOf = (scenarioId) => templatesOf(scenarioId).filter(t => t.status === 'approved');
     const currentScenario = computed(() => scenarios.value.find(s => s.id === genForm.scenario_id));
     const currentParams = computed(() => currentScenario.value?.parameters || []);
     const availableChannels = computed(() => channelOptions.value.map(ch => ch.name));
@@ -1479,8 +1509,8 @@ const app = createApp({
       genForm.params = {};
       genForm.template_id = '';
       currentParams.value.forEach(p => { genForm.params[p.name] = ''; });
-      // 自动选中该场景下的第一个模板
-      const tms = templatesOf(genForm.scenario_id);
+      // 自动选中该场景下的第一个已通过审核的模板
+      const tms = approvedTemplatesOf(genForm.scenario_id);
       if (tms.length > 0) genForm.template_id = tms[0].id;
     };
 
@@ -1554,7 +1584,7 @@ const app = createApp({
           template_id: genForm.template_id,
           style: genForm.style,
           params: genForm.params,
-          version_count: 3
+          version_count: genForm.version_count
         }, {
           onStep: handleLiveStep,
           onDone: (draft) => {
@@ -1594,6 +1624,22 @@ const app = createApp({
       } finally {
         generating.value = false;
       }
+    };
+
+    // 阶段1内：单版本微调（按指令让 LLM 重写这一版，保留产品事实）
+    const rewriteDraftVersion = async (v) => {
+      const instr = (rewriteInstr[v.index] || '').trim();
+      if (!instr) { ElementPlus.ElMessage.warning('请输入改写指令'); return; }
+      rewritingIdx.value = v.index;
+      try {
+        const updated = await api(`/api/drafts/${currentDraft.value.id}/versions/${v.index}/rewrite`, {
+          method: 'POST', body: { instruction: instr }
+        });
+        currentDraft.value = updated;          // 返回完整 Draft，版本内容原地更新
+        ElementPlus.ElMessage.success('已微调');
+        rewriteInstr[v.index] = '';
+      } catch (e) { ElementPlus.ElMessage.error('微调失败: ' + e.message); }
+      finally { rewritingIdx.value = null; }
     };
 
     // 阶段2：选定一个版本（进入渠道适配页）
@@ -1860,6 +1906,29 @@ const app = createApp({
       } catch (e) { if (e !== 'cancel') ElementPlus.ElMessage.error('删除失败'); }
     };
 
+    // 模板审核（管理员）+ 推荐
+    const reviewTemplate = async (t, decision) => {
+      let note = '';
+      if (decision === 'rejected') {
+        try {
+          const r = await ElementPlus.ElMessageBox.prompt('请输入驳回原因', '驳回模板', { type: 'warning', inputPlaceholder: '驳回原因（选填）' });
+          note = r.value || '';
+        } catch (e) { return; }  // 取消
+      }
+      try {
+        await api(`/api/templates/${t.id}/review`, { method: 'PUT', body: { decision, note } });
+        templates.value = await api('/api/templates/all');
+        ElementPlus.ElMessage.success(decision === 'approved' ? '已通过审核' : '已驳回');
+      } catch (e) { ElementPlus.ElMessage.error('操作失败: ' + e.message); }
+    };
+    const featureTemplate = async (t, val) => {
+      try {
+        await api(`/api/templates/${t.id}/feature`, { method: 'PUT', body: { featured: val } });
+        templates.value = await api('/api/templates/all');
+        ElementPlus.ElMessage.success(val ? '已推荐' : '已取消推荐');
+      } catch (e) { ElementPlus.ElMessage.error('操作失败: ' + e.message); }
+    };
+
     // 历史
     const viewHistory = async (row) => {
       currentHistory.value = await api(`/api/history/${row.id}`);
@@ -1890,7 +1959,7 @@ const app = createApp({
         });
         Object.assign(row, updated);
         await reloadHistory();   // 同步列表中的反馈状态
-        ElementPlus.ElMessage.success(next ? (next === 'like' ? '已点赞' : '已踩') : '已取消标记');
+        ElementPlus.ElMessage.success(next ? (next === 'like' ? '已点赞，将优化该产品后续生成' : '已标记，系统会避免类似风格') : '已取消标记');
       } catch (e) { ElementPlus.ElMessage.error('操作失败: ' + e.message); }
     };
 
@@ -1972,41 +2041,7 @@ const app = createApp({
       }
     };
 
-    // A/B 测试投票（加分项）—— 按版本投票，同方向再点 = 取消
-    const votedDir = (v) => {
-      const id = currentUser.value?.id;
-      return (v.voters && id && v.voters[id]) || '';
-    };
-    const castVote = async (historyId, version, vote) => {
-      const next = votedDir(version) === vote ? '' : vote;   // 同向再点 = 取消
-      try {
-        const updated = await api(`/api/history/${historyId}/vote`, {
-          method: 'PUT',
-          body: { version_index: version.index, vote: next }
-        });
-        // 用返回结果回填当前 version 的 votes/voters
-        const uv = updated.versions.find(x => x.index === version.index);
-        if (uv) { version.votes = uv.votes; version.voters = uv.voters; }
-        // 同步历史列表中对应记录的版本票数
-        const listRow = history.value.find(r => r.id === historyId);
-        if (listRow) {
-          const lv = listRow.versions.find(x => x.index === version.index);
-          if (lv && uv) { lv.votes = uv.votes; lv.voters = uv.voters; }
-        }
-        ElementPlus.ElMessage.success(next ? '已投票' : '已取消投票');
-      } catch (e) { ElementPlus.ElMessage.error('投票失败: ' + e.message); }
-    };
-
-    // A/B 领先版本：净票数(赞-踩)最高且为正的版本，无正票返回 null
-    const leadingVersion = (versions) => {
-      if (!versions || !versions.length) return null;
-      let best = null, bestNet = 0;
-      for (const v of versions) {
-        const net = (v.votes?.like || 0) - (v.votes?.dislike || 0);
-        if (net > bestNet) { bestNet = net; best = v; }
-      }
-      return best;
-    };
+    // 版本级 A/B 投票已移除：统一为历史记录级赞/踩（见 setFeedback），用于优化该产品后续生成
 
     // SEO 分析（加分项）
     const analyzeSeo = async (v) => {
@@ -2258,17 +2293,17 @@ const app = createApp({
       onProductChange, onScenarioChange, doGenerate, saveToHistory, exportResult,
       currentDraft, draftStep, draftVersionIndex, adaptVersionIndex,
       draftEditingVersion, selectedChannels, adaptingDraft, finalizingDraft,
-      startDraft, regenerateDraft, selectDraftVersion, doAdapt, doFinalize,
+      rewriteInstr, rewritingIdx,
+      startDraft, regenerateDraft, rewriteDraftVersion, selectDraftVersion, doAdapt, doFinalize,
       exportDraftResult, discardDraft, bodyCharCount,
       openProductDialog, saveProduct, deleteProduct,
       openScenarioDialog, saveScenario, deleteScenario,
-      toggleScenario, templatesOf,
-      openTemplateDialog, saveTemplate, deleteTemplate,
+      toggleScenario, templatesOf, approvedTemplatesOf,
+      openTemplateDialog, saveTemplate, deleteTemplate, reviewTemplate, featureTemplate,
       viewHistory, exportHistory, deleteHistory, renderMarkdown, renderArticle,
       setFeedback, saveHistoryDetail, triggerUpload, handleUpload,
       members, memberName, memberColor, productMemberFilter, reloadProducts,
       historyMemberFilter, reloadHistory,
-      castVote, votedDir, leadingVersion,
       seoVisible, seoResult, seoScoreColor, seoLevelType, seoLevelText, seoLevelDesc, seoTypeLabel, analyzeSeo, seoColor, bestSeoScore,
       // 鉴权
       currentUser, loggedIn, authView, authLoading, loginForm, registerForm,

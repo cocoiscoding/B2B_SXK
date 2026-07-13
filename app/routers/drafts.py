@@ -19,7 +19,7 @@ from psycopg2.extras import Json
 import uuid
 from app.database import query_one, transaction
 from app.models import (
-    Draft, CreateDraftRequest, RegenerateRequest, SelectVersionRequest, AdaptRequest,
+    Draft, CreateDraftRequest, RegenerateRequest, RewriteRequest, SelectVersionRequest, AdaptRequest,
     VersionContent,
 )
 from app.agents.orchestrator import get_orchestrator
@@ -254,7 +254,7 @@ def regenerate_draft_stream(draft_id: str, body: RegenerateRequest, user: dict =
         template_id=d.get("template_id"),
         style=d.get("style", "专业严谨"),
         params=params,
-        version_count=3,
+        version_count=len(d.get("draft_versions") or []) or 3,
     )
 
     def persist(result):
@@ -282,6 +282,51 @@ def regenerate_draft_stream(draft_id: str, body: RegenerateRequest, user: dict =
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/{draft_id}/versions/{version_index}/rewrite", response_model=Draft)
+def rewrite_version(draft_id: str, version_index: int, body: RewriteRequest,
+                    user: dict = Depends(get_current_user)):
+    """单版本微调：按用户指令让 LLM 重写初稿中的某个版本（保留产品事实）。
+
+    仅初稿阶段（stage=draft）可用。原地替换该版本，重新校验 + 重算 SEO，追加 trace。
+    """
+    d = _get_owned_draft(draft_id, user)
+    if not (body.instruction or "").strip():
+        raise HTTPException(400, "请输入改写指令")
+    if d.get("stage") not in (None, "draft"):
+        raise HTTPException(400, "微调仅在初稿阶段可用")
+    try:
+        result = get_orchestrator().run_rewrite(d, version_index, body.instruction)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    # 原地替换目标版本
+    versions = d.get("draft_versions") or []
+    for i, v in enumerate(versions):
+        if v.get("index") == version_index:
+            versions[i] = result["version"]
+            break
+    # 合并校验结果到 validation
+    validation = d.get("validation") or {}
+    if isinstance(validation, dict):
+        validation = {**validation, "issues": result["issues"], "validated": result["validated"]}
+    # 追加 trace
+    trace = list(d.get("agent_trace") or []) + [{
+        "agent": "微调 Agent",
+        "status": "success" if result["validated"] else "warning",
+        "message": f"已按指令微调版本 {version_index}",
+        "duration_ms": 0,
+        "output": {"instruction": body.instruction, "issues": result["issues"]},
+    }]
+    with transaction() as cur:
+        cur.execute(
+            """UPDATE drafts SET draft_versions=%s, validation=%s, agent_trace=%s,
+                 updated_at=NOW() WHERE id=%s""",
+            (Json(versions), Json(validation), Json(trace), draft_id),
+        )
+    row = query_one("SELECT * FROM drafts WHERE id = %s", (draft_id,))
+    return _row_to_draft(row)
 
 
 @router.put("/{draft_id}/select", response_model=Draft)
