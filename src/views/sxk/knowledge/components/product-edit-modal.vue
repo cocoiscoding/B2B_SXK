@@ -53,13 +53,25 @@
       </el-form-item>
 
       <el-form-item label="产品分类" prop="category">
-        <el-select v-if="editing" v-model="form.category" placeholder="请选择" style="width: 100%">
+        <el-select
+          v-if="editing"
+          v-model="form.category"
+          multiple
+          collapse-tags
+          collapse-tags-tooltip
+          clearable
+          placeholder="可多选"
+          style="width: 100%"
+        >
           <el-option label="数据分析" value="数据分析" />
           <el-option label="CRM" value="CRM" />
           <el-option label="营销自动化" value="营销自动化" />
+          <el-option label="企业版" value="企业版" />
           <el-option label="其他" value="其他" />
         </el-select>
-        <div v-else class="pe-readonly-text">{{ form.category || '无' }}</div>
+        <div v-else class="pe-readonly-text">
+          {{ (form.category && form.category.length) ? form.category.join('、') : '无' }}
+        </div>
       </el-form-item>
 
       <el-form-item label="产品描述" prop="description">
@@ -425,9 +437,21 @@ const saving = ref(false)
 // 是否处于编辑态：readonly 模式下初始为 false，点击"编辑"后切换为 true
 const editing = ref(true)
 
+/**
+ * 归一化 category 为字符串数组：后端契约 {category: string[]}
+ * 兼容：null / undefined / 字符串 / 数组 / 拼接字符串 "a, b"
+ */
+const normalizeCategory = (v) => {
+  if (Array.isArray(v)) return v.map((x) => String(x).trim()).filter(Boolean)
+  if (v == null) return []
+  const s = String(v).trim()
+  if (!s) return []
+  return s.split(/[,，、;;\n]/).map((x) => x.trim()).filter(Boolean)
+}
+
 const blankForm = () => ({
   name: '',
-  category: '',
+  category: [],
   description: '',
   pricing: '',
   features: [{ name: '', description: '' }],
@@ -475,6 +499,7 @@ const initForm = async () => {
   if (props.prefillData) {
     Object.assign(form, {
       ...props.prefillData,
+      category: normalizeCategory(props.prefillData.category),
       features: props.prefillData.features?.length
         ? props.prefillData.features
         : [{ name: '', description: '' }]
@@ -488,6 +513,7 @@ const initForm = async () => {
   if (res.data) {
     Object.assign(form, {
       ...res.data,
+      category: normalizeCategory(res.data.category),
       features: res.data.features?.length
         ? res.data.features
         : [{ name: '', description: '' }]
