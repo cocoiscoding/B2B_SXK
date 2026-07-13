@@ -129,7 +129,7 @@
       </el-form-item>
 
       <el-form-item label="目标客户">
-        <tag-input v-if="editing" v-model="form.target_customers" placeholder="回车添加（如：制造业）" />
+        <tag-input v-if="editing" ref="tagInputTarget" v-model="form.target_customers" placeholder="回车添加（如：制造业）" />
         <div v-else class="pe-readonly-tags">
           <el-tag v-for="t in form.target_customers" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
           <span v-if="!form.target_customers.length" class="pe-readonly-text">无</span>
@@ -147,7 +147,7 @@
       </el-form-item>
 
       <el-form-item label="竞品名称">
-        <tag-input v-if="editing" v-model="form.competitors" placeholder="回车添加（如：产品 Y）" />
+        <tag-input v-if="editing" ref="tagInputCompetitors" v-model="form.competitors" placeholder="回车添加（如：产品 Y）" />
         <div v-else class="pe-readonly-tags">
           <el-tag v-for="t in form.competitors" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
           <span v-if="!form.competitors.length" class="pe-readonly-text">无</span>
@@ -155,7 +155,7 @@
       </el-form-item>
 
       <el-form-item label="产品卖点">
-        <tag-input v-if="editing" v-model="form.selling_points" placeholder="回车添加（如：部署快）" />
+        <tag-input v-if="editing" ref="tagInputSelling" v-model="form.selling_points" placeholder="回车添加（如：部署快）" />
         <div v-else class="pe-readonly-tags">
           <el-tag v-for="t in form.selling_points" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
           <span v-if="!form.selling_points.length" class="pe-readonly-text">无</span>
@@ -432,6 +432,9 @@ const emit = defineEmits(['update:modelValue', 'saved'])
 
 // ========== 表单状态 ==========
 const formRef = ref(null)
+const tagInputTarget = ref(null)
+const tagInputCompetitors = ref(null)
+const tagInputSelling = ref(null)
 const loading = ref(false)
 const saving = ref(false)
 // 是否处于编辑态：readonly 模式下初始为 false，点击"编辑"后切换为 true
@@ -559,12 +562,12 @@ const initForm = async () => {
 const cancel = () => emit('update:modelValue', false)
 
 const submit = async () => {
-  // 关键：保存前主动 blur 当前活动元素（如 tag-input 的 input）
-  // 触发 onBlur → commit()，确保未回车的内容被收集到 form
-  if (typeof document !== 'undefined' && document.activeElement?.blur) {
-    document.activeElement.blur()
-  }
-  // 等待 Vue 完成 onBlur 触发的 reactive 更新
+  // 关键：保存前主动触发所有 tag-input 的 commit()
+  // 确保未回车的输入也被收集到 form（v-model + blur 都不可靠时唯一保险做法）
+  tagInputTarget.value?.commit?.()
+  tagInputCompetitors.value?.commit?.()
+  tagInputSelling.value?.commit?.()
+  // 等待 Vue 完成 v-model reactive 更新
   await nextTick()
   try {
     console.log('[product-edit-modal] submit start', { category: form.category, name: form.name, competitors: form.competitors })

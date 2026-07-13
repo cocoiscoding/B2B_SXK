@@ -72,6 +72,9 @@ const onBackspace = () => {
     remove(props.modelValue.length - 1)
   }
 }
+
+// 暴露 commit 方法给父组件（用于父组件在 submit 前强制收集未提交的输入）
+defineExpose({ commit })
 </script>
 
 <style lang="scss" scoped>
