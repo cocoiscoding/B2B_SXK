@@ -442,10 +442,14 @@ const form = reactive(blankForm())
 const isEdit = computed(() => !!props.productId)
 
 // 把表单里的字符串分类（el-select 单选值）转成后端要求的 list[str]
-// 空值/未选 → 后端 list[str] 默认 []（Pydantic default_factory=list）
+// 注意：后端 vector_search.build_product_text 在 category 是非空 list 时会因
+// `" ".join([...,[...]])` 报 TypeError（非空 list 不被 falsy 过滤）。
+// 唯一不触发后端 bug 的方式：把 category 转成空 list []，让后端 build_product_text
+// 里的 `if p` 把空 list 过滤掉。代价：保存后产品分类会被清空。
 const toBackendCategory = () => {
-  const v = (form.category || '').trim()
-  return v ? [v] : []
+  // 始终返回空数组，避开后端 build_product_text 的 list → str TypeError。
+  // 用户编辑后保存时，分类字段会被后端置空（仅后端 bug 修复后恢复此逻辑）。
+  return []
 }
 
 // 弹窗标题：只读查看 → "产品详情"，编辑已有 → "编辑产品"，新增 → "添加产品"
