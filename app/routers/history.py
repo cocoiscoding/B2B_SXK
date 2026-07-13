@@ -38,6 +38,9 @@ def _inject_current_feedback(rows, user_id: str):
             r["like_count"] = sum(1 for v in voters.values() if v == "like")
             r["dislike_count"] = sum(1 for v in voters.values() if v == "dislike")
         else:
+            # voters 为空：当前用户未投票。清掉可能残留的旧 feedback 单值，
+            # 避免前端显示"已点赞"但 like_count=0 的不一致（从单值 feedback 迁移的老数据）
+            r["feedback"] = None
             r["like_count"] = 0
             r["dislike_count"] = 0
     return rows
@@ -342,7 +345,7 @@ def set_feedback(history_id: str, body: FeedbackRequest, user: dict = Depends(ge
     {"feedback": "dislike"}   → 踩
     {"feedback": ""}          → 取消标记
     """
-    existing = query_one("SELECT id, feedback_voters FROM history WHERE id = %s", (history_id,))
+    existing = query_one("SELECT id FROM history WHERE id = %s", (history_id,))
     if not existing:
         raise HTTPException(404, f"历史记录 {history_id} 不存在")
 
@@ -350,19 +353,22 @@ def set_feedback(history_id: str, body: FeedbackRequest, user: dict = Depends(ge
     fb = (body.feedback or "").strip()
     if fb and fb not in ("like", "dislike"):
         raise HTTPException(400, "feedback 取值需为 like / dislike / 空字符串")
-    # 空字符串 → 写入 NULL（数据库里用 NULL 表示"未标记"）
-    # per-user 改票/取消：更新 feedback_voters 中当前用户的态度（互不覆盖）
-    voters = existing.get("feedback_voters") or {}
-    if not isinstance(voters, dict):
-        voters = {}
-    if fb:
-        voters[user["id"]] = fb
-    else:
-        voters.pop(user["id"], None)
-
+    # 在 PostgreSQL 内原子更新当前用户对应的 JSON key。
+    # 旧实现先读整个对象再整块写回，多人同时投票时后提交者会覆盖先提交者。
     with transaction() as cur:
-        cur.execute(
-            "UPDATE history SET feedback_voters = %s WHERE id = %s",
-            (Json(voters), history_id),
-        )
+        if fb:
+            cur.execute(
+                """UPDATE history
+                   SET feedback_voters = COALESCE(feedback_voters, '{}'::jsonb)
+                                         || jsonb_build_object(%s, %s)
+                   WHERE id = %s""",
+                (user["id"], fb, history_id),
+            )
+        else:
+            cur.execute(
+                """UPDATE history
+                   SET feedback_voters = COALESCE(feedback_voters, '{}'::jsonb) - %s
+                   WHERE id = %s""",
+                (user["id"], history_id),
+            )
     return get_history(history_id, user)

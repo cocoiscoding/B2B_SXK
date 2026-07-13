@@ -404,11 +404,44 @@ def adapt_draft(draft_id: str, body: AdaptRequest, user: dict = Depends(get_curr
 
 @router.post("/{draft_id}/finalize", response_model=Draft)
 def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
-    """阶段4：对多渠道版本配图 -> 写 history -> 回填 history_id。"""
+    """阶段4：对多渠道版本配图 -> 写 history -> 回填 history_id。
+
+    并发安全：用 stage='adapted' -> 'imaged' 的 CAS 占位，确保同一草稿的并发
+    finalize 只有一个会调用昂贵的 run_images（文生图）。其余请求若首个已完成则
+    直接返回结果，否则返回 409 让前端稍后重试，避免重复文生图浪费成本/配额。
+    落 history 仍用 FOR UPDATE 兜底，保证不产生重复历史记录。
+    """
     d = _get_owned_draft(draft_id, user)
+    # 快路径：已完成直接返回（幂等：浏览器重试/重复点击不再调用文生图）
+    if d.get("history_id"):
+        return _row_to_draft(d)
     versions = d.get("versions") or []
     if not versions:
         raise HTTPException(400, "尚无渠道版本，请先完成阶段3适配")
+
+    # CAS 占位：仅 stage='adapted' 的草稿进入配图，并发的第二个请求 rowcount=0。
+    # run_images 很慢（可能数十秒），不能放进事务锁内，故用 stage 做轻量互斥。
+    with transaction() as cur:
+        cur.execute(
+            "UPDATE drafts SET stage='imaged', updated_at=NOW() "
+            "WHERE id=%s AND stage='adapted'",
+            (draft_id,),
+        )
+        claimed = cur.rowcount
+    if not claimed:
+        fresh = query_one("SELECT * FROM drafts WHERE id=%s", (draft_id,))
+        if fresh and fresh.get("history_id"):
+            # 首个并发请求已完成，返回它写入的最终状态
+            return _row_to_draft(fresh)
+        if fresh and fresh.get("stage") == "imaged":
+            # 上次配图中途崩溃残留 imaged：重置为 adapted 让用户重试
+            with transaction() as cur:
+                cur.execute(
+                    "UPDATE drafts SET stage='adapted' WHERE id=%s AND stage='imaged'",
+                    (draft_id,),
+                )
+            raise HTTPException(409, "上次配图未完成，已重置，请重试")
+        raise HTTPException(409, "该草稿正在完成中，请稍后重试")
 
     try:
         orch = get_orchestrator()
@@ -418,6 +451,9 @@ def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
             retrieved_info=d.get("retrieved_info") or {},
         )
     except ValueError as e:
+        # 配图失败：回退 stage 以便用户重试
+        with transaction() as cur:
+            cur.execute("UPDATE drafts SET stage='adapted' WHERE id=%s", (draft_id,))
         raise HTTPException(400, str(e))
 
     versions = result["versions"]
@@ -432,25 +468,37 @@ def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
 
     version_objs = [_to_version_content(v, i) for i, v in enumerate(versions)]
     history_id = f"H{uuid.uuid4().hex[:8]}"
+    existing_history_id = None
     with transaction() as cur:
-        cur.execute(
-            """INSERT INTO history
-            (id, product_id, product_name, scenario_id, scenario_name,
-             channel, style, params, versions, agent_trace, validated, issues, created_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (
-                history_id, d["product_id"], d.get("product_name", ""),
-                d["scenario_id"], d.get("scenario_name", ""),
-                channel_str, d.get("style", ""), Json(d.get("params") or {}),
-                Json([v.model_dump() for v in version_objs]),
-                Json(trace), validated, Json(issues), user["id"],
-            ),
-        )
-        cur.execute(
-            """UPDATE drafts SET versions=%s, agent_trace=%s, history_id=%s,
-                 stage='done', updated_at=NOW() WHERE id=%s""",
-            (Json(versions), Json(trace), history_id, draft_id),
-        )
+        # stage 已占位，此处 FOR UPDATE 仅作兜底，保证极端情况下不产生重复 history
+        cur.execute("SELECT history_id FROM drafts WHERE id=%s FOR UPDATE", (draft_id,))
+        locked = cur.fetchone()
+        if not locked:
+            raise HTTPException(404, f"草稿 {draft_id} 不存在")
+        existing_history_id = locked[0]
+        if not existing_history_id:
+            cur.execute(
+                """INSERT INTO history
+                (id, product_id, product_name, scenario_id, scenario_name,
+                 channel, style, params, versions, agent_trace, validated, issues, created_by)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (
+                    history_id, d["product_id"], d.get("product_name", ""),
+                    d["scenario_id"], d.get("scenario_name", ""),
+                    channel_str, d.get("style", ""), Json(d.get("params") or {}),
+                    Json([v.model_dump() for v in version_objs]),
+                    Json(trace), validated, Json(issues), user["id"],
+                ),
+            )
+            cur.execute(
+                """UPDATE drafts SET versions=%s, agent_trace=%s, history_id=%s,
+                     stage='done', updated_at=NOW() WHERE id=%s""",
+                (Json(versions), Json(trace), history_id, draft_id),
+            )
+    if existing_history_id:
+        # 另一个并发请求已经完成，返回它写入的最终状态。
+        row = query_one("SELECT * FROM drafts WHERE id = %s", (draft_id,))
+        return _row_to_draft(row)
     row = query_one("SELECT * FROM drafts WHERE id = %s", (draft_id,))
     return _row_to_draft(row)
 

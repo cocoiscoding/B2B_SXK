@@ -77,6 +77,7 @@ CREATE TABLE scenarios (
     name        VARCHAR(200) NOT NULL,
     description TEXT,
     parameters  JSONB        NOT NULL DEFAULT '[]'::jsonb,
+    created_by  VARCHAR(20),
     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -86,6 +87,7 @@ COMMENT ON COLUMN scenarios.id          IS '场景唯一标识，如 S001';
 COMMENT ON COLUMN scenarios.name        IS '场景名称，如 官网首页 Banner 文案';
 COMMENT ON COLUMN scenarios.description IS '场景用途说明';
 COMMENT ON COLUMN scenarios.parameters  IS '场景参数定义，JSON 数组，元素结构 {name, description}';
+COMMENT ON COLUMN scenarios.created_by  IS '自定义场景创建人；NULL 表示内置/存量场景';
 
 
 -- ---------- 2.3 模板表（关联在场景下）----------

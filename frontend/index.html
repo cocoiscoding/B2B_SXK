@@ -764,7 +764,7 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                   <el-tag size="small" :type="expandedScenario===s.id?'primary':'info'">{{ s.parameters.length }} 个参数</el-tag>
                   <el-tag size="small">{{ templatesOf(s.id).length }} 个模板</el-tag>
                 </div>
-                <div @click.stop>
+                <div v-if="canEditScenario(s)" @click.stop>
                   <el-button text size="small" @click="openScenarioDialog(s)">编辑</el-button>
                   <el-button text size="small" type="danger" @click="deleteScenario(s)">删除</el-button>
                 </div>
@@ -815,8 +815,10 @@ body { font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei",
                 </el-table-column>
                 <el-table-column label="操作" width="240">
                   <template #default="{row}">
-                    <el-button text size="small" @click="openTemplateDialog(s.id, row)">编辑</el-button>
-                    <el-button text size="small" type="danger" @click="deleteTemplate(s.id, row)">删除</el-button>
+                    <template v-if="canEditTemplate(row)">
+                      <el-button text size="small" @click="openTemplateDialog(s.id, row)">编辑</el-button>
+                      <el-button text size="small" type="danger" @click="deleteTemplate(s.id, row)">删除</el-button>
+                    </template>
                     <template v-if="currentUser.is_admin">
                       <el-button v-if="row.status==='pending'" text size="small" type="success" @click="reviewTemplate(row,'approved')">通过</el-button>
                       <el-button v-if="row.status==='pending'" text size="small" type="danger" @click="reviewTemplate(row,'rejected')">驳回</el-button>
@@ -1819,6 +1821,15 @@ const app = createApp({
     };
 
     // 场景 CRUD
+    const canEditScenario = (scenario) => Boolean(
+      currentUser.value?.is_admin ||
+      (scenario.created_by && scenario.created_by === currentUser.value?.id)
+    );
+    const canEditTemplate = (template) => Boolean(
+      currentUser.value?.is_admin ||
+      (template.created_by && template.created_by === currentUser.value?.id)
+    );
+
     const openScenarioDialog = (s) => {
       Object.keys(editingScenario).forEach(k => delete editingScenario[k]);
       if (s) {
@@ -2298,7 +2309,7 @@ const app = createApp({
       exportDraftResult, discardDraft, bodyCharCount,
       openProductDialog, saveProduct, deleteProduct,
       openScenarioDialog, saveScenario, deleteScenario,
-      toggleScenario, templatesOf, approvedTemplatesOf,
+      toggleScenario, templatesOf, approvedTemplatesOf, canEditScenario, canEditTemplate,
       openTemplateDialog, saveTemplate, deleteTemplate, reviewTemplate, featureTemplate,
       viewHistory, exportHistory, deleteHistory, renderMarkdown, renderArticle,
       setFeedback, saveHistoryDetail, triggerUpload, handleUpload,

@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from psycopg2.extras import Json
 from app.database import query, query_one, transaction, _parse_json_fields
 from app.models import ScenarioCreate, Scenario
-from app.auth import get_current_user
+from app.auth import get_current_user, is_owner_or_admin
 
 router = APIRouter(prefix="/api/scenarios", tags=["场景管理"])
 
@@ -40,13 +40,16 @@ def get_scenario(scenario_id: str, user: dict = Depends(get_current_user)):
 def create_scenario(body: ScenarioCreate, user: dict = Depends(get_current_user)):
     """创建自定义场景。"""
     sid = body.id or f"S{uuid.uuid4().hex[:6].upper()}"
+    if query_one("SELECT id FROM scenarios WHERE id = %s", (sid,)):
+        raise HTTPException(409, f"场景 ID {sid} 已存在")
     with transaction() as cur:
         cur.execute(
-            """INSERT INTO scenarios (id, name, description, parameters)
-            VALUES (%s,%s,%s,%s)""",
+            """INSERT INTO scenarios (id, name, description, parameters, created_by)
+            VALUES (%s,%s,%s,%s,%s)""",
             (
                 sid, body.name, body.description,
                 Json([p.model_dump() for p in body.parameters]),
+                user["id"],
             ),
         )
     return get_scenario(sid)
@@ -55,9 +58,11 @@ def create_scenario(body: ScenarioCreate, user: dict = Depends(get_current_user)
 @router.put("/{scenario_id}", response_model=Scenario)
 def update_scenario(scenario_id: str, body: ScenarioCreate, user: dict = Depends(get_current_user)):
     """更新场景。"""
-    existing = query_one("SELECT id FROM scenarios WHERE id = %s", (scenario_id,))
+    existing = query_one("SELECT id, created_by FROM scenarios WHERE id = %s", (scenario_id,))
     if not existing:
         raise HTTPException(404, f"场景 {scenario_id} 不存在")
+    if not is_owner_or_admin(user, existing.get("created_by")):
+        raise HTTPException(403, "无权修改该场景；内置场景仅管理员可修改")
     with transaction() as cur:
         cur.execute(
             """UPDATE scenarios SET
@@ -75,9 +80,11 @@ def update_scenario(scenario_id: str, body: ScenarioCreate, user: dict = Depends
 @router.delete("/{scenario_id}")
 def delete_scenario(scenario_id: str, user: dict = Depends(get_current_user)):
     """删除场景（关联的模板也会级联删除）。"""
-    existing = query_one("SELECT id FROM scenarios WHERE id = %s", (scenario_id,))
+    existing = query_one("SELECT id, created_by FROM scenarios WHERE id = %s", (scenario_id,))
     if not existing:
         raise HTTPException(404, f"场景 {scenario_id} 不存在")
+    if not is_owner_or_admin(user, existing.get("created_by")):
+        raise HTTPException(403, "无权删除该场景；内置场景仅管理员可删除")
     with transaction() as cur:
         cur.execute("DELETE FROM scenarios WHERE id = %s", (scenario_id,))
     return {"message": f"场景 {scenario_id} 已删除"}

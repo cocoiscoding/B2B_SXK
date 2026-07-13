@@ -175,6 +175,7 @@ def init_db() -> None:
                     name        VARCHAR(200) NOT NULL,
                     description TEXT,
                     parameters  JSONB        NOT NULL DEFAULT '[]'::jsonb,
+                    created_by  VARCHAR(20),
                     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 );
 
@@ -254,6 +255,10 @@ def init_db() -> None:
             # 加分项：团队协作——产品与历史记录加"创建人"列
             cur.execute(
                 "ALTER TABLE products ADD COLUMN IF NOT EXISTS created_by VARCHAR(20)"
+            )
+            # 自定义场景记录创建人；存量/内置场景为 NULL，仅管理员可修改
+            cur.execute(
+                "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS created_by VARCHAR(20)"
             )
             # 老库兼容：早期 products 表可能没有 images/documents 列，补上（IF NOT EXISTS 幂等）
             cur.execute(

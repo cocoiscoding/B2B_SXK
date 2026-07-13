@@ -95,6 +95,13 @@ def get_template(scenario_id: str, template_id: str, user: dict = Depends(get_cu
     )
     if not row:
         raise HTTPException(404, f"模板 {template_id} 不存在")
+    if (
+        not user.get("is_admin")
+        and row.get("status") != "approved"
+        and row.get("created_by") != user.get("id")
+    ):
+        # 与列表接口保持同一可见性规则，也避免通过猜测 ID 查看他人的待审模板
+        raise HTTPException(404, f"模板 {template_id} 不存在")
     return row
 
 
@@ -107,6 +114,8 @@ def create_template(scenario_id: str, body: TemplateCreate, user: dict = Depends
     if not scenario:
         raise HTTPException(404, f"场景 {scenario_id} 不存在")
     tid = body.id or f"T{uuid.uuid4().hex[:6].upper()}"
+    if query_one("SELECT id FROM templates WHERE id = %s", (tid,)):
+        raise HTTPException(409, f"模板 ID {tid} 已存在")
     with transaction() as cur:
         cur.execute(
             """INSERT INTO templates (id, scenario_id, name, tag, description, prompt, constraints, structure, examples, differentiation_dims, applicable_channels, tags, status, created_by)

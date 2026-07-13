@@ -77,7 +77,13 @@ class ProductCreate(ProductBase):
     id 由前端传入或后端自动生成。
     """
     # str | None 表示可以是字符串或 None（Python 3.10+ 联合类型语法）
-    id: str | None = None
+    id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20,
+        pattern=r"^[A-Za-z0-9_-]+$",
+        description="可选产品 ID，仅允许字母、数字、下划线和短横线",
+    )
 
 
 class Product(ProductBase):
@@ -110,12 +116,18 @@ class ScenarioBase(BaseModel):
 
 class ScenarioCreate(ScenarioBase):
     """创建场景的请求体。"""
-    id: str | None = None
+    id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
 
 
 class Scenario(ScenarioBase):
     """场景响应模型。"""
     id: str
+    created_by: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -147,7 +159,12 @@ class TemplateBase(BaseModel):
 
 class TemplateCreate(TemplateBase):
     """创建模板的请求体。"""
-    id: str | None = None
+    id: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
 
 
 class Template(TemplateBase):
@@ -159,7 +176,7 @@ class Template(TemplateBase):
     created_by: str | None = None
     reviewed_by: str | None = None
     reviewed_at: datetime | None = None
-    review_note: str = ""
+    review_note: str | None = None    # 审核备注：驳回时填，未审核/通过时为 NULL（DB 列可空）
     # 复用：使用次数 + 管理员推荐
     use_count: int = 0
     is_featured: bool = False

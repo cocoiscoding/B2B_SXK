@@ -62,10 +62,16 @@ def build_product_text(product: dict) -> str:
     """
     parts = [
         product.get("name", ""),
-        product.get("category", ""),
         product.get("tagline", ""),
         product.get("description", ""),
     ]
+    # category 在 ProductBase 中是 list[str]，需展开为字符串再拼接，
+    # 否则下方 " ".join 遇到 list 元素会抛 TypeError（种子产品与用户产品都带非空分类）
+    category = product.get("category")
+    if isinstance(category, list):
+        parts.extend(str(c) for c in category)
+    elif category:
+        parts.append(str(category))
     # 拼接功能信息
     features = product.get("features", [])
     if isinstance(features, list):
