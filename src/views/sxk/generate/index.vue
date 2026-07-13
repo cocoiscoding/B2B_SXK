@@ -19,14 +19,11 @@
 -->
 <template>
   <div class="sxk-generate" :class="{ 'is-empty': !currentDraft }">
-    <!-- ============================== 顶部彩色小长条（与产品知识库一致，独立彩色块） ============================== -->
-    <div v-if="configPanelVisible" class="sxk-generate__welcome">
-      <div class="sxk-generate__welcome-left">
-        <span class="sxk-generate__welcome-bar"></span>
-        <div>
-          <h2 class="sxk-generate__welcome-title">内容生成</h2>
-          <p class="sxk-generate__welcome-desc">填写配置，一键产出多版本营销文案</p>
-        </div>
+    <!-- ============================== 顶部欢迎条（与其他页面一致） ============================== -->
+    <div v-if="configPanelVisible" class="sxk-page-welcome">
+      <div class="sxk-page-welcome__left">
+        <h2 class="sxk-page-welcome__title">内容生成</h2>
+        <p class="sxk-page-welcome__desc">填写配置，一键产出多版本营销文案</p>
       </div>
       <el-tag
         v-if="currentDraft"
@@ -299,18 +296,18 @@
           </div>
         </template>
 
-        <!-- ============ 附加提示词（可选，辅助 AI 生成） ============ -->
-        <div class="sxk-form-card sxk-form-card--prompt">
+        <!-- ============ 提示词（选场景后显示，根据所选模板回填，可编辑） ============ -->
+        <div v-if="currentScene" class="sxk-form-card sxk-form-card--prompt">
           <div class="sxk-form-card__head sxk-form-card__head--compact">
             <span class="sxk-form-card__bar"></span>
-            <span class="sxk-form-card__title">附加提示词</span>
-            <span class="sxk-form-card__desc">可选 · 给 AI 一些附加指令，让生成更贴近你的想法</span>
+            <span class="sxk-form-card__title">提示词</span>
+            <span class="sxk-form-card__desc">根据所选模板自动回填，可按需调整</span>
           </div>
           <div class="sxk-form-card__body sxk-form-card__body--compact">
             <el-input
               v-model="form.params.prompt"
               type="textarea"
-              :autosize="{ minRows: 1, maxRows: 3 }"
+              :autosize="{ minRows: 3, maxRows: 8 }"
               placeholder="例如：'请用第一人称' / '结尾加一句号召' / '突出 AI 风控和毫秒级风险识别'"
               :maxlength="500"
               show-word-limit
@@ -340,9 +337,9 @@
     </basic-block>
 
     <!-- ============================== 当有草稿时：左栏（config） + 右栏（result）水平排列 ============================== -->
-    <div v-if="configPanelVisible && currentDraft" class="sxk-generate__body">
+    <div v-if="currentDraft" class="sxk-generate__body">
       <basic-block
-        v-if="configPanelVisible && currentDraft"
+        v-if="configPanelVisible"
         class="sxk-generate__config"
         hover-shadow
       >
@@ -2158,6 +2155,8 @@ async function loadChannels() {
 
 function applySceneDefaults() {
   if (!currentScene.value) return
+  form.template_id = '' // 清空模板选择
+  form.params.prompt = '' // 清空提示词
   const next = {}
   for (const p of currentScene.value.params) {
     next[p.key] = ''
@@ -2180,9 +2179,16 @@ async function loadSceneTemplates() {
 
 async function onTemplateChange(templateId) {
   if (!templateId) {
-    if (form.params.prompt) delete form.params.prompt
+    form.params.prompt = ''
     return
   }
+  // 优先从已加载的列表项回填（列表项已含 prompt 字段）
+  const local = sceneTemplates.value.find((t) => t.template_id === templateId)
+  if (local && local.prompt != null) {
+    form.params.prompt = local.prompt
+    return
+  }
+  // 兜底：请求模板详情获取 prompt
   try {
     const resp = await sxkApi.getTemplate(templateId, form.scene_code)
     if (resp.code === 0 && resp.data) {
@@ -2687,14 +2693,14 @@ void renderMarkdown
   flex-direction: column; // 关键：纵向布局（顶 welcome + 下方左右分栏）
   gap: $spacing-md;
   align-items: stretch;
-  // 高度 = 浏览器可用高度
-  // - 100px: 顶部 navbar + 面包屑 + 上 padding
-  // - 16px: 页面底部留白（紧凑）
-  // = 浏览器 - 116px
-  height: calc(100vh - 116px);
+  width: 100% !important; // 关键：撑满父容器 .avue-view 宽度
+  height: 100% !important; // 关键：撑满父容器 .avue-view 高度
   min-height: 520px; // 极小屏时仍保留可读性
-  max-height: calc(100vh - 100px); // 不超过浏览器可视区
   overflow: hidden; // 防止整体页面滚动
+  box-sizing: border-box; // 关键：避免 padding 撑大
+  flex: 1 1 auto !important; // 关键：flex 项强制增长
+  min-width: 0; // 关键：允许缩小
+  min-height: 0; // 关键：允许缩小
 
   @media (max-width: 1100px) {
     height: auto; // 移动端不锁高度
@@ -2702,58 +2708,21 @@ void renderMarkdown
   }
 }
 
-// 关键：欢迎条（与产品知识库一致，独立的彩色块，与下面内容隔离）
-.sxk-generate__welcome {
-  flex: 0 0 auto; // 关键：不被压缩，独立占满横向宽度
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: $spacing-md;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(79, 70, 229, 0.04), rgba(59, 130, 246, 0.06));
-  border: 1px solid rgba(99, 102, 241, 0.12);
-  border-radius: $radius-md;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
-
-  &-left {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex: 1;
-    min-width: 0;
-  }
-  &-bar {
-    display: inline-block;
-    width: 4px;
-    height: 28px;
-    background: linear-gradient(180deg, #6366f1, #4f46e5);
-    border-radius: $radius-sm;
-    flex-shrink: 0;
-  }
-  &-title {
-    margin: 0 0 2px;
-    font-size: 18px;
-    font-weight: 700;
-    line-height: 1.3;
-    background: linear-gradient(135deg, #6366f1, #4f46e5, #3b82f6);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  &-desc {
-    margin: 0;
-    font-size: 12px;
-    color: $text-secondary;
-    line-height: 1.4;
-  }
+// 关键：本页用 flex column + gap 布局，标准欢迎条需防压缩且去掉重叠 margin
+.sxk-page-welcome {
+  flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 // 关键：内容区（左侧 config + 右侧 result 的水平分栏）
 .sxk-generate__body {
-  flex: 1 1 auto; // 关键：占满剩余高度
+  flex: 1 1 auto !important; // 关键：占满剩余高度
+  width: 100% !important; // 关键：撑满父容器宽度
+  height: 100% !important; // 关键：撑满父容器高度
   min-height: 0;
-  display: flex;
+  box-sizing: border-box; // 关键：避免 padding 撑大
+  display: grid !important; // 关键：用 grid 布局严格等分
+  grid-template-columns: 1fr 1fr !important; // 关键：左右两列等分
   gap: $spacing-md;
   align-items: stretch;
   overflow: hidden;
@@ -2780,9 +2749,9 @@ void renderMarkdown
 
   // 关键：当父级是 .sxk-generate__body（有右栏兄弟）时，左栏占 50%
   .sxk-generate__body > & {
-    flex: 1 1 50%;
-    width: 50%;
-    max-width: 50%;
+    width: 100%;      // 关键：grid 布局下占满网格单元
+    max-width: 100%;  // 关键：解除 50% 限制
+    min-width: 0;     // 关键：允许缩小
   }
 
   // 关键：配置区头部（与首页彩色长条风格一致，嵌在 basic-block header 区域）
@@ -3740,15 +3709,18 @@ void renderMarkdown
 
 // ---------- 右栏：主区域 ----------
 .sxk-generate__main {
-  flex: 1 1 50%;  // 关键：与 .sxk-generate__config 水平均分（父级 .sxk-generate__body 是水平 flex）
-  width: 50%;
-  max-width: 50%;
+  width: 100%;  // 关键：grid 布局下占满网格单元
+  max-width: 100%; // 关键：解除 70% 限制
+  min-width: 0;  // 关键：允许缩小
+  height: 100%; // 关键：撑满父容器高度
+  align-self: stretch; // 关键：拉伸至与左栏等高
   min-height: 0; // 关键：flex 子项可滚动
   display: flex; // 让内部 stage 撑满
   flex-direction: column;
   // 减少 basic-block 内边距：让卡片与页面底部更紧凑
   :deep(.basic-block) {
     padding: $spacing-md $spacing-lg $spacing-sm; // 上 16 / 左右 24 / 下 8
+    height: 100%; // 关键：撑满 .sxk-generate__main 父容器
   }
   // basic-block 内部 __body 撑满
   :deep(.basic-block__body) {
