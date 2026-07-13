@@ -1403,7 +1403,8 @@ onMounted(load)
   flex-direction: column;
   gap: $spacing-xl;              // 24px（原型 space-y-6）
   height: 100%;                  // 撑满 .avue-view
-  overflow-y: auto;              // 内容超出时滚动
+  overflow-x: hidden;            // 禁止横向滚动条
+  overflow-y: auto;              // 内容超出时纵向滚动
   padding-right: 4px;            // 避免滚动条遮挡内容
 
   // 自定义滚动条
