@@ -31,8 +31,8 @@
     <basic-block>
       <div class="search-bar">
         <el-radio-group v-model="searchMode" size="small" @change="search">
-          <el-radio-button value="keyword">关键词</el-radio-button>
-          <el-radio-button value="semantic">语义</el-radio-button>
+          <el-radio-button label="keyword">关键词</el-radio-button>
+          <el-radio-button label="semantic">语义</el-radio-button>
         </el-radio-group>
 
         <el-input
@@ -130,6 +130,7 @@
             <div class="product-card__head">
               <span class="product-name" v-html="highlight(item.name)" />
               <el-tag
+                v-if="item.category"
                 :type="categoryTagType(item.category)"
                 effect="light"
                 size="small"
@@ -140,7 +141,7 @@
 
             <div class="product-desc" v-html="highlight(item.description)" />
 
-            <div class="selling-points">
+            <div v-if="item.selling_points && item.selling_points.length" class="selling-points">
               <el-tag
                 v-for="sp in item.selling_points.slice(0, 3)"
                 :key="sp"
@@ -319,6 +320,38 @@ const highlight = (text) => {
 }
 
 // ========== 数据加载 ==========
+
+/**
+ * 归一化产品对象：保证渲染期字段类型稳定
+ * - category：空值 → ''；数组 → 'a, b'
+ * - selling_points：null/undefined → []；非数组 → [str]
+ * - description：null/undefined → ''
+ * - name：null/undefined → '未命名'
+ */
+const normalizeProduct = (p) => {
+  if (!p) return null
+  // category 归一化为字符串
+  const cat = p.category
+  let category = ''
+  if (Array.isArray(cat)) category = cat.filter(Boolean).join(', ')
+  else if (cat) category = String(cat)
+  // selling_points 归一化为字符串数组
+  let selling_points = p.selling_points
+  if (!Array.isArray(selling_points)) {
+    if (selling_points == null) selling_points = []
+    else if (typeof selling_points === 'string') {
+      selling_points = selling_points.split(/[,,;;\n]/).map((s) => s.trim()).filter(Boolean)
+    } else selling_points = []
+  }
+  return {
+    ...p,
+    name: p.name || '未命名',
+    description: p.description || '',
+    category,
+    selling_points
+  }
+}
+
 const loadList = async () => {
   loading.value = true
   try {
@@ -330,15 +363,17 @@ const loadList = async () => {
       })
       if (res.code === 0) {
         // 语义搜索返回 { items, total } —— 把 items 映射为产品卡片格式
-        list.value = (res.data?.items || []).map((p) => ({
-          product_id: p.product_id,
-          name: p.product_name,
-          category: p.category,
-          description: p.description,
-          // 语义搜索结果不含分类/卖点，回填空
-          selling_points: [],
-          _score: p.score
-        }))
+        list.value = (res.data?.items || []).map((p) =>
+          normalizeProduct({
+            product_id: p.product_id,
+            name: p.product_name,
+            category: p.category,
+            description: p.description,
+            // 语义搜索结果不含分类/卖点，回填空
+            selling_points: [],
+            _score: p.score
+          })
+        )
         total.value = res.data?.total || list.value.length
       }
       return
@@ -351,7 +386,7 @@ const loadList = async () => {
       category: filters.category
     })
     if (res.data) {
-      list.value = res.data.items || []
+      list.value = (res.data.items || []).map(normalizeProduct).filter(Boolean)
       total.value = res.data.total || 0
     }
   } catch (e) {

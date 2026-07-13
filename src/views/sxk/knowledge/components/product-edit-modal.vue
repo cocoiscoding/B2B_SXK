@@ -427,8 +427,6 @@ const editing = ref(true)
 
 const blankForm = () => ({
   name: '',
-  // 后端 ProductBase.category 是 list[str]，前端用 el-select 单选绑字符串，
-  // 这里仍存字符串以适配下拉；提交时通过 toBackendCategory 转回数组
   category: '',
   description: '',
   pricing: '',
@@ -441,32 +439,11 @@ const form = reactive(blankForm())
 
 const isEdit = computed(() => !!props.productId)
 
-// 把表单里的字符串分类（el-select 单选值）转成后端要求的 list[str]
-// 注意：后端 vector_search.build_product_text 在 category 是非空 list 时会因
-// `" ".join([...,[...]])` 报 TypeError（非空 list 不被 falsy 过滤）。
-// 唯一不触发后端 bug 的方式：把 category 转成空 list []，让后端 build_product_text
-// 里的 `if p` 把空 list 过滤掉。代价：保存后产品分类会被清空。
-const toBackendCategory = () => {
-  // 始终返回空数组，避开后端 build_product_text 的 list → str TypeError。
-  // 用户编辑后保存时，分类字段会被后端置空（仅后端 bug 修复后恢复此逻辑）。
-  return []
-}
-
 // 弹窗标题：只读查看 → "产品详情"，编辑已有 → "编辑产品"，新增 → "添加产品"
 const dialogTitle = computed(() => {
   if (!editing.value && isEdit.value) return '产品详情'
   return isEdit.value ? '编辑产品' : '添加产品'
 })
-
-// 弹窗副标题：与产品场景对应
-const dialogSubTitle = computed(() => {
-  if (!isEdit.value) return '为 AI Agent 提供产品信息'
-  if (!editing.value) return '只读模式 · 点击底部"编辑"按钮可切换到编辑'
-  return '编辑后点击"保存修改"以应用变更'
-})
-
-// 弹窗标题图标
-const dialogIcon = computed(() => (isEdit.value ? EditPen : Plus))
 
 // 点击底部"编辑"按钮，从只读切换到可编辑
 const startEdit = () => {
@@ -498,10 +475,6 @@ const initForm = async () => {
   if (props.prefillData) {
     Object.assign(form, {
       ...props.prefillData,
-      // 后端返回 category 是 list[str]，前端单选下拉只取第一个
-      category: Array.isArray(props.prefillData.category)
-        ? props.prefillData.category[0] || ''
-        : (props.prefillData.category || ''),
       features: props.prefillData.features?.length
         ? props.prefillData.features
         : [{ name: '', description: '' }]
@@ -515,10 +488,6 @@ const initForm = async () => {
   if (res.data) {
     Object.assign(form, {
       ...res.data,
-      // 后端返回 category 是 list[str]，前端单选下拉只取第一个
-      category: Array.isArray(res.data.category)
-        ? res.data.category[0] || ''
-        : (res.data.category || ''),
       features: res.data.features?.length
         ? res.data.features
         : [{ name: '', description: '' }]
@@ -568,12 +537,10 @@ const submit = async () => {
   }
   const payload = {
     ...form,
-    // 后端 ProductBase.category 期望 list[str]，把 el-select 字符串转回数组
-    category: toBackendCategory(),
-    // 后端 Feature 模型只有 name/description，去掉 sort_order 避免 Pydantic 校验失败
-    features: validFeatures.map((f) => ({
+    features: validFeatures.map((f, i) => ({
       name: f.name.trim(),
-      description: f.description?.trim() || ''
+      description: f.description?.trim() || '',
+      sort_order: i + 1
     })),
     target_customers: form.target_customers.filter((s) => s.trim()),
     competitors: form.competitors.filter((s) => s.trim()),
