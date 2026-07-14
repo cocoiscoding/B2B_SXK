@@ -137,7 +137,7 @@ const adaptTemplate = (t) => {
     applicable_channels: t.applicable_channels || [],
     tags: t.tags || [],
     is_custom: !isPresetTemplate(t.id),
-    use_count_30d: t.use_count_30d || 0,
+    use_count_30d: t.use_count_30d ?? t.use_count ?? 0,
     created_at: t.created_at || '',
     updated_at: t.updated_at || t.created_at || ''
   }
@@ -1680,12 +1680,12 @@ export const sxkApi = {
   },
 
   /** 步骤 0：创建草稿（检索-生成-校验） */
-  createDraft: ({ product_id, scene_code, template_id, style, params, version_count = 3 }) => {
+  createDraft: ({ product_id, scene_code, template_id, style, params, version_count = 3, word_limit = 0 }) => {
     if (!USE_MOCK_BIZ) {
       return real({
         url: '/api/drafts',
         method: 'post',
-        data: { product_id, scenario_id: scene_code, template_id, style, params, version_count }
+        data: { product_id, scenario_id: scene_code, template_id, style, params, version_count, word_limit }
       }).then((d) => ok(d))
     }
     return delay(800).then(() => {
@@ -1771,7 +1771,8 @@ export const sxkApi = {
           template_id: payload.template_id,
           style: payload.style,
           params: payload.params,
-          version_count: payload.version_count || 3
+          version_count: payload.version_count || 3,
+          word_limit: payload.word_limit || 0
         },
         onStep: callbacks.onStep,
         onDone: callbacks.onDone,

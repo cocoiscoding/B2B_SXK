@@ -247,6 +247,12 @@ class GenerationAgent(BaseAgent):
             if parts:
                 lines.append(f"正文纯文字字数{'、'.join(parts)} 字（不含 markdown 符号与空白）")
 
+        # 用户在生成表单填写的字数上限（最高优先级，必须严格遵守）
+        # 放到硬性要求列表最前面，用强烈措辞确保 LLM 重视
+        word_limit = ctx.word_limit
+        if isinstance(word_limit, int) and word_limit > 0:
+            lines.insert(0, f"【字数红线·最重要】正文纯文字字数严格不超过 {word_limit} 字（不含 markdown 符号与空白），这是用户明确要求的硬性上限，超过将判定不合格")
+
         must_params = constraints.get("must_include_params", [])
         if must_params and params:
             for name in must_params:

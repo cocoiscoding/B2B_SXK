@@ -32,6 +32,7 @@ class AgentContext:
     style: str = "专业严谨"                                     # 文案风格
     params: dict[str, Any] = field(default_factory=dict)        # 用户填写的参数
     version_count: int = 3                                      # 生成版本数
+    word_limit: int = 0                                         # 正文字数上限（0=不限制），用户在生成表单填写
 
     # ===== 中间产物（各 Agent 写入，供下游读取）=====
     retrieved_info: dict[str, Any] = field(default_factory=dict)    # 检索 Agent 的产物

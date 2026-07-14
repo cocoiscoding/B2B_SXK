@@ -459,9 +459,9 @@ const splitChannels = (channel) => {
     .filter(Boolean)
 }
 
-// 创建人显示规整：把后端 user_id 形式（u_xxx）回退为当前登录用户名
-// 后端 history 表没有 created_by 列，orchestrator 写的是 user["id"]
-const isUserId = (s) => typeof s === 'string' && /^u_[a-f0-9]+$/i.test(s)
+// 创建人显示：优先用后端 LEFT JOIN members 返回的 creator_name（用户昵称），
+// 回退到 created_by（若已是用户名而非 u_xxx 形式），最后回退到当前登录用户名
+const isUserId = (s) => typeof s === 'string' && /^u_[a-f0-9]+$/i.test(s) || /^m\d+$/i.test(s)
 let cachedUsername = ''
 try {
   const raw = localStorage.getItem('sxk-access-user') || sessionStorage.getItem('sxk-user')
@@ -473,8 +473,12 @@ try {
   /* ignore */
 }
 const displayCreator = (row) => {
+  // 优先：后端 JOIN 返回的用户昵称
+  if (row?.creator_name) return row.creator_name
+  // 回退：created_by 已是用户名（非 user_id 形式）
   const cb = row?.created_by
   if (cb && !isUserId(cb)) return cb
+  // 最后回退：当前登录用户名
   return cachedUsername || '当前用户'
 }
 

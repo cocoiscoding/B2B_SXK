@@ -128,6 +128,7 @@ def create_draft(req: CreateDraftRequest, user: dict = Depends(get_current_user)
             style=req.style,
             params=req.params,
             version_count=req.version_count,
+            word_limit=req.word_limit,
         )
     except ValueError as e:
         raise HTTPException(400, str(e))
@@ -172,6 +173,7 @@ def create_draft_stream(req: CreateDraftRequest, user: dict = Depends(get_curren
         style=req.style,
         params=req.params,
         version_count=req.version_count,
+        word_limit=req.word_limit,
     )
 
     def persist(result):
@@ -404,23 +406,22 @@ def adapt_draft(draft_id: str, body: AdaptRequest, user: dict = Depends(get_curr
 
 @router.post("/{draft_id}/finalize", response_model=Draft)
 def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
-    """阶段4：对多渠道版本配图 -> 写 history -> 回填 history_id。
+    """阶段4：保存到 history（已去掉文生图配图步骤）。
 
+    直接把适配后的多渠道版本写入 history 表，不再调用 run_images 生成配图。
     并发安全：用 stage='adapted' -> 'imaged' 的 CAS 占位，确保同一草稿的并发
-    finalize 只有一个会调用昂贵的 run_images（文生图）。其余请求若首个已完成则
-    直接返回结果，否则返回 409 让前端稍后重试，避免重复文生图浪费成本/配额。
-    落 history 仍用 FOR UPDATE 兜底，保证不产生重复历史记录。
+    finalize 只有一个会落 history。其余请求若首个已完成则直接返回结果，
+    否则返回 409 让前端稍后重试。
     """
     d = _get_owned_draft(draft_id, user)
-    # 快路径：已完成直接返回（幂等：浏览器重试/重复点击不再调用文生图）
+    # 快路径：已完成直接返回（幂等：浏览器重试/重复点击不再重复保存）
     if d.get("history_id"):
         return _row_to_draft(d)
     versions = d.get("versions") or []
     if not versions:
         raise HTTPException(400, "尚无渠道版本，请先完成阶段3适配")
 
-    # CAS 占位：仅 stage='adapted' 的草稿进入配图，并发的第二个请求 rowcount=0。
-    # run_images 很慢（可能数十秒），不能放进事务锁内，故用 stage 做轻量互斥。
+    # CAS 占位：仅 stage='adapted' 的草稿进入保存
     with transaction() as cur:
         cur.execute(
             "UPDATE drafts SET stage='imaged', updated_at=NOW() "
@@ -434,31 +435,17 @@ def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
             # 首个并发请求已完成，返回它写入的最终状态
             return _row_to_draft(fresh)
         if fresh and fresh.get("stage") == "imaged":
-            # 上次配图中途崩溃残留 imaged：重置为 adapted 让用户重试
+            # 上次保存中途崩溃残留 imaged：重置为 adapted 让用户重试
             with transaction() as cur:
                 cur.execute(
                     "UPDATE drafts SET stage='adapted' WHERE id=%s AND stage='imaged'",
                     (draft_id,),
                 )
-            raise HTTPException(409, "上次配图未完成，已重置，请重试")
+            raise HTTPException(409, "上次保存未完成，已重置，请重试")
         raise HTTPException(409, "该草稿正在完成中，请稍后重试")
 
-    try:
-        orch = get_orchestrator()
-        result = orch.run_images(
-            versions=versions,
-            scenario_id=d["scenario_id"],
-            retrieved_info=d.get("retrieved_info") or {},
-        )
-    except ValueError as e:
-        # 配图失败：回退 stage 以便用户重试
-        with transaction() as cur:
-            cur.execute("UPDATE drafts SET stage='adapted' WHERE id=%s", (draft_id,))
-        raise HTTPException(400, str(e))
-
-    versions = result["versions"]
-    image_step = result["image_step"]
-    trace = list(d.get("agent_trace") or []) + [image_step]
+    # 已去掉文生图配图：直接用适配后的 versions 落 history
+    trace = list(d.get("agent_trace") or [])
 
     validation = d.get("validation") or {}
     issues = validation.get("issues", []) if isinstance(validation, dict) else []

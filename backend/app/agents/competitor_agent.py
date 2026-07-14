@@ -146,16 +146,25 @@ class CompetitorAgent(BaseAgent):
             return []
         try:
             from tavily import TavilyClient
+            from concurrent.futures import ThreadPoolExecutor
             client = TavilyClient(api_key=TAVILY_API_KEY)
             # 搜竞品产品信息，中文关键词
             query = f"{name} 产品 功能 价格 优势 2025 2026"
-            resp = client.search(query, max_results=max_results)
-            results = resp.get("results", [])
-            # focus 有具体维度时补搜一轮
-            if focus and focus not in ("功能全面性",):
-                query2 = f"{name} {focus} 对比 评测"
-                resp2 = client.search(query2, max_results=3)
-                results.extend(resp2.get("results", []))
+            need_second = focus and focus not in ("功能全面性",)
+            query2 = f"{name} {focus} 对比 评测" if need_second else None
+
+            def _search(q, mx):
+                return client.search(q, max_results=mx).get("results", [])
+
+            if need_second:
+                # 两次搜索并行，省 1-3 秒（原串行相加变为取最大值）
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    f1 = pool.submit(_search, query, max_results)
+                    f2 = pool.submit(_search, query2, 3)
+                    results = f1.result() + f2.result()
+            else:
+                results = _search(query, max_results)
+
             # 去重（按 title 去重）
             seen = set()
             deduped = []

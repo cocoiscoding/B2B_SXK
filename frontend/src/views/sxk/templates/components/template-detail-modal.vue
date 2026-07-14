@@ -381,6 +381,11 @@ const onUseItem = (tpl) => {
 }
 
 const onDeleteSub = async (tpl) => {
+  // 预置模板不可删除（与后端规则一致，前端预判避免无效请求）
+  if (tpl.is_custom === false) {
+    ElMessage.warning('预置模板不可删除')
+    return
+  }
   try {
     await ElMessageBox.confirm(
       `确定删除模板「${tpl.name}」吗？此操作不可撤销。`,
@@ -390,12 +395,16 @@ const onDeleteSub = async (tpl) => {
   } catch {
     return
   }
-  const res = await sxkApi.deleteTemplate(tpl.template_id, tpl.scene_code || sceneCode.value)
-  if (res.code === 0) {
-    ElMessage.success('模板已删除')
-    await load()
-  } else {
-    ElMessage.error(res.msg || '删除失败')
+  try {
+    const res = await sxkApi.deleteTemplate(tpl.template_id, tpl.scene_code || sceneCode.value)
+    if (res.code === 0) {
+      ElMessage.success('模板已删除')
+      await load()
+    } else {
+      ElMessage.error(res.msg || '删除失败')
+    }
+  } catch (e) {
+    ElMessage.error(e?.message || '删除失败')
   }
 }
 

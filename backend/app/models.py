@@ -211,6 +211,7 @@ class GenerateRequest(BaseModel):
     params: dict[str, Any] = Field(default_factory=dict)  # 用户填写的参数
     # ge=1 表示大于等于 1，le=3 表示小于等于 3（上限 3，避免选项疲劳与 LLM 成本）
     version_count: int = Field(default=3, ge=1, le=3)     # 生成版本数（1-3）
+    word_limit: int = Field(default=0, ge=0, le=5000)     # 正文字数上限（0=不限制），用户在生成表单填写
     # created_by 由后端从登录令牌取，不在请求体中
 
 
@@ -290,6 +291,7 @@ class HistoryItem(BaseModel):
     like_count: int = 0
     dislike_count: int = 0
     created_by: str | None = None    # 生成人（团队成员 id，加分项：团队协作）
+    creator_name: str | None = None  # 生成人昵称（路由层 LEFT JOIN members 回填，前端直接显示）
 
 
 class HistoryUpdate(BaseModel):
@@ -449,6 +451,7 @@ class CreateDraftRequest(BaseModel):
     style: str = "专业严谨"
     params: dict[str, Any] = Field(default_factory=dict)
     version_count: int = Field(default=3, ge=1, le=3)
+    word_limit: int = Field(default=0, ge=0, le=5000)     # 正文字数上限（0=不限制）
 
 
 class RegenerateRequest(BaseModel):

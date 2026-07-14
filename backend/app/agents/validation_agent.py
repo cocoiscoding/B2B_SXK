@@ -56,7 +56,7 @@ class ValidationAgent(BaseAgent):
         # 优先取适配后的版本，没有则取初稿
         versions = ctx.versions or ctx.draft_versions
         all_text = " ".join(v.get("body", "") + v.get("title", "") for v in versions)
-        issues = self._collect_issues(all_text, versions, ctx.retrieved_info, ctx.params, ctx.scenario)
+        issues = self._collect_issues(all_text, versions, ctx.retrieved_info, ctx.params, ctx.scenario, ctx.word_limit)
         status = "success" if not issues else "warning"
         msg = "校验通过，内容与知识库一致" if not issues else f"发现 {len(issues)} 项需关注的问题"
         return status, msg, {"issues": issues, "validated": len(issues) == 0}
@@ -68,10 +68,10 @@ class ValidationAgent(BaseAgent):
         均按单版本维度判定（每版都要满足），比批量"任一版本满足即过"更严。
         """
         all_text = version.get("body", "") + version.get("title", "")
-        issues = self._collect_issues(all_text, [version], ctx.retrieved_info, ctx.params, ctx.scenario)
+        issues = self._collect_issues(all_text, [version], ctx.retrieved_info, ctx.params, ctx.scenario, ctx.word_limit)
         return {"issues": issues, "validated": len(issues) == 0}
 
-    def _collect_issues(self, all_text: str, versions: list, info: dict, params: dict, scenario: dict) -> list[str]:
+    def _collect_issues(self, all_text: str, versions: list, info: dict, params: dict, scenario: dict, word_limit: int = 0) -> list[str]:
         """汇总 5 类校验问题（产品名/定价/敏感词/卖点覆盖/模板 constraints）。
 
         all_text 与 versions 由调用方决定：批量校验传全版本拼接文本，
@@ -113,23 +113,24 @@ class ValidationAgent(BaseAgent):
 
         # 校验 5：模板结构化约束（字数 / 必含参数 / 最少卖点等，由模板 constraints 驱动）
         constraints = scenario.get("template_constraints") or {}
-        issues.extend(self._check_constraints(versions, constraints, params, info, all_text))
+        issues.extend(self._check_constraints(versions, constraints, params, info, all_text, word_limit))
 
         return issues
 
     # ===== 模板结构化约束校验 =====
 
-    def _check_constraints(self, versions, constraints, params, info, all_text):
-        """按模板 constraints 做机械校验，返回问题列表。
+    def _check_constraints(self, versions, constraints, params, info, all_text, word_limit: int = 0):
+        """按模板 constraints + 用户字数上限做机械校验，返回问题列表。
 
         支持的约束：
         - title_max_chars(int)：每个版本标题字符数上限
         - body_chars([min, max])：正文纯文字字数区间（min=0 表示只限上限）
         - must_include_params(list[str])：用户填写的这些参数值必须出现在内容中
         - min_selling_points(int)：至少覆盖几个核心卖点
+        - word_limit(int)：用户在生成表单填写的正文字数上限（优先级最高）
         """
         issues: list[str] = []
-        if not constraints:
+        if not constraints and not word_limit:
             return issues
 
         title_max = constraints.get("title_max_chars")
@@ -153,6 +154,12 @@ class ValidationAgent(BaseAgent):
                     issues.append(f"⚠ 版本{idx} 正文 {n} 字，少于模板要求 {lo} 字")
                 if isinstance(hi, int) and hi > 0 and n > hi:
                     issues.append(f"⚠ 版本{idx} 正文 {n} 字，超过模板上限 {hi} 字")
+
+            # 用户填写的字数上限（优先级最高，与模板 body_chars 独立校验）
+            if isinstance(word_limit, int) and word_limit > 0:
+                n = self._plain_char_count(body)
+                if n > word_limit:
+                    issues.append(f"⚠ 版本{idx} 正文 {n} 字，超过字数上限 {word_limit} 字")
 
         # 必含参数：用户填写的参数值必须出现在内容中
         # 只检查非空且较短的值（≤50 字），长描述性参数允许 LLM 改写
@@ -181,3 +188,37 @@ class ValidationAgent(BaseAgent):
         """统计正文字数：去掉 markdown 符号与空白，按字符计。"""
         cleaned = re.sub(r"[#*\->|`\s]", "", text or "")
         return len(cleaned)
+
+    def truncate_to_limit(self, body: str, word_limit: int) -> str:
+        """将正文截断到纯文字字数 <= word_limit，按段落/句子边界截断。
+
+        LLM 对字数控制能力弱，重试后仍可能超字数。此方法作为兜底，
+        保证最终展示给用户的版本一定满足字数限制。
+        截断策略：按段落逐步累加，当前段落放不下时按句子分割，
+        保留完整句子直到接近上限。
+        """
+        if self._plain_char_count(body) <= word_limit:
+            return body
+        paragraphs = (body or "").split('\n')
+        kept: list[str] = []
+        count = 0
+        for para in paragraphs:
+            para_count = self._plain_char_count(para)
+            if count + para_count <= word_limit:
+                kept.append(para)
+                count += para_count
+                continue
+            # 当前段落放不下，按句子分割（保留分隔符）
+            sentences = re.split(r'([。！？；\.\!\?；\n])', para)
+            for j in range(0, len(sentences), 2):
+                sent = sentences[j] + (sentences[j + 1] if j + 1 < len(sentences) else '')
+                if not sent.strip():
+                    continue
+                sent_count = self._plain_char_count(sent)
+                if count + sent_count <= word_limit:
+                    kept.append(sent)
+                    count += sent_count
+                else:
+                    break
+            break
+        return '\n'.join(kept).strip()

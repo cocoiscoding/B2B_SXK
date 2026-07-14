@@ -8,7 +8,7 @@
     │  左栏（380px）       │  右栏（自适应）                │
     │  - 阶段指示 (el-steps)│  阶段 0：初稿多版本（Tab）    │
     │  - 产品/场景/模板     │  阶段 1：编辑 + 多选渠道       │
-    │  - 动态参数          │  阶段 2：多渠道版本 + 文生图    │
+    │  - 动态参数          │  阶段 2：多渠道版本 + 保存      │
     │  - 立即生成 (Step 0)  │                               │
     └─────────────────────────────────────────────────────┘
 
@@ -51,6 +51,24 @@
             >
               <span class="sxk-gen-loading__step-dot" />
               <span class="sxk-gen-loading__step-name">{{ s.label }}</span>
+            </div>
+          </div>
+          <!-- 已生成版本实时预览（每完成一个版本就显示一个，不等全部完成） -->
+          <div
+            v-if="liveVersions.length > 0 && triggering && !currentDraft"
+            class="sxk-gen-loading__versions"
+          >
+            <div
+              v-for="v in liveVersions"
+              :key="v.index"
+              class="sxk-gen-loading__version"
+            >
+              <div class="sxk-gen-loading__version-head">
+                <span class="sxk-gen-loading__version-no">版本 {{ v.index }}</span>
+                <span class="sxk-gen-loading__version-title">{{ v.title || ('版本 ' + v.index) }}</span>
+                <span class="sxk-gen-loading__version-stat">{{ v.body?.length || 0 }} 字</span>
+              </div>
+              <div class="sxk-gen-loading__version-body">{{ v.body }}</div>
             </div>
           </div>
         </div>
@@ -286,9 +304,14 @@
                   v-for="p in currentScene.params"
                   :key="p.key"
                 >
+                  <!-- word_count 参数已由下方统一的"正文字数上限"输入框处理，此处跳过避免重复 -->
+                  <div
+                    v-if="p.key === 'word_count'"
+                    style="display: none"
+                  />
                   <!-- 枚举：label + chip 同行（compact） -->
                   <div
-                    v-if="p.type === 'enum' && p.options && p.options.length"
+                    v-else-if="p.type === 'enum' && p.options && p.options.length"
                     class="sxk-field sxk-field--enum"
                   >
                     <span class="sxk-field__label">
@@ -402,6 +425,28 @@
           </div>
         </div>
 
+        <!-- ============ 字数限制（统一输入框，所有场景通用） ============ -->
+        <div
+          v-if="currentScene"
+          class="sxk-form-card sxk-form-card--compact"
+        >
+          <div class="sxk-form-card__head sxk-form-card__head--compact">
+            <span class="sxk-form-card__bar" />
+            <span class="sxk-form-card__title">正文字数上限</span>
+            <span class="sxk-form-card__desc">0 表示不限制，生成后超出会被标记</span>
+          </div>
+          <div class="sxk-form-card__body sxk-form-card__body--compact">
+            <el-input-number
+              v-model="form.word_limit"
+              :min="0"
+              :max="5000"
+              :step="100"
+              controls-position="right"
+              style="width: 200px"
+            />
+          </div>
+        </div>
+
         <!-- ============ 卡片 4：提交 ============ -->
         <div class="sxk-form-card sxk-form-card--submit">
           <div class="sxk-generate__submit-area">
@@ -417,7 +462,7 @@
               立即生成（3 个初稿）
             </el-button>
             <div class="sxk-generate__submit-tip">
-              生成后分三个阶段进行：选定初稿 → 改内容·选渠道 → 文生图·保存历史
+              生成后分三个阶段进行：选定初稿 → 改内容·选渠道 → 保存历史
             </div>
           </div>
         </div>
@@ -772,7 +817,6 @@
                           </el-icon>
                           {{ STATUS_LABEL[s.status] }}
                         </el-tag>
-                        <span class="sxk-generate__tl-time">{{ s.duration_ms }}ms</span>
                       </div>
                       <!-- 节点详情：消息 + issues 合并到同一个主题色块中
                      - 成功节点：仅显示 s.message
@@ -1036,7 +1080,7 @@
                   <div class="sxk-generate__card-head">
                     <b>编辑选定内容</b>
                     <span class="sxk-generate__card-tip">
-                      改动标题与正文，确认后进入配图与保存
+                      改动标题与正文，确认后进入保存
                     </span>
                   </div>
                 </template>
@@ -1151,7 +1195,7 @@
           </el-row>
         </div>
 
-        <!-- ============ 阶段 2：配图与保存（卡片对比墙 + 预览/编辑）============ -->
+        <!-- ============ 阶段 2：保存（卡片对比墙 + 预览/编辑）============ -->
         <div
           v-else
           class="sxk-generate__stage"
@@ -1174,10 +1218,9 @@
             <template #header>
               <div class="sxk-generate__card-head">
                 <div class="sxk-generate__card-head-left">
-                  <b>配图与保存</b>
+                  <b>保存</b>
                   <span class="sxk-generate__card-tip">
-                    共 {{ currentDraft.versions?.length || 0 }} 个渠道 · 已配图
-                    {{ adaptedCount }} / {{ currentDraft.versions?.length || 0 }}
+                    共 {{ currentDraft.versions?.length || 0 }} 个渠道版本
                   </span>
                 </div>
                 <!-- 阶段 2 顶部操作组（按状态动态展示） -->
@@ -1191,7 +1234,7 @@
                   >
                     重新开始
                   </el-button>
-                  <!-- 始终可用：仅导出（无需配图）-->
+                  <!-- 导出 -->
                   <el-button
                     size="small"
                     :icon="Download"
@@ -1200,18 +1243,7 @@
                   >
                     {{ exportingDraft ? '导出中' : '导出' }}
                   </el-button>
-                  <!-- 重新配图（完成后可再次生成）-->
-                  <!-- <el-button
-                  v-if="currentDraft.history_id && !finalizingDraft"
-                  size="small"
-                  type="warning"
-                  plain
-                  :icon="Refresh"
-                  @click="onFinalize"
-                >
-                  重新配图
-                </el-button> -->
-                  <!-- 主 CTA：生成配图并保存 -->
+                  <!-- 主 CTA：保存到历史 -->
                   <el-button
                     v-if="!currentDraft.history_id"
                     size="default"
@@ -1219,10 +1251,7 @@
                     :loading="finalizingDraft"
                     @click="onFinalize"
                   >
-                    <el-icon v-if="!finalizingDraft">
-                      <Picture />
-                    </el-icon>
-                    {{ finalizingDraft ? '文生图中...' : '生成配图并保存' }}
+                    {{ finalizingDraft ? '保存中...' : '保存' }}
                   </el-button>
                   <el-button
                     v-else
@@ -1264,10 +1293,6 @@
                   <span class="sxk-generate__version-card-stat">
                     <el-icon><Document /></el-icon>
                     {{ v.body?.length || 0 }} 字
-                  </span>
-                  <span class="sxk-generate__version-card-stat">
-                    <el-icon><Picture /></el-icon>
-                    {{ v.images?.length || 0 }} 图
                   </span>
                   <span class="sxk-generate__version-card-stat">
                     <el-icon><Star /></el-icon>
@@ -1357,37 +1382,6 @@
                     type="textarea"
                     :autosize="{ minRows: 12 }"
                   />
-                </div>
-                <div
-                  v-if="v.images?.length"
-                  class="sxk-generate__img-ref-list"
-                >
-                  <div class="sxk-generate__img-ref-head">
-                    <el-icon><Picture /></el-icon>
-                    配图参考（{{ v.images.length }} 张，预览时自动穿插在正文中）
-                  </div>
-                  <div class="sxk-generate__img-ref-grid">
-                    <div
-                      v-for="(img, i) in v.images"
-                      :key="i"
-                      class="sxk-generate__img-ref-item"
-                    >
-                      <img
-                        :src="img.url"
-                        :alt="img.caption"
-                      >
-                      <span class="sxk-generate__img-ref-cap">
-                        {{ img.caption || `配图 ${i + 1}` }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div
-                  v-else
-                  class="sxk-generate__img-ref-empty"
-                >
-                  <el-icon><PictureFilled /></el-icon>
-                  <span>暂无配图，点击右上「生成配图并保存」可自动配图</span>
                 </div>
               </div>
 
@@ -1485,7 +1479,7 @@
             <el-icon><CircleCheckFilled /></el-icon>
           </div>
           <h2 class="sxk-generate__done-title">
-            配图与保存已完成
+            保存已完成
           </h2>
 
           <!-- 一行紧凑的元信息 chip（取代 3 张统计卡） -->
@@ -1497,10 +1491,6 @@
             <span class="sxk-generate__done-meta-divider">·</span>
             <span class="sxk-generate__done-meta-text">
               {{ currentDraft.versions?.length || 0 }} 渠道
-            </span>
-            <span class="sxk-generate__done-meta-divider">·</span>
-            <span class="sxk-generate__done-meta-text">
-              {{ totalImages }} 配图
             </span>
             <span class="sxk-generate__done-meta-divider">·</span>
             <span class="sxk-generate__done-meta-text">
@@ -1781,7 +1771,7 @@
  * 多阶段草稿流程（与后端参考版 B2B-SXK-FastApi/frontend 对齐）：
  *   阶段 0：createDraft → 展示 3 个初稿 → 选定一个版本 → 阶段 1
  *   阶段 1：编辑 title/body + 多选渠道 → adapt → 阶段 2
- *   阶段 2：多渠道版本展示 → 文生图 → finalize → 落 history
+ *   阶段 2：多渠道版本展示 → finalize → 落 history
  *
  * 草稿状态机：stage ∈ draft | editing | adapted | done
  * 持久化：localStorage[`sxk-draft-id-${tabId}`]，每个 Tab 独立，刷新自动恢复
@@ -1795,7 +1785,6 @@ import {
   ArrowRight,
   Download,
   Search,
-  Picture,
   PieChart,  // 备用：竞品对比（ICON_MAP）
   Share,      // 备用：渠道适配（ICON_MAP）
   Promotion,  // 备用：活动（ICON_MAP）
@@ -1826,7 +1815,6 @@ import {
   Star,
   View,
   Edit,
-  PictureFilled,
   EditPen,
   Folder,
   DataAnalysis,
@@ -1852,9 +1840,7 @@ const triggering = ref(false)
 const selectingDraft = ref(false)
 const adaptingDraft = ref(false)
 const finalizingDraft = ref(false)
-// 重新生成当前渠道配图（loading 状态）
-const regeneratingChannelIdx = ref(null)
-// 阶段 2 是否已完成（保存到历史后置 true，刷新"配图与保存"步骤状态为"完成"）
+// 阶段 2 是否已完成（保存到历史后置 true，刷新"保存"步骤状态为"完成"）
 const stage2Completed = ref(false)
 // 左栏配置卡显示控制：true = 显示（初始/开始新创作），false = 隐藏（生成后）
 const configPanelVisible = ref(true)
@@ -1877,6 +1863,8 @@ const sseEnabled = sxkApi.isSSEEnabled()
 const liveSteps = ref([])
 // 当前正在执行的 Agent 名
 const liveCurrentAgent = ref('')
+// 已生成的版本（每收到一个 version_done 就按 index 有序插入，实时显示）
+const liveVersions = ref([])
 // SSE 流实例（用于 abort）
 const sseInstance = ref(null)
 // Agent 名缩写（去掉 "Agent" 后缀）
@@ -1889,17 +1877,16 @@ const AGENT_LABELS = {
   '竞品分析 Agent': '竞品分析',
   '内容生成 Agent': '内容生成',
   '内容校验 Agent': '内容校验',
-  '渠道适配 Agent': '渠道适配',
-  '文生图配图 Agent': '文生图配图'
+  '渠道适配 Agent': '渠道适配'
 }
 // 草稿生成阶段的标准 Agent 顺序
 const DRAFT_AGENT_FLOW = ['产品信息检索 Agent', '竞品分析 Agent', '内容生成 Agent', '内容校验 Agent']
 // 渠道适配阶段的 Agent 顺序
 const ADAPT_AGENT_FLOW = ['渠道适配 Agent']
-// 配图保存阶段的 Agent 顺序
-const FINALIZE_AGENT_FLOW = ['文生图配图 Agent']
+// 保存阶段的 Agent 顺序（已去掉文生图，仅保留保存）
+const FINALIZE_AGENT_FLOW = []
 
-// Loading 是否显示（阶段 0 生成 + 阶段 1 适配 + 阶段 2 配图保存）
+// Loading 是否显示（阶段 0 生成 + 阶段 1 适配 + 阶段 2 保存）
 const genLoadingVisible = computed(() => {
   if (triggering.value && !currentDraft.value) return true
   if (adaptingDraft.value) return true
@@ -1910,7 +1897,7 @@ const genLoadingVisible = computed(() => {
 // Loading 标题
 const genLoadingTitle = computed(() => {
   if (adaptingDraft.value) return 'AI 正在适配渠道…'
-  if (finalizingDraft.value) return 'AI 正在生成配图…'
+  if (finalizingDraft.value) return '正在保存…'
   return 'AI 正在生成文案…'
 })
 
@@ -1920,7 +1907,7 @@ const genLoadingSub = computed(() => {
     return liveCurrentAgent.value ? `${liveCurrentAgent.value} 执行中` : '正在为选定渠道生成适配版本'
   }
   if (finalizingDraft.value) {
-    return liveCurrentAgent.value ? `${liveCurrentAgent.value} 执行中` : '正在为各渠道生成配图并保存'
+    return liveCurrentAgent.value ? `${liveCurrentAgent.value} 执行中` : '正在保存到历史记录'
   }
   return liveCurrentAgent.value ? `${liveCurrentAgent.value} 执行中` : '正在调度多个 Agent 协同工作'
 })
@@ -2002,9 +1989,9 @@ const versionStatusClass = (v) => {
   return 'is-pending'
 }
 const versionStatusText = (v) => {
-  if (v.images?.length > 0) return '已配图'
-  if (finalizingDraft.value) return '配图中'
-  return '待开始'
+  if (v.images?.length > 0) return '已就绪'
+  if (finalizingDraft.value) return '保存中'
+  return '待保存'
 }
 // 完成卡统计
 const totalImages = computed(() => {
@@ -2191,7 +2178,8 @@ const form = reactive({
   product_id: '',
   scene_code: 'product_intro',
   template_id: '',
-  params: {}
+  params: {},
+  word_limit: 0
 })
 
 const rules = {
@@ -2219,9 +2207,9 @@ const stepDefs = [
     summary: '编辑选定初稿，并选择发布渠道'
   },
   {
-    title: '配图与保存',
-    desc: '文生图 · 保存历史',
-    summary: '为各渠道生成配图，并保存到生成历史'
+    title: '保存',
+    desc: '保存历史',
+    summary: '将生成内容保存到生成历史'
   }
 ]
 
@@ -2400,7 +2388,7 @@ const draftStep = computed(() => {
 })
 
 const stepTitle = computed(() => {
-  return ['生成初稿', '编辑与渠道适配', '配图与保存'][draftStep.value]
+  return ['生成初稿', '编辑与渠道适配', '保存'][draftStep.value]
 })
 
 // el-card 样式：不锁死高度，让内容自然撑开，页面整体滚动
@@ -2701,7 +2689,8 @@ async function onTrigger() {
       scene_code: form.scene_code,
       template_id: form.template_id,
       style: '专业严谨',
-      params: form.params
+      params: form.params,
+      word_limit: form.word_limit || 0
     })
     return
   }
@@ -2711,7 +2700,8 @@ async function onTrigger() {
       scene_code: form.scene_code,
       template_id: form.template_id,
       style: '专业严谨',
-      params: form.params
+      params: form.params,
+      word_limit: form.word_limit || 0
     })
     if (resp.code !== 0) {
       ElMessage.error(resp.msg || '创建草稿失败')
@@ -2745,16 +2735,26 @@ async function _generateDraftSSE(payload) {
   // 重置实时状态
   liveSteps.value = []
   liveCurrentAgent.value = ''
+  liveVersions.value = []
   showAgentTrace.value = true
   configPanelVisible.value = false
 
   try {
     const sse = await sxkApi.createDraftStream(payload, {
       onStep: (step) => {
-        // 过滤非 Agent 步骤（后端 orchestrator 还会发 version_start/version_done/version_attempt 等事件）
-        // 这些事件没有 agent 字段，仅作为内部进度信号，前端不展示
+        // 处理 version_done：每完成一个版本就按 index 有序插入 liveVersions 实时显示
+        if (step?.kind === 'version_done' && step.version) {
+          const idx = step.index
+          // 按 index 升序插入（版本可能乱序到达）
+          const list = liveVersions.value.filter((v) => v.index !== idx)
+          list.push({ ...step.version, index: idx })
+          list.sort((a, b) => a.index - b.index)
+          liveVersions.value = list
+          return
+        }
+        // 其他非 Agent 步骤静默忽略（version_start/version_attempt 等内部进度信号）
         if (!step || !step.agent) {
-          return  // 静默忽略（让后端内部进度事件"通过但不渲染"）
+          return
         }
         // step 形如 {agent, status, message?, duration_ms?, output?}
         // 状态为 'running' 时是 Agent 开始；否则是完成
@@ -2777,6 +2777,7 @@ async function _generateDraftSSE(payload) {
         localStorage.setItem(DRAFT_STORAGE_KEY, draft.id)
         sseInstance.value = null
         triggering.value = false
+        liveVersions.value = []
         ElMessage.success(
           '已生成 ' + (draft.draft_versions?.length || 0) + ' 个初稿（流式）'
         )
@@ -2853,12 +2854,21 @@ async function onRegenerateDraft() {
 async function _regenerateDraftSSE(draftId) {
   liveSteps.value = []
   liveCurrentAgent.value = ''
+  liveVersions.value = []
   showAgentTrace.value = true
   triggering.value = true
   try {
     const sse = await sxkApi.regenerateDraftStream(draftId, {
       onStep: (step) => {
-        // 过滤非 Agent 步骤（与 _generateDraftSSE 一致）
+        // 处理 version_done：每完成一个版本就按 index 有序插入 liveVersions 实时显示
+        if (step?.kind === 'version_done' && step.version) {
+          const idx = step.index
+          const list = liveVersions.value.filter((v) => v.index !== idx)
+          list.push({ ...step.version, index: idx })
+          list.sort((a, b) => a.index - b.index)
+          liveVersions.value = list
+          return
+        }
         if (!step || !step.agent) {
           return
         }
@@ -2877,6 +2887,7 @@ async function _regenerateDraftSSE(draftId) {
         draftVersionIndex.value = '1'
         sseInstance.value = null
         triggering.value = false
+        liveVersions.value = []
         ElMessage.success('已重新生成初稿（流式）')
       },
       onError: (err) => {
@@ -2943,7 +2954,7 @@ async function onAdapt() {
   try {
     // 先把 step1 的编辑写回 selected_version
     await sxkApi.selectDraftVersion(currentDraft.value.id, draftEditingVersion.value)
-    // 再做配图与保存
+    // 再做渠道适配
     const resp = await sxkApi.adaptDraft(currentDraft.value.id, selectedChannels.value)
     if (resp.code !== 0) {
       ElMessage.error(resp.msg || '适配失败')
@@ -2969,9 +2980,9 @@ async function onFinalize() {
       return
     }
     currentDraft.value = resp.data
-    // 标记阶段 2 已完成（让步骤条"配图与保存"显示为"完成"）
+    // 标记阶段 2 已完成（让步骤条"保存"显示为"完成"）
     stage2Completed.value = true
-    ElMessage.success('配图完成，已保存到历史记录')
+    ElMessage.success('已保存到历史记录')
   } catch (e) {
     ElMessage.error('保存失败：' + (e?.message || '未知错误'))
   } finally {
@@ -2979,45 +2990,6 @@ async function onFinalize() {
   }
 }
 
-/**
- * 重新生成当前渠道的配图
- * 后端目前没有单渠道配图接口，但只对已保存的草稿进行「替换」语义
- */
-async function onRegenerateCurrentChannel(version) {
-  if (!version || !currentDraft.value) return
-  regeneratingChannelIdx.value = version.index
-  try {
-    // 二次确认：避免误触
-    try {
-      await ElMessageBox.confirm(
-        `确认要重新生成「${version.channel}」渠道的配图吗？\n\n本操作仅替换当前渠道的配图，其他渠道不受影响。`,
-        '重新生成配图',
-        {
-          type: 'warning',
-          confirmButtonText: '确认重配',
-          cancelButtonText: '取消'
-        }
-      )
-    } catch {
-      return // 用户取消
-    }
-    // 调用后端 finalize 重新生成所有渠道配图
-    // 注意：当前后端是全渠道重新配图，"仅本渠道"是前端 UI 承诺
-    const resp = await sxkApi.finalizeDraft(currentDraft.value.id)
-    if (resp.code !== 0) {
-      ElMessage.error(resp.msg || '重配失败')
-      return
-    }
-    currentDraft.value = resp.data
-    ElMessage.success(`「${version.channel}」渠道配图已重新生成`)
-  } catch (e) {
-    if (e !== 'cancel' && e?.message !== 'cancel') {
-      ElMessage.error('重配失败：' + (e?.message || '未知错误'))
-    }
-  } finally {
-    regeneratingChannelIdx.value = null
-  }
-}
 
 function onDiscardDraft() {
   ElMessageBox.confirm('确认放弃当前草稿？已生成的内容将不会保存。', '放弃草稿', {
@@ -6149,7 +6121,7 @@ void renderMarkdown
   font-size: 11px;
 }
 
-// 配图参考列表（编辑模式）
+// 编辑模式相关（已去掉配图参考列表）
 .sxk-generate__img-ref-head {
   display: inline-flex;
   align-items: center;
@@ -6966,6 +6938,62 @@ void renderMarkdown
   @keyframes gen-dot-blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
+  }
+  // 实时版本预览（每完成一个版本就显示一个）
+  &__versions {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 320px;
+    overflow-y: auto;
+    text-align: left;
+  }
+  &__version {
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    animation: gen-version-in 0.3s ease;
+  }
+  &__version-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  &__version-no {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6366f1;
+    flex-shrink: 0;
+  }
+  &__version-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: $text-primary;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  &__version-stat {
+    font-size: 11px;
+    color: $text-placeholder;
+    flex-shrink: 0;
+  }
+  &__version-body {
+    font-size: 12px;
+    line-height: 1.6;
+    color: $text-regular;
+    max-height: 80px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  @keyframes gen-version-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
 

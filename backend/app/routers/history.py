@@ -57,15 +57,24 @@ def list_history(
     """查询历史记录列表（按时间倒序）。全员可见（共享），可按创建人筛选。
 
     默认返回最近 200 条，避免历史积压后全表加载拖慢响应；可用 limit/offset 翻页。
+    LEFT JOIN members：把 created_by(user_id) 解析为 creator_name(用户昵称)，
+    供前端直接显示用户名称而非 u_xxx 形式的 ID。
     """
     if member:
         rows = query(
-            "SELECT * FROM history WHERE created_by = %s ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            """SELECT h.*, COALESCE(m.name, m.username) AS creator_name
+               FROM history h
+               LEFT JOIN members m ON h.created_by = m.id
+               WHERE h.created_by = %s
+               ORDER BY h.created_at DESC LIMIT %s OFFSET %s""",
             (member, limit, offset),
         )
     else:
         rows = query(
-            "SELECT * FROM history ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            """SELECT h.*, COALESCE(m.name, m.username) AS creator_name
+               FROM history h
+               LEFT JOIN members m ON h.created_by = m.id
+               ORDER BY h.created_at DESC LIMIT %s OFFSET %s""",
             (limit, offset),
         )
     rows = [_parse_json_fields(r, JSON_FIELDS) for r in rows]
@@ -74,8 +83,14 @@ def list_history(
 
 @router.get("/{history_id}", response_model=HistoryItem)
 def get_history(history_id: str, user: dict = Depends(get_current_user)):
-    """查询单条历史记录详情。"""
-    row = query_one("SELECT * FROM history WHERE id = %s", (history_id,))
+    """查询单条历史记录详情。LEFT JOIN members 返回 creator_name。"""
+    row = query_one(
+        """SELECT h.*, COALESCE(m.name, m.username) AS creator_name
+           FROM history h
+           LEFT JOIN members m ON h.created_by = m.id
+           WHERE h.id = %s""",
+        (history_id,),
+    )
     if not row:
         raise HTTPException(404, f"历史记录 {history_id} 不存在")
     row = _parse_json_fields(row, JSON_FIELDS)

@@ -266,7 +266,8 @@ class Orchestrator:
 
     def run_draft(self, product_id: str, scenario_id: str, template_id: str | None,
                   style: str, params: dict, version_count: int = 3,
-                  on_step: Callable[[dict], None] | None = None) -> dict:
+                  on_step: Callable[[dict], None] | None = None,
+                  word_limit: int = 0) -> dict:
         """阶段1：检索 -> 生成 -> 校验（只跑一次，不返工）。
 
         渠道适配与文生图不在本阶段。校验问题交由前端展示，用户决定是否重新生成。
@@ -275,6 +276,7 @@ class Orchestrator:
         on_step：可选的流式回调，每个 Agent 执行前/后各推送一次步骤事件
         （执行前推 {agent, status:"running"}，执行后推完整 step dict）。
         不传时按原同步行为执行，不影响调用方。
+        word_limit：正文字数上限（0=不限制），注入 prompt + 硬校验。
         """
         product = self._load_product(product_id)
         scenario = self._load_scenario(scenario_id, template_id)
@@ -288,6 +290,7 @@ class Orchestrator:
             style=style,
             params=params,
             version_count=version_count,
+            word_limit=word_limit,
         )
 
         trace: list[dict] = []
@@ -345,31 +348,47 @@ class Orchestrator:
         }
 
     def _generate_versions_with_retry(self, ctx: AgentContext, trace: list, emit) -> dict:
-        """批量生成 + 逐版本校验 + 失败单版重试，结果累加到 ctx.draft_versions。
+        """批量生成 + 并行校验 + 失败单版重试，结果累加到 ctx.draft_versions。
 
         生成首遍用 generate_batch（LLM 模式 1 次调用产出全部，替代逐版串行），
-        再逐版本校验；未通过者带 feedback 单版重试（最多 3 次）。
-        每版开始/完成各 emit 一次版本事件（前端忽略，仅作内部进度信号）。
+        再用 ThreadPoolExecutor 并行校验各版本；未通过者带 feedback 单版重试（最多 3 次）。
+        每版完成即 emit version_done 事件（含该版本完整内容），前端可实时显示。
         返回汇总 {"issues","validated"} 并把校验步骤写入 trace。
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         version_count = ctx.version_count or 1
         ctx.feedback_issues = []   # 批量首遍无反馈
         versions = self.generation.generate_batch(ctx, version_count)
 
+        # 并行校验+重试各版本（各版本互相独立，无共享状态依赖）
+        results: dict[int, tuple] = {}   # {version_index: (version, attempts, issues)}
+        with ThreadPoolExecutor(max_workers=min(version_count, 4)) as pool:
+            futures = {
+                pool.submit(self._validate_and_retry, ctx, v, i, emit): i
+                for i, v in enumerate(versions)
+            }
+            for future in as_completed(futures):
+                idx = futures[future]
+                version, attempts, issues = future.result()
+                results[idx] = (version, attempts, issues)
+                # 每版完成立即 emit version_done（含内容，前端实时显示，不等其他版本）
+                dim = self.generation.dim_for_version(ctx.scenario, idx)
+                emit({
+                    "kind": "version_done", "index": idx + 1, "dim": dim,
+                    "attempts": attempts, "validated": not issues, "issues": issues,
+                    "version": version,
+                })
+
+        # 按原始顺序组装结果到 ctx.draft_versions
         all_issues: list[str] = []
         all_validated = True
-        for i, v in enumerate(versions):
-            dim = self.generation.dim_for_version(ctx.scenario, i)
-            emit({"kind": "version_start", "index": i + 1, "dim": dim})
-            version, attempts, issues = self._validate_and_retry(ctx, v, i, emit)
+        for i in range(len(versions)):
+            version, attempts, issues = results[i]
             ctx.draft_versions.append(version)
             if issues:
                 all_validated = False
                 all_issues.extend(issues)
-            emit({
-                "kind": "version_done", "index": i + 1, "dim": dim,
-                "attempts": attempts, "validated": not issues, "issues": issues,
-            })
         trace.append({
             "agent": "内容校验 Agent",
             "status": "success" if all_validated else "warning",
@@ -384,6 +403,7 @@ class Orchestrator:
 
         首次只校验（版本已由 generate_batch 产出）；失败才用 generate_one 单版重生成。
         返回 (version, attempts, issues)；issues 为空表示该版本校验通过。
+        3 次重试后仍超字数时，强制按句子边界截断到 word_limit 以内（LLM 字数控制兜底）。
         """
         max_attempts = 3
         last_issues: list[str] = []
@@ -396,6 +416,13 @@ class Orchestrator:
                 ctx.feedback_issues = list(last_issues)
                 emit({"kind": "version_attempt", "index": version_index + 1, "attempt": attempt + 1})
                 version = self.generation.generate_one(ctx, version_index)
+        # 3 次重试仍未通过：若超字数则强制截断兜底（LLM 字数控制能力弱，保证最终结果满足限制）
+        wl = ctx.word_limit
+        if isinstance(wl, int) and wl > 0:
+            version = dict(version)
+            version["body"] = self.validation.truncate_to_limit(version.get("body", ""), wl)
+            # 截断后从 issues 中移除字数超标项（已强制修正）
+            last_issues = [i for i in last_issues if "超过字数上限" not in i and "超过模板上限" not in i]
         return version, max_attempts, last_issues
 
     def run_adapt(self, selected_version: dict, channels: list[str],

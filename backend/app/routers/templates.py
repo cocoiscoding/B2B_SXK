@@ -3,6 +3,7 @@
 模板关联在场景之下，每个场景可包含多个模板。
 模板定义了提示词/产出格式，供内容生成 Agent 使用。
 """
+import re
 import uuid
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import query, query_one, transaction
@@ -157,7 +158,10 @@ def update_template(scenario_id: str, template_id: str, body: TemplateCreate,
 
 @router.delete("/{template_id}")
 def delete_template(scenario_id: str, template_id: str, user: dict = Depends(get_current_user)):
-    """删除模板。仅创建者或管理员可删。"""
+    """删除模板。预置模板不可删；自定义模板仅创建者或管理员可删。"""
+    # 预置模板（T001~T999）不可删除，与前端规则一致
+    if re.match(r"^T\d{3}$", template_id):
+        raise HTTPException(400, "预置模板不可删除")
     existing = query_one(
         "SELECT id, created_by FROM templates WHERE id = %s AND scenario_id = %s",
         (template_id, scenario_id),
@@ -168,4 +172,4 @@ def delete_template(scenario_id: str, template_id: str, user: dict = Depends(get
         raise HTTPException(403, "无权删除他人的模板")
     with transaction() as cur:
         cur.execute("DELETE FROM templates WHERE id = %s", (template_id,))
-    return {"message": f"模板 {template_id} 已删除"}
+    return {"code": 0, "msg": "ok", "data": None}
