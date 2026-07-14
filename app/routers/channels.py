@@ -4,16 +4,20 @@
 新增渠道只需 INSERT 一条记录，无需修改后端代码。
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from app.database import query
+from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/channels", tags=["渠道管理"])
 
 
 @router.get("")
 @router.get("/", include_in_schema=False)
-def list_channels(keyword: str = Query("", description="关键词过滤")):
-    """获取所有渠道配置列表。"""
+def list_channels(
+    keyword: str = Query("", description="关键词过滤"),
+    user: dict = Depends(get_current_user),
+):
+    """获取所有渠道配置列表。需登录（与项目其他列表接口的鉴权策略一致）。"""
     if keyword:
         rows = query(
             "SELECT name, display_name, tone, emoji, format, description, is_builtin "

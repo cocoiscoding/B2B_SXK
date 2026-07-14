@@ -371,6 +371,34 @@ class GenerationAgent(BaseAgent):
         version["feature"] = self.dim_for_version(ctx.scenario, version_index)
         return version
 
+    def rewrite_one(self, version: dict, instruction: str, ctx: AgentContext) -> dict:
+        """按用户指令重写单个已有版本（局部 AI 微调）。
+
+        严格保留产品名/定价/卖点/敏感词等事实（复用 _format_hard_requirements），
+        只按 instruction 调整标题/正文/语气。供 orchestrator.run_rewrite 调用。
+        Mock 模板引擎无法语义重写，抛 ValueError 由路由层转 400。
+        """
+        if not (self._llm and self._llm.name != "mock-engine"):
+            raise ValueError("微调需配置 LLM（当前为 Mock 模板引擎，无法重写）")
+        sys_prompt = (
+            "你是资深产品营销文案专家。按用户指令对现有营销文案做局部改写，"
+            "严格保持产品名、定价、参数、卖点等事实不变，只按指令调整。输出 JSON。"
+        )
+        hard_req = self._format_hard_requirements(ctx)
+        user_prompt = (
+            f"【原版本】\n标题：{version.get('title', '')}\n正文：\n{version.get('body', '')}\n\n"
+            f"【用户改写指令】{instruction}\n\n{hard_req}"
+            "请基于指令改写，只输出 JSON："
+            '{"title":"...","body":"...","tags":["..."]}。body 可用 markdown。'
+        )
+        raw = self._llm.chat(sys_prompt, user_prompt, temperature=0.6)
+        result = self._parse_llm_output(raw)
+        result["index"] = version.get("index", 1)          # 保留原 index
+        result["feature"] = version.get("feature", "")     # 保留差异化特色
+        if not result.get("tags"):                         # LLM 未给 tags 则保留原 tags
+            result["tags"] = version.get("tags", [])
+        return result
+
     @staticmethod
     def dim_for_version(scenario: dict, version_index: int) -> str:
         """取指定版本的差异化特色：优先用模板 template_diff_dims，否则回退默认风格锚点。"""

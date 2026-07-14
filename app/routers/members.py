@@ -65,9 +65,15 @@ def update_member(member_id: str, body: MemberUpdate, user: dict = Depends(requi
 
     改密码无需旧密码（管理员重置）。所有字段可选，只更新传入的。
     """
-    existing = query_one("SELECT id FROM members WHERE id = %s", (member_id,))
+    existing = query_one("SELECT id, is_admin FROM members WHERE id = %s", (member_id,))
     if not existing:
         raise HTTPException(404, f"成员 {member_id} 不存在")
+
+    # 至少保留一名管理员，否则所有管理功能都会永久锁死。
+    if existing.get("is_admin") and body.is_admin is False:
+        admin_count = query_one("SELECT COUNT(*) AS count FROM members WHERE is_admin = TRUE")
+        if not admin_count or admin_count["count"] <= 1:
+            raise HTTPException(400, "不能取消系统中最后一名管理员的权限")
 
     sets, args = [], []
     if body.name is not None:

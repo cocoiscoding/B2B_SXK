@@ -175,6 +175,7 @@ def init_db() -> None:
                     name        VARCHAR(200) NOT NULL,
                     description TEXT,
                     parameters  JSONB        NOT NULL DEFAULT '[]'::jsonb,
+                    created_by  VARCHAR(20),
                     created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 );
 
@@ -255,6 +256,10 @@ def init_db() -> None:
             cur.execute(
                 "ALTER TABLE products ADD COLUMN IF NOT EXISTS created_by VARCHAR(20)"
             )
+            # 自定义场景记录创建人；存量/内置场景为 NULL，仅管理员可修改
+            cur.execute(
+                "ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS created_by VARCHAR(20)"
+            )
             # 老库兼容：早期 products 表可能没有 images/documents 列，补上（IF NOT EXISTS 幂等）
             cur.execute(
                 "ALTER TABLE products ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb"
@@ -290,6 +295,28 @@ def init_db() -> None:
             )
             cur.execute(
                 "ALTER TABLE templates ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb"
+            )
+            # 模板审核制 + 复用：status(审核状态)/created_by/审核留痕/use_count(使用次数)/is_featured(推荐)
+            cur.execute(
+                "ALTER TABLE templates ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'approved'"
+            )
+            cur.execute(
+                "ALTER TABLE templates ADD COLUMN IF NOT EXISTS created_by VARCHAR(20)"
+            )
+            cur.execute(
+                "ALTER TABLE templates ADD COLUMN IF NOT EXISTS reviewed_by VARCHAR(20)"
+            )
+            cur.execute(
+                "ALTER TABLE templates ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMP WITH TIME ZONE"
+            )
+            cur.execute(
+                "ALTER TABLE templates ADD COLUMN IF NOT EXISTS review_note TEXT"
+            )
+            cur.execute(
+                "ALTER TABLE templates ADD COLUMN IF NOT EXISTS use_count INT NOT NULL DEFAULT 0"
+            )
+            cur.execute(
+                "ALTER TABLE templates ADD COLUMN IF NOT EXISTS is_featured BOOLEAN NOT NULL DEFAULT FALSE"
             )
             # 加分项：团队成员表（演进为用户表，含登录鉴权字段）
             cur.execute(

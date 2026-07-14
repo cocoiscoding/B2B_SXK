@@ -15,11 +15,14 @@ FastAPI 路由概念：
 """
 import uuid
 import os
-import shutil
+import io
+from pathlib import Path
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Depends
 from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from psycopg2.extras import Json
+from PIL import Image, UnidentifiedImageError
+from config import BASE_DIR
 from app.database import query, query_one, transaction, _parse_json_fields
 from app.models import ProductCreate, Product, ImportDocxResponse
 from app.vector_search import embed_product, search_products_by_text
@@ -31,9 +34,9 @@ from app.auth import get_current_user, is_owner_or_admin, require_admin
 # tags=["产品知识库"] 用于 API 文档分组
 router = APIRouter(prefix="/api/products", tags=["产品知识库"])
 
-# 文件上传根目录
-UPLOAD_ROOT = "uploads/products"
-os.makedirs(UPLOAD_ROOT, exist_ok=True)
+# 文件上传根目录使用绝对路径，避免服务从其他工作目录启动时写错位置
+UPLOAD_ROOT = BASE_DIR / "uploads" / "products"
+UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
 
 # 上传限制配置
 MAX_IMAGES_PER_PRODUCT = 10      # 每产品最多 10 张图片
@@ -44,6 +47,33 @@ MAX_DOCUMENT_SIZE = 50 * 1024 * 1024  # 文档最大 50MB
 # JSON_FIELDS 是产品表中的 JSONB 字段列表
 # 这些字段在数据库中是 JSONB 类型，读取后需要做空值处理
 JSON_FIELDS = ["category", "features", "target_customers", "selling_points", "competitors", "images", "documents"]
+
+
+def _safe_product_dir(product_id: str) -> Path:
+    """返回产品上传目录，并确保路径始终位于 UPLOAD_ROOT 内。"""
+    root = UPLOAD_ROOT.resolve()
+    candidate = (root / product_id).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        raise HTTPException(400, "产品 ID 非法")
+    if candidate == root:
+        raise HTTPException(400, "产品 ID 非法")
+    return candidate
+
+
+def _stored_upload_path(url: str) -> Path | None:
+    """把数据库中的上传 URL 转为安全本地路径；非本站上传路径返回 None。"""
+    prefix = "/uploads/products/"
+    if not isinstance(url, str) or not url.startswith(prefix):
+        return None
+    root = UPLOAD_ROOT.resolve()
+    candidate = (root / url[len(prefix):]).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    return candidate if candidate != root else None
 
 
 # ===== F1-2: 产品列表查询（含关键词检索 F1-3）=====
@@ -109,6 +139,8 @@ def create_product(body: ProductCreate, user: dict = Depends(get_current_user)):
     # 如果前端传了 id 就用前端的，否则自动生成（P + 6位随机大写字母数字）
     pid = body.id or f"P{uuid.uuid4().hex[:6].upper()}"
     created_by = user["id"]    # 归属：当前登录用户
+    if query_one("SELECT id FROM products WHERE id = %s", (pid,)):
+        raise HTTPException(409, f"产品 ID {pid} 已存在")
 
     # 先构建产品字典，用于生成 embedding 向量
     # model_dump() 是 Pydantic 方法，把模型转成字典
@@ -210,33 +242,31 @@ def delete_product(product_id: str, user: dict = Depends(get_current_user)):
     if not is_owner_or_admin(user, existing.get("created_by")):
         raise HTTPException(403, "无权删除他人的产品")
     
-    # 删除关联的上传文件
+    # 只清理本项目 uploads/products 下的关联文件。数据库字段来自客户端，不能直接当文件路径使用。
     images = existing.get("images") or []
     documents = existing.get("documents") or []
-    deleted_files = 0
-    
-    for img in images:
-        if isinstance(img, dict) and img.get("url"):
-            file_path = os.path.join(".", img["url"].lstrip("/"))
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                    deleted_files += 1
-                except Exception:
-                    pass  # 文件删除失败不影响产品删除
-    
-    for doc in documents:
-        if isinstance(doc, dict) and doc.get("url"):
-            file_path = os.path.join(".", doc["url"].lstrip("/"))
-            if os.path.exists(file_path):
-                try:
-                    os.remove(file_path)
-                    deleted_files += 1
-                except Exception:
-                    pass
-    
+    upload_paths = []
+    for item in [*images, *documents]:
+        if isinstance(item, dict):
+            safe_path = _stored_upload_path(item.get("url", ""))
+            if safe_path:
+                upload_paths.append(safe_path)
+
+    # 先提交数据库删除，避免数据库操作失败时文件已经不可恢复。
+    # history 保存的是生成快照予以保留；竞品缓存和未完成草稿随产品清理。
     with transaction() as cur:
+        cur.execute("DELETE FROM competitor_analyses WHERE product_id = %s", (product_id,))
+        cur.execute("DELETE FROM drafts WHERE product_id = %s", (product_id,))
         cur.execute("DELETE FROM products WHERE id = %s", (product_id,))
+
+    deleted_files = 0
+    for file_path in set(upload_paths):
+        if file_path.is_file():
+            try:
+                file_path.unlink()
+                deleted_files += 1
+            except OSError:
+                pass  # 文件清理失败不回滚已经完成的业务删除
     
     msg = f"产品 {product_id} 已删除"
     if deleted_files > 0:
@@ -377,25 +407,48 @@ async def upload_product_image(
     file_size = 0
     content = await file.read()
     file_size = len(content)
+    if not content:
+        raise HTTPException(400, "图片内容为空")
     if file_size > MAX_IMAGE_SIZE:
         raise HTTPException(400, f"图片大小超过限制（最大 {MAX_IMAGE_SIZE // 1024 // 1024}MB）")
+
+    # content_type 可由客户端伪造，使用 Pillow 校验真实图片格式。
+    expected_formats = {
+        "image/jpeg": "JPEG", "image/png": "PNG",
+        "image/gif": "GIF", "image/webp": "WEBP",
+    }
+    try:
+        with Image.open(io.BytesIO(content)) as image:
+            image_format = image.format
+            image.verify()
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError, SyntaxError):
+        raise HTTPException(400, "图片文件内容无效或已损坏")
+    if image_format != expected_formats[file.content_type]:
+        raise HTTPException(400, "图片内容与声明的文件类型不一致")
     
     # 检查数量限制
     images = existing.get("images") or []
-    if len(images) >= MAX_IMAGES_PER_PRODUCT:
+    product_dir = _safe_product_dir(product_id)
+    image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+    uploaded_count = 0
+    if product_dir.exists():
+        uploaded_count = sum(
+            1 for p in product_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in image_extensions
+        )
+    if max(len(images), uploaded_count) >= MAX_IMAGES_PER_PRODUCT:
         raise HTTPException(400, f"图片数量已达上限（最多 {MAX_IMAGES_PER_PRODUCT} 张）")
     
     # 创建产品专属目录
-    product_dir = os.path.join(UPLOAD_ROOT, product_id)
-    os.makedirs(product_dir, exist_ok=True)
+    product_dir.mkdir(parents=True, exist_ok=True)
     
     # 生成唯一文件名
-    file_ext = os.path.splitext(file.filename)[1] if file.filename else ".jpg"
+    file_ext = {"JPEG": ".jpg", "PNG": ".png", "GIF": ".gif", "WEBP": ".webp"}[image_format]
     unique_name = f"{uuid.uuid4().hex[:8]}{file_ext}"
-    file_path = os.path.join(product_dir, unique_name)
+    file_path = product_dir / unique_name
     
     # 保存文件
-    with open(file_path, "wb") as buffer:
+    with file_path.open("wb") as buffer:
         buffer.write(content)
     
     # 返回文件信息
@@ -429,24 +482,32 @@ async def upload_product_document(
     # 检查文件大小
     content = await file.read()
     file_size = len(content)
+    if not content:
+        raise HTTPException(400, "文档内容为空")
     if file_size > MAX_DOCUMENT_SIZE:
         raise HTTPException(400, f"文档大小超过限制（最大 {MAX_DOCUMENT_SIZE // 1024 // 1024}MB）")
     
     # 检查数量限制
     documents = existing.get("documents") or []
-    if len(documents) >= MAX_DOCUMENTS_PER_PRODUCT:
+    product_dir = _safe_product_dir(product_id)
+    uploaded_documents = 0
+    if product_dir.exists():
+        uploaded_documents = sum(
+            1 for p in product_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in allowed_extensions
+        )
+    if max(len(documents), uploaded_documents) >= MAX_DOCUMENTS_PER_PRODUCT:
         raise HTTPException(400, f"文档数量已达上限（最多 {MAX_DOCUMENTS_PER_PRODUCT} 个）")
     
     # 创建产品专属目录
-    product_dir = os.path.join(UPLOAD_ROOT, product_id)
-    os.makedirs(product_dir, exist_ok=True)
+    product_dir.mkdir(parents=True, exist_ok=True)
     
     # 生成唯一文件名
     unique_name = f"{uuid.uuid4().hex[:8]}{file_ext}"
-    file_path = os.path.join(product_dir, unique_name)
+    file_path = product_dir / unique_name
     
     # 保存文件
-    with open(file_path, "wb") as buffer:
+    with file_path.open("wb") as buffer:
         buffer.write(content)
     
     # 返回文件信息
