@@ -803,6 +803,7 @@ export const sxkApi = {
         })
         const siblings = (siblingsRaw || []).map(adaptTemplate).map((x) => ({
           template_id: x.template_id,
+          scene_code: x.scene_code,
           name: x.name,
           output_format: x.output_format,
           description: x.description,

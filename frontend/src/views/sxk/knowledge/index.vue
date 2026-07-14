@@ -677,16 +677,34 @@ onMounted(() => {
     align-items: center;
     justify-content: space-between;
     margin-bottom: $spacing-sm;
+    gap: $spacing-sm;
 
     .product-name {
       font-size: $font-size-lg;
       font-weight: 600;
       color: $text-primary;
       flex: 1;
+      min-width: 0;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       margin-right: $spacing-sm;
+    }
+
+    .el-tag {
+      flex-shrink: 0;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      :deep(> span) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: inline-block;
+        max-width: 100%;
+      }
     }
   }
 

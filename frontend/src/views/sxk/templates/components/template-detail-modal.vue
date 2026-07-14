@@ -390,7 +390,7 @@ const onDeleteSub = async (tpl) => {
   } catch {
     return
   }
-  const res = await sxkApi.deleteTemplate(tpl.template_id, sceneCode.value)
+  const res = await sxkApi.deleteTemplate(tpl.template_id, tpl.scene_code || sceneCode.value)
   if (res.code === 0) {
     ElMessage.success('模板已删除')
     await load()
