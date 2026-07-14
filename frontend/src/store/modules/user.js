@@ -224,8 +224,8 @@ export const useUserStore = defineStore('user', {
           })
       })
     },
-    // 刷新 token
-    refreshToken(userInfo) {
+    // 刷新 token（注意：state 属性也叫 refreshToken，方法名不能与之冲突）
+    refreshAccessToken(userInfo) {
       return new Promise((resolve, reject) => {
         refreshToken(
           this.refreshToken,

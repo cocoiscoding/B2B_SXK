@@ -9,11 +9,18 @@
     <!-- ========== 顶部欢迎条：与首页风格一致 ========== -->
     <div class="sxk-page-welcome">
       <div class="sxk-page-welcome__left">
-        <h2 class="sxk-page-welcome__title">成员管理</h2>
-        <p class="sxk-page-welcome__desc">管理团队成员的账号、昵称和角色权限（仅管理员）</p>
+        <h2 class="sxk-page-welcome__title">
+          成员管理
+        </h2>
+        <p class="sxk-page-welcome__desc">
+          管理团队成员的账号、昵称和角色权限（仅管理员）
+        </p>
       </div>
       <div class="sxk-page-welcome__actions">
-        <el-button type="primary" @click="onAdd">
+        <el-button
+          type="primary"
+          @click="onAdd"
+        >
           <el-icon><Plus /></el-icon>
           <span>添加成员</span>
         </el-button>
@@ -23,46 +30,91 @@
     <!-- ========== 成员表格 ========== -->
     <basic-block>
       <el-table
-        :data="list"
         v-loading="loading"
+        :data="list"
         border
         stripe
         class="members-table"
         empty-text="暂无成员"
       >
-        <el-table-column label="昵称" min-width="160">
+        <el-table-column
+          label="昵称"
+          min-width="160"
+        >
           <template #default="{ row }">
             <div class="member-name">
               <span
                 class="member-color"
                 :style="{ background: row.color || '#3b82f6' }"
-              ></span>
+              />
               <span>{{ row.name || row.username }}</span>
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="username" label="用户名" min-width="140" />
-        <el-table-column prop="email" label="邮箱" min-width="200" />
-        <el-table-column label="角色" width="100">
+        <el-table-column
+          prop="username"
+          label="用户名"
+          min-width="140"
+        />
+        <el-table-column
+          prop="email"
+          label="邮箱"
+          min-width="200"
+        />
+        <el-table-column
+          label="角色"
+          width="100"
+        >
           <template #default="{ row }">
-            <el-tag v-if="row.is_admin" type="danger" size="small">管理员</el-tag>
-            <el-tag v-else size="small" type="info">普通成员</el-tag>
+            <el-tag
+              v-if="row.is_admin"
+              type="danger"
+              size="small"
+            >
+              管理员
+            </el-tag>
+            <el-tag
+              v-else
+              size="small"
+              type="info"
+            >
+              普通成员
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" min-width="180">
+        <el-table-column
+          prop="created_at"
+          label="创建时间"
+          min-width="180"
+        >
           <template #default="{ row }">
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column
+          label="操作"
+          width="180"
+          fixed="right"
+        >
           <template #default="{ row }">
-            <el-button link type="primary" @click="onEdit(row)">编辑</el-button>
+            <el-button
+              link
+              type="primary"
+              @click="onEdit(row)"
+            >
+              编辑
+            </el-button>
             <el-popconfirm
               :title="`确认删除「${row.name || row.username}」？`"
               @confirm="onDelete(row)"
             >
               <template #reference>
-                <el-button link type="danger">删除</el-button>
+                <el-button
+                  link
+                  type="danger"
+                >
+                  删除
+                </el-button>
               </template>
             </el-popconfirm>
           </template>

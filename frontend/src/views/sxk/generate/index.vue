@@ -18,10 +18,16 @@
     ?tid=xxx    模板 ID 预选
 -->
 <template>
-  <div class="sxk-generate" :class="{ 'is-empty': !currentDraft }">
+  <div
+    class="sxk-generate"
+    :class="{ 'is-empty': !currentDraft }"
+  >
     <!-- ============================== 生成中 Loading 覆盖层 ============================== -->
     <transition name="gen-loading-fade">
-      <div v-if="genLoadingVisible" class="sxk-gen-loading">
+      <div
+        v-if="genLoadingVisible"
+        class="sxk-gen-loading"
+      >
         <div class="sxk-gen-loading__card">
           <!-- 动画图标 -->
           <div class="sxk-gen-loading__icon">
@@ -29,7 +35,9 @@
             <div class="sxk-gen-loading__pulse" />
           </div>
           <!-- 标题 -->
-          <h3 class="sxk-gen-loading__title">{{ genLoadingTitle }}</h3>
+          <h3 class="sxk-gen-loading__title">
+            {{ genLoadingTitle }}
+          </h3>
           <p class="sxk-gen-loading__sub">
             {{ genLoadingSub }}
           </p>
@@ -49,10 +57,17 @@
       </div>
     </transition>
     <!-- ============================== 顶部欢迎条（与其他页面一致） ============================== -->
-    <div v-if="configPanelVisible" class="sxk-page-welcome">
+    <div
+      v-if="configPanelVisible"
+      class="sxk-page-welcome"
+    >
       <div class="sxk-page-welcome__left">
-        <h2 class="sxk-page-welcome__title">内容生成</h2>
-        <p class="sxk-page-welcome__desc">填写配置，一键产出多版本营销文案</p>
+        <h2 class="sxk-page-welcome__title">
+          内容生成
+        </h2>
+        <p class="sxk-page-welcome__desc">
+          填写配置，一键产出多版本营销文案
+        </p>
       </div>
       <el-tag
         v-if="currentDraft"
@@ -72,7 +87,10 @@
       hover-shadow
     >
       <!-- 阶段指示器（草稿存在时显示） -->
-      <div v-if="currentDraft" class="sxk-generate__steps">
+      <div
+        v-if="currentDraft"
+        class="sxk-generate__steps"
+      >
         <!-- 自绘可点击步骤条（替代 el-steps，支持已完成步回跳） -->
         <div class="sxk-generate__step-track">
           <div
@@ -80,16 +98,22 @@
             :key="i"
             class="sxk-generate__step"
             :class="stepClass(i)"
-            @click="onStepJump(i)"
             :title="canJumpTo(i) ? `回到：${s.title}` : s.title"
+            @click="onStepJump(i)"
           >
             <div class="sxk-generate__step-no">
-              <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)"><CircleCheckFilled /></el-icon>
+              <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)">
+                <CircleCheckFilled />
+              </el-icon>
               <span v-else>{{ i + 1 }}</span>
             </div>
             <div class="sxk-generate__step-info">
-              <div class="sxk-generate__step-title">{{ s.title }}</div>
-              <div class="sxk-generate__step-desc">{{ s.desc }}</div>
+              <div class="sxk-generate__step-title">
+                {{ s.title }}
+              </div>
+              <div class="sxk-generate__step-desc">
+                {{ s.desc }}
+              </div>
             </div>
             <span
               v-if="i === draftStep && !(i === 2 && stage2Completed)"
@@ -150,64 +174,74 @@
         <!-- ============ 卡片 1：基础配置（产品 + 模板 并排） ============ -->
         <div class="sxk-form-card">
           <div class="sxk-form-card__head">
-            <span class="sxk-form-card__bar"></span>
+            <span class="sxk-form-card__bar" />
             <span class="sxk-form-card__title">基础配置</span>
             <span class="sxk-form-card__desc">先选择产品，再选择场景模板</span>
           </div>
           <div class="sxk-form-card__body">
-            <el-form-item label="选择产品" prop="product_id" class="sxk-form-card__col">
-          <el-select
-            v-model="form.product_id"
-            placeholder="请选择产品"
-            filterable
-            clearable
-            class="sxk-generate__form-full"
-            @change="onProductChange"
-          >
-            <el-option
-              v-for="p in productOptions"
-              :key="p.product_id"
-              :label="p.name"
-              :value="p.product_id"
-              :disabled="p.is_deleted"
+            <el-form-item
+              label="选择产品"
+              prop="product_id"
+              class="sxk-form-card__col"
             >
-              <span style="float: left">{{ p.name }}</span>
-              <span style="float: right; color: #9ca3af; font-size: 12px">
-                {{ p.category }}
-              </span>
-            </el-option>
-          </el-select>
-        </el-form-item>
+              <el-select
+                v-model="form.product_id"
+                placeholder="请选择产品"
+                filterable
+                clearable
+                class="sxk-generate__form-full"
+                @change="onProductChange"
+              >
+                <el-option
+                  v-for="p in productOptions"
+                  :key="p.product_id"
+                  :label="p.name"
+                  :value="p.product_id"
+                  :disabled="p.is_deleted"
+                >
+                  <span style="float: left">{{ p.name }}</span>
+                  <span style="float: right; color: #9ca3af; font-size: 12px">
+                    {{ p.category }}
+                  </span>
+                </el-option>
+              </el-select>
+            </el-form-item>
           </div>
         </div>
 
         <!-- ============ 卡片 2：内容场景（全宽网格） ============ -->
         <div class="sxk-form-card">
           <div class="sxk-form-card__head">
-            <span class="sxk-form-card__bar"></span>
+            <span class="sxk-form-card__bar" />
             <span class="sxk-form-card__title">内容场景</span>
             <span class="sxk-form-card__desc">选择本次生成内容的目标场景</span>
           </div>
           <div class="sxk-form-card__body">
-            <el-form-item label="选择场景" prop="scene_code">
-          <div class="sxk-generate__scene-grid">
-            <div
-              v-for="s in scenes"
-              :key="s.scene_code"
-              class="sxk-generate__scene-box"
-              :class="{ 'is-active': form.scene_code === s.scene_code }"
-              :style="{
-                '--scene-bg': getSceneStyle(s.scene_code, s.name).bg,
-                '--scene-color': getSceneStyle(s.scene_code, s.name).color
-              }"
-              @click="form.scene_code = s.scene_code"
+            <el-form-item
+              label="选择场景"
+              prop="scene_code"
             >
-              <el-icon :size="22" class="sxk-generate__scene-icon">
-                <component :is="getSceneStyle(s.scene_code, s.name).icon" />
-              </el-icon>
-              <span class="sxk-generate__scene-text">{{ s.name }}</span>
-            </div>
-          </div>
+              <div class="sxk-generate__scene-grid">
+                <div
+                  v-for="s in scenes"
+                  :key="s.scene_code"
+                  class="sxk-generate__scene-box"
+                  :class="{ 'is-active': form.scene_code === s.scene_code }"
+                  :style="{
+                    '--scene-bg': getSceneStyle(s.scene_code, s.name).bg,
+                    '--scene-color': getSceneStyle(s.scene_code, s.name).color
+                  }"
+                  @click="form.scene_code = s.scene_code"
+                >
+                  <el-icon
+                    :size="22"
+                    class="sxk-generate__scene-icon"
+                  >
+                    <component :is="getSceneStyle(s.scene_code, s.name).icon" />
+                  </el-icon>
+                  <span class="sxk-generate__scene-text">{{ s.name }}</span>
+                </div>
+              </div>
             </el-form-item>
 
             <!-- 关键：选择模板（移到内容场景下方） -->
@@ -242,20 +276,26 @@
         <template v-if="currentScene">
           <div class="sxk-form-card sxk-form-card--params-compact">
             <div class="sxk-form-card__head sxk-form-card__head--compact">
-              <span class="sxk-form-card__bar"></span>
+              <span class="sxk-form-card__bar" />
               <span class="sxk-form-card__title">动态参数（{{ currentScene.name }}）</span>
               <span class="sxk-form-card__desc">带 * 为必填项</span>
             </div>
             <div class="sxk-form-card__body sxk-form-card__body--compact">
               <div class="sxk-form-compact">
-                <template v-for="p in currentScene.params" :key="p.key">
+                <template
+                  v-for="p in currentScene.params"
+                  :key="p.key"
+                >
                   <!-- 枚举：label + chip 同行（compact） -->
                   <div
                     v-if="p.type === 'enum' && p.options && p.options.length"
                     class="sxk-field sxk-field--enum"
                   >
                     <span class="sxk-field__label">
-                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      <i
+                        v-if="p.required"
+                        class="sxk-field__required"
+                      >*</i>
                       {{ p.label || p.key }}
                     </span>
                     <div class="sxk-field__chips">
@@ -266,7 +306,9 @@
                         class="sxk-param-chip sxk-param-chip--compact"
                         :class="{ 'is-active': form.params[p.key] === opt }"
                         @click="form.params[p.key] = opt"
-                      >{{ opt }}</button>
+                      >
+                        {{ opt }}
+                      </button>
                     </div>
                   </div>
                   <!-- 文本：label + input 同行 -->
@@ -275,7 +317,10 @@
                     class="sxk-field sxk-field--text"
                   >
                     <span class="sxk-field__label">
-                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      <i
+                        v-if="p.required"
+                        class="sxk-field__required"
+                      >*</i>
                       {{ p.label || p.key }}
                     </span>
                     <el-input
@@ -293,7 +338,10 @@
                     class="sxk-field sxk-field--textarea"
                   >
                     <span class="sxk-field__label">
-                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      <i
+                        v-if="p.required"
+                        class="sxk-field__required"
+                      >*</i>
                       {{ p.label || p.key }}
                     </span>
                     <el-input
@@ -306,9 +354,15 @@
                     />
                   </div>
                   <!-- 默认：text -->
-                  <div v-else class="sxk-field sxk-field--text">
+                  <div
+                    v-else
+                    class="sxk-field sxk-field--text"
+                  >
                     <span class="sxk-field__label">
-                      <i v-if="p.required" class="sxk-field__required">*</i>
+                      <i
+                        v-if="p.required"
+                        class="sxk-field__required"
+                      >*</i>
                       {{ p.label || p.key }}
                     </span>
                     <el-input
@@ -326,9 +380,12 @@
         </template>
 
         <!-- ============ 提示词（选场景后显示，根据所选模板回填，可编辑） ============ -->
-        <div v-if="currentScene" class="sxk-form-card sxk-form-card--prompt">
+        <div
+          v-if="currentScene"
+          class="sxk-form-card sxk-form-card--prompt"
+        >
           <div class="sxk-form-card__head sxk-form-card__head--compact">
-            <span class="sxk-form-card__bar"></span>
+            <span class="sxk-form-card__bar" />
             <span class="sxk-form-card__title">提示词</span>
             <span class="sxk-form-card__desc">根据所选模板自动回填，可按需调整</span>
           </div>
@@ -354,7 +411,9 @@
               :loading="triggering"
               @click="onTrigger"
             >
-              <el-icon style="margin-right: 6px"><MagicStick /></el-icon>
+              <el-icon style="margin-right: 6px">
+                <MagicStick />
+              </el-icon>
               立即生成（3 个初稿）
             </el-button>
             <div class="sxk-generate__submit-tip">
@@ -366,194 +425,249 @@
     </basic-block>
 
     <!-- ============================== 当有草稿时：左栏（config） + 右栏（result）水平排列 ============================== -->
-    <div v-if="currentDraft" class="sxk-generate__body">
+    <div
+      v-if="currentDraft"
+      class="sxk-generate__body"
+    >
       <basic-block
         v-if="configPanelVisible"
         class="sxk-generate__config"
         hover-shadow
       >
-      <!-- 阶段指示器（草稿存在时显示） -->
-      <div class="sxk-generate__steps">
-        <!-- 自绘可点击步骤条（替代 el-steps，支持已完成步回跳） -->
-        <div class="sxk-generate__step-track">
-          <div
-            v-for="(s, i) in stepDefs"
-            :key="i"
-            class="sxk-generate__step"
-            :class="stepClass(i)"
-            @click="onStepJump(i)"
-            :title="canJumpTo(i) ? `回到：${s.title}` : s.title"
-          >
-            <div class="sxk-generate__step-no">
-              <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)"><CircleCheckFilled /></el-icon>
-              <span v-else>{{ i + 1 }}</span>
+        <!-- 阶段指示器（草稿存在时显示） -->
+        <div class="sxk-generate__steps">
+          <!-- 自绘可点击步骤条（替代 el-steps，支持已完成步回跳） -->
+          <div class="sxk-generate__step-track">
+            <div
+              v-for="(s, i) in stepDefs"
+              :key="i"
+              class="sxk-generate__step"
+              :class="stepClass(i)"
+              :title="canJumpTo(i) ? `回到：${s.title}` : s.title"
+              @click="onStepJump(i)"
+            >
+              <div class="sxk-generate__step-no">
+                <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)">
+                  <CircleCheckFilled />
+                </el-icon>
+                <span v-else>{{ i + 1 }}</span>
+              </div>
+              <div class="sxk-generate__step-info">
+                <div class="sxk-generate__step-title">
+                  {{ s.title }}
+                </div>
+                <div class="sxk-generate__step-desc">
+                  {{ s.desc }}
+                </div>
+              </div>
+              <span
+                v-if="i === draftStep && !(i === 2 && stage2Completed)"
+                class="sxk-generate__step-tag"
+              >当前</span>
+              <span
+                v-else-if="i < draftStep || (i === 2 && stage2Completed)"
+                class="sxk-generate__step-tag is-done"
+              >完成</span>
+              <span
+                v-else
+                class="sxk-generate__step-tag is-wait"
+              >待开始</span>
             </div>
-            <div class="sxk-generate__step-info">
-              <div class="sxk-generate__step-title">{{ s.title }}</div>
-              <div class="sxk-generate__step-desc">{{ s.desc }}</div>
-            </div>
-            <span
-              v-if="i === draftStep && !(i === 2 && stage2Completed)"
-              class="sxk-generate__step-tag"
-            >当前</span>
-            <span
-              v-else-if="i < draftStep || (i === 2 && stage2Completed)"
-              class="sxk-generate__step-tag is-done"
-            >完成</span>
-            <span
-              v-else
-              class="sxk-generate__step-tag is-wait"
-            >待开始</span>
+          </div>
+
+          <!-- 当前阶段摘要卡 -->
+          <div class="sxk-generate__step-summary">
+            <span class="sxk-generate__step-summary-icon">
+              <el-icon><Aim /></el-icon>
+            </span>
+            <span class="sxk-generate__step-summary-text">
+              <b>当前阶段：</b>{{ stepDefs[draftStep]?.summary }}
+            </span>
+          </div>
+
+          <!-- 草稿操作行 -->
+          <div class="sxk-generate__step-actions">
+            <el-button
+              size="small"
+              :icon="Refresh"
+              @click="onDiscardDraft"
+            >
+              重新配置
+            </el-button>
+            <el-button
+              size="small"
+              type="danger"
+              plain
+              :icon="Delete"
+              @click="confirmDiscard"
+            >
+              放弃草稿
+            </el-button>
           </div>
         </div>
-
-        <!-- 当前阶段摘要卡 -->
-        <div class="sxk-generate__step-summary">
-          <span class="sxk-generate__step-summary-icon">
-            <el-icon><Aim /></el-icon>
-          </span>
-          <span class="sxk-generate__step-summary-text">
-            <b>当前阶段：</b>{{ stepDefs[draftStep]?.summary }}
-          </span>
-        </div>
-
-        <!-- 草稿操作行 -->
-        <div class="sxk-generate__step-actions">
-          <el-button
-            size="small"
-            :icon="Refresh"
-            @click="onDiscardDraft"
-          >
-            重新配置
-          </el-button>
-          <el-button
-            size="small"
-            type="danger"
-            plain
-            :icon="Delete"
-            @click="confirmDiscard"
-          >
-            放弃草稿
-          </el-button>
-        </div>
-      </div>
       </basic-block>
 
-      <basic-block v-if="currentDraft" class="sxk-generate__main" hover-shadow>
-      <template #header>
-        <div class="sxk-generate__main-title">
-          <span class="sxk-generate__main-title-main">
-            {{ currentDraft ? `生成结果 · ${stepTitle}` : '生成结果' }}
-          </span>
-          <span v-if="!currentDraft" class="sxk-generate__main-title-sub">
-            待生成内容将在此处展示
-          </span>
-        </div>
-        <!-- 阶段子标题（draft 存在时显示当前阶段的目标/操作） -->
-        <div v-if="currentDraft" class="sxk-generate__main-subtitle">
-          <el-icon class="sxk-generate__main-subtitle-icon"><Aim /></el-icon>
-          <span class="sxk-generate__main-subtitle-text">
-            {{ stageSubtitleText }}
-          </span>
-        </div>
-        <!-- 三阶段分段指示（segmented） -->
-        <div v-if="currentDraft" class="sxk-generate__main-segments">
-          <div
-            v-for="(s, i) in stepDefs"
-            :key="i"
-            class="sxk-generate__main-segment"
-            :class="{
-              'is-active': i === draftStep,
-              'is-done': i < draftStep || (i === 2 && stage2Completed),
-              'is-disabled': i > draftStep && !(i === 2 && stage2Completed)
-            }"
-            @click="onStepJump(i)"
-          >
-            <span class="sxk-generate__main-segment-no">
-              <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)"><CircleCheckFilled /></el-icon>
-              <span v-else>{{ i + 1 }}</span>
+      <basic-block
+        v-if="currentDraft"
+        class="sxk-generate__main"
+        hover-shadow
+      >
+        <template #header>
+          <div class="sxk-generate__main-title">
+            <span class="sxk-generate__main-title-main">
+              {{ currentDraft ? `生成结果 · ${stepTitle}` : '生成结果' }}
             </span>
-            <span class="sxk-generate__main-segment-title">{{ s.title }}</span>
-            <span class="sxk-generate__main-segment-desc">{{ s.desc }}</span>
+            <span
+              v-if="!currentDraft"
+              class="sxk-generate__main-title-sub"
+            >
+              待生成内容将在此处展示
+            </span>
           </div>
-        </div>
-      </template>
-      <template #aside>
-        <template v-if="currentDraft">
-          <el-tag
-            v-if="currentDraft.product_name"
-            size="small"
-            effect="light"
-            type="success"
+          <!-- 阶段子标题（draft 存在时显示当前阶段的目标/操作） -->
+          <div
+            v-if="currentDraft"
+            class="sxk-generate__main-subtitle"
           >
-            {{ currentDraft.product_name }}
-          </el-tag>
-          <el-tag
-            v-if="currentDraft.scene_name"
-            size="small"
-            effect="light"
-            type="info"
-            style="margin-left: 6px"
+            <el-icon class="sxk-generate__main-subtitle-icon">
+              <Aim />
+            </el-icon>
+            <span class="sxk-generate__main-subtitle-text">
+              {{ stageSubtitleText }}
+            </span>
+          </div>
+          <!-- 三阶段分段指示（segmented） -->
+          <div
+            v-if="currentDraft"
+            class="sxk-generate__main-segments"
           >
-            {{ currentDraft.scene_name }}
-          </el-tag>
+            <div
+              v-for="(s, i) in stepDefs"
+              :key="i"
+              class="sxk-generate__main-segment"
+              :class="{
+                'is-active': i === draftStep,
+                'is-done': i < draftStep || (i === 2 && stage2Completed),
+                'is-disabled': i > draftStep && !(i === 2 && stage2Completed)
+              }"
+              @click="onStepJump(i)"
+            >
+              <span class="sxk-generate__main-segment-no">
+                <el-icon v-if="i < draftStep || (i === 2 && stage2Completed)"><CircleCheckFilled /></el-icon>
+                <span v-else>{{ i + 1 }}</span>
+              </span>
+              <span class="sxk-generate__main-segment-title">{{ s.title }}</span>
+              <span class="sxk-generate__main-segment-desc">{{ s.desc }}</span>
+            </div>
+          </div>
         </template>
-      </template>
+        <template #aside>
+          <template v-if="currentDraft">
+            <el-tag
+              v-if="currentDraft.product_name"
+              size="small"
+              effect="light"
+              type="success"
+            >
+              {{ currentDraft.product_name }}
+            </el-tag>
+            <el-tag
+              v-if="currentDraft.scene_name"
+              size="small"
+              effect="light"
+              type="info"
+              style="margin-left: 6px"
+            >
+              {{ currentDraft.scene_name }}
+            </el-tag>
+          </template>
+        </template>
 
-      <!-- 空状态：分步进度 + 智能提示（替代原空状态） -->
-      <div v-if="!currentDraft" class="sxk-generate__guide">
-        <!-- 顶部欢迎 -->
-        <div class="sxk-generate__guide-hero">
-          <el-icon :size="48" color="#1A56DB"><MagicStick /></el-icon>
-          <h3 class="sxk-generate__guide-title">AI 智能文案生成</h3>
-          <p class="sxk-generate__guide-subtitle">
-            填写左侧表单，AI 将自动生成多版本文案供您选择
-          </p>
-        </div>
+        <!-- 空状态：分步进度 + 智能提示（替代原空状态） -->
+        <div
+          v-if="!currentDraft"
+          class="sxk-generate__guide"
+        >
+          <!-- 顶部欢迎 -->
+          <div class="sxk-generate__guide-hero">
+            <el-icon
+              :size="48"
+              color="#1A56DB"
+            >
+              <MagicStick />
+            </el-icon>
+            <h3 class="sxk-generate__guide-title">
+              AI 智能文案生成
+            </h3>
+            <p class="sxk-generate__guide-subtitle">
+              填写左侧表单，AI 将自动生成多版本文案供您选择
+            </p>
+          </div>
 
-        <!-- 分步进度 -->
-        <div class="sxk-generate__guide-steps">
-          <div class="sxk-generate__guide-step is-active">
-            <div class="sxk-generate__guide-step-no">1</div>
-            <div class="sxk-generate__guide-step-body">
-              <div class="sxk-generate__guide-step-title">填写配置</div>
-              <div class="sxk-generate__guide-step-desc">选择产品和场景模板</div>
+          <!-- 分步进度 -->
+          <div class="sxk-generate__guide-steps">
+            <div class="sxk-generate__guide-step is-active">
+              <div class="sxk-generate__guide-step-no">
+                1
+              </div>
+              <div class="sxk-generate__guide-step-body">
+                <div class="sxk-generate__guide-step-title">
+                  填写配置
+                </div>
+                <div class="sxk-generate__guide-step-desc">
+                  选择产品和场景模板
+                </div>
+              </div>
+            </div>
+            <div class="sxk-generate__guide-step">
+              <div class="sxk-generate__guide-step-no">
+                2
+              </div>
+              <div class="sxk-generate__guide-step-body">
+                <div class="sxk-generate__guide-step-title">
+                  智能生成
+                </div>
+                <div class="sxk-generate__guide-step-desc">
+                  AI 一次产出 3 个版本
+                </div>
+              </div>
+            </div>
+            <div class="sxk-generate__guide-step">
+              <div class="sxk-generate__guide-step-no">
+                3
+              </div>
+              <div class="sxk-generate__guide-step-body">
+                <div class="sxk-generate__guide-step-title">
+                  编辑发布
+                </div>
+                <div class="sxk-generate__guide-step-desc">
+                  编辑选定，多渠道分发
+                </div>
+              </div>
             </div>
           </div>
-          <div class="sxk-generate__guide-step">
-            <div class="sxk-generate__guide-step-no">2</div>
-            <div class="sxk-generate__guide-step-body">
-              <div class="sxk-generate__guide-step-title">智能生成</div>
-              <div class="sxk-generate__guide-step-desc">AI 一次产出 3 个版本</div>
+
+          <!-- 底部小贴士 -->
+          <div class="sxk-generate__guide-tips">
+            <div class="sxk-generate__guide-tip-title">
+              <el-icon><InfoFilled /></el-icon>
+              <span>使用小贴士</span>
             </div>
-          </div>
-          <div class="sxk-generate__guide-step">
-            <div class="sxk-generate__guide-step-no">3</div>
-            <div class="sxk-generate__guide-step-body">
-              <div class="sxk-generate__guide-step-title">编辑发布</div>
-              <div class="sxk-generate__guide-step-desc">编辑选定，多渠道分发</div>
-            </div>
+            <ul class="sxk-generate__guide-tip-list">
+              <li>填写动态参数时，尽量详细描述目标受众</li>
+              <li>不同场景模板适配不同行业，优先选择匹配项</li>
+              <li>生成后可对比 3 个版本，选择最佳继续编辑</li>
+            </ul>
           </div>
         </div>
 
-        <!-- 底部小贴士 -->
-        <div class="sxk-generate__guide-tips">
-          <div class="sxk-generate__guide-tip-title">
-            <el-icon><InfoFilled /></el-icon>
-            <span>使用小贴士</span>
-          </div>
-          <ul class="sxk-generate__guide-tip-list">
-            <li>填写动态参数时，尽量详细描述目标受众</li>
-            <li>不同场景模板适配不同行业，优先选择匹配项</li>
-            <li>生成后可对比 3 个版本，选择最佳继续编辑</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- ============ 阶段 0：初稿多版本选择（卡片对比墙 + 整版预览）============ -->
-      <div v-else-if="draftStep === 0" class="sxk-generate__stage">
-        <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
-        <!--
+        <!-- ============ 阶段 0：初稿多版本选择（卡片对比墙 + 整版预览）============ -->
+        <div
+          v-else-if="draftStep === 0"
+          class="sxk-generate__stage"
+        >
+          <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
+          <!--
         <div class="sxk-generate__stage-hero">
           <div class="sxk-generate__stage-hero-no">1</div>
           <div class="sxk-generate__stage-hero-info">
@@ -562,281 +676,343 @@
           </div>
         </div>
         -->
-        <!-- 主体两栏：左侧 Agent 链路（窄/竖向） + 右侧 初稿对比 + 预览（主区） -->
-        <el-row :gutter="16" class="sxk-generate__stage0-row">
-          <el-col :xs="24" :sm="8" :md="7" :lg="6">
-        <!-- Agent 执行链路（横向时间线 + 可点击节点详情） -->
-        <el-card
-          class="sxk-generate__card sxk-generate__card-trace is-scrollable"
-          shadow="never"
-          :style="cardScrollStyle"
-        >
-          <template #header>
-            <div class="sxk-generate__card-head sxk-generate__trace-toggle">
-              <div
-                class="sxk-generate__trace-left"
-                @click="showAgentTrace = !showAgentTrace"
-              >
-                <span class="sxk-generate__trace-icon"><el-icon><Connection /></el-icon></span>
-                <b>Agent 执行链路</b>
-                <span
-                  class="sxk-generate__trace-stats"
-                  v-if="currentDraft.agent_trace?.length || liveCurrentAgent"
-                >
-                  <span class="sxk-generate__trace-stat is-success">
-                    <el-icon><CircleCheckFilled /></el-icon>
-                    {{ currentDraft.agent_trace?.length || 0 }} 步
-                  </span>
-                  <span
-                    v-if="liveCurrentAgent"
-                    class="sxk-generate__trace-stat is-running"
-                  >
-                    <el-icon class="is-spin"><Loading /></el-icon>
-                    {{ liveCurrentAgent }} 执行中
-                  </span>
-                </span>
-              </div>
-              <div class="sxk-generate__trace-right">
-                <span
-                  class="sxk-generate__trace-toggle-btn"
-                  @click="showAgentTrace = !showAgentTrace"
-                  :title="showAgentTrace ? '收起详情' : '展开详情'"
-                >
-                  <el-icon :class="{ 'is-open': showAgentTrace }"><ArrowRight /></el-icon>
-                </span>
-              </div>
-            </div>
-          </template>
-
-          <!-- ============ 横向时间线节点（详情已融合到每个节点内，节点不可点击） ============ -->
-          <div class="sxk-generate__timeline">
-            <!-- 已完成步骤：来自 currentDraft.agent_trace
-                 设计：每个节点直接显示详情（agent名 + 耗时 + 消息），节点本身不可点击 -->
-            <div
-              v-for="(s, i) in currentDraft.agent_trace"
-              :key="`agent-${i}`"
-              class="sxk-generate__tl-node"
-              :class="`is-${s.status}`"
+          <!-- 主体两栏：左侧 Agent 链路（窄/竖向） + 右侧 初稿对比 + 预览（主区） -->
+          <el-row
+            :gutter="16"
+            class="sxk-generate__stage0-row"
+          >
+            <el-col
+              :xs="24"
+              :sm="8"
+              :md="7"
+              :lg="6"
             >
-              <div class="sxk-generate__tl-dot">
-                <el-icon v-if="s.status === 'success'"><CircleCheckFilled /></el-icon>
-                <el-icon v-else-if="s.status === 'warning'"><WarningFilled /></el-icon>
-                <el-icon v-else-if="s.status === 'error'"><CircleCloseFilled /></el-icon>
-                <span v-else class="sxk-generate__tl-dot-num">{{ i + 1 }}</span>
-              </div>
-              <div class="sxk-generate__tl-info">
-                <!-- 节点头部：步骤号 + Agent 名 + 状态标签 + 耗时 -->
-                <div class="sxk-generate__tl-head">
-                  <span class="sxk-generate__tl-step-idx">步骤 {{ i + 1 }}</span>
-                  <span class="sxk-generate__tl-name">{{ s.agent }}</span>
-                  <el-tag
-                    size="small"
-                    :type="s.status === 'success' ? 'success' : s.status === 'warning' ? 'warning' : 'danger'"
-                    effect="light"
-                    class="sxk-generate__tl-status-tag"
+              <!-- Agent 执行链路（横向时间线 + 可点击节点详情） -->
+              <el-card
+                class="sxk-generate__card sxk-generate__card-trace is-scrollable"
+                shadow="never"
+                :style="cardScrollStyle"
+              >
+                <template #header>
+                  <div class="sxk-generate__card-head sxk-generate__trace-toggle">
+                    <div
+                      class="sxk-generate__trace-left"
+                      @click="showAgentTrace = !showAgentTrace"
+                    >
+                      <span class="sxk-generate__trace-icon"><el-icon><Connection /></el-icon></span>
+                      <b>Agent 执行链路</b>
+                      <span
+                        v-if="currentDraft.agent_trace?.length || liveCurrentAgent"
+                        class="sxk-generate__trace-stats"
+                      >
+                        <span class="sxk-generate__trace-stat is-success">
+                          <el-icon><CircleCheckFilled /></el-icon>
+                          {{ currentDraft.agent_trace?.length || 0 }} 步
+                        </span>
+                        <span
+                          v-if="liveCurrentAgent"
+                          class="sxk-generate__trace-stat is-running"
+                        >
+                          <el-icon class="is-spin"><Loading /></el-icon>
+                          {{ liveCurrentAgent }} 执行中
+                        </span>
+                      </span>
+                    </div>
+                    <div class="sxk-generate__trace-right">
+                      <span
+                        class="sxk-generate__trace-toggle-btn"
+                        :title="showAgentTrace ? '收起详情' : '展开详情'"
+                        @click="showAgentTrace = !showAgentTrace"
+                      >
+                        <el-icon :class="{ 'is-open': showAgentTrace }"><ArrowRight /></el-icon>
+                      </span>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- ============ 横向时间线节点（详情已融合到每个节点内，节点不可点击） ============ -->
+                <div class="sxk-generate__timeline">
+                  <!-- 已完成步骤：来自 currentDraft.agent_trace
+                 设计：每个节点直接显示详情（agent名 + 耗时 + 消息），节点本身不可点击 -->
+                  <div
+                    v-for="(s, i) in currentDraft.agent_trace"
+                    :key="`agent-${i}`"
+                    class="sxk-generate__tl-node"
+                    :class="`is-${s.status}`"
                   >
-                    <el-icon style="margin-right: 3px">
-                      <CircleCheckFilled v-if="s.status === 'success'" />
-                      <WarningFilled v-else />
-                    </el-icon>
-                    {{ STATUS_LABEL[s.status] }}
-                  </el-tag>
-                  <span class="sxk-generate__tl-time">{{ s.duration_ms }}ms</span>
-                </div>
-                <!-- 节点详情：消息 + issues 合并到同一个主题色块中
+                    <div class="sxk-generate__tl-dot">
+                      <el-icon v-if="s.status === 'success'">
+                        <CircleCheckFilled />
+                      </el-icon>
+                      <el-icon v-else-if="s.status === 'warning'">
+                        <WarningFilled />
+                      </el-icon>
+                      <el-icon v-else-if="s.status === 'error'">
+                        <CircleCloseFilled />
+                      </el-icon>
+                      <span
+                        v-else
+                        class="sxk-generate__tl-dot-num"
+                      >{{ i + 1 }}</span>
+                    </div>
+                    <div class="sxk-generate__tl-info">
+                      <!-- 节点头部：步骤号 + Agent 名 + 状态标签 + 耗时 -->
+                      <div class="sxk-generate__tl-head">
+                        <span class="sxk-generate__tl-step-idx">步骤 {{ i + 1 }}</span>
+                        <span class="sxk-generate__tl-name">{{ s.agent }}</span>
+                        <el-tag
+                          size="small"
+                          :type="s.status === 'success' ? 'success' : s.status === 'warning' ? 'warning' : 'danger'"
+                          effect="light"
+                          class="sxk-generate__tl-status-tag"
+                        >
+                          <el-icon style="margin-right: 3px">
+                            <CircleCheckFilled v-if="s.status === 'success'" />
+                            <WarningFilled v-else />
+                          </el-icon>
+                          {{ STATUS_LABEL[s.status] }}
+                        </el-tag>
+                        <span class="sxk-generate__tl-time">{{ s.duration_ms }}ms</span>
+                      </div>
+                      <!-- 节点详情：消息 + issues 合并到同一个主题色块中
                      - 成功节点：仅显示 s.message
                      - 警告/错误节点：显示 s.message + 具体问题列表（视觉合二为一） -->
-                <div
-                  v-if="s.message || ((s.status === 'warning' || s.status === 'error') && s.output?.issues?.length)"
-                  class="sxk-generate__tl-msg"
-                >
-                  <!-- 警告/错误节点：摘要 + 列表（合并为一个块）
-                       关键：摘要中的数字使用 dedupIssues 后的真实数量（避免与列表条数不一致）-->
-                  <template v-if="s.status === 'warning' || s.status === 'error'">
-                    <div v-if="s.message || s.output?.issues?.length" class="sxk-generate__tl-msg-summary">
-                      {{ formatAgentMsg(s) }}
-                    </div>
-                    <ul
-                      v-if="s.output?.issues?.length"
-                      class="sxk-generate__tl-issues"
-                    >
-                      <li
-                        v-for="(issue, k) in dedupIssues(s.output.issues)"
-                        :key="k"
-                        class="sxk-generate__tl-issue"
+                      <div
+                        v-if="s.message || ((s.status === 'warning' || s.status === 'error') && s.output?.issues?.length)"
+                        class="sxk-generate__tl-msg"
                       >
-                        <span class="sxk-generate__tl-issue-bullet">·</span>
-                        <span class="sxk-generate__tl-issue-text">{{ issue }}</span>
-                      </li>
-                    </ul>
-                  </template>
-                  <!-- 成功/运行中节点：仅消息 -->
-                  <template v-else>{{ s.message }}</template>
+                        <!-- 警告/错误节点：摘要 + 列表（合并为一个块）
+                       关键：摘要中的数字使用 dedupIssues 后的真实数量（避免与列表条数不一致）-->
+                        <template v-if="s.status === 'warning' || s.status === 'error'">
+                          <div
+                            v-if="s.message || s.output?.issues?.length"
+                            class="sxk-generate__tl-msg-summary"
+                          >
+                            {{ formatAgentMsg(s) }}
+                          </div>
+                          <ul
+                            v-if="s.output?.issues?.length"
+                            class="sxk-generate__tl-issues"
+                          >
+                            <li
+                              v-for="(issue, k) in dedupIssues(s.output.issues)"
+                              :key="k"
+                              class="sxk-generate__tl-issue"
+                            >
+                              <span class="sxk-generate__tl-issue-bullet">·</span>
+                              <span class="sxk-generate__tl-issue-text">{{ issue }}</span>
+                            </li>
+                          </ul>
+                        </template>
+                        <!-- 成功/运行中节点：仅消息 -->
+                        <template v-else>
+                          {{ s.message }}
+                        </template>
+                      </div>
+                    </div>
+                    <span
+                      v-if="i < currentDraft.agent_trace.length - 1 || liveCurrentAgent"
+                      class="sxk-generate__tl-line"
+                    />
+                  </div>
+                  <!-- Phase E: SSE 流式中"正在执行"占位节点 -->
+                  <div
+                    v-if="liveCurrentAgent"
+                    :key="`running-${liveCurrentAgent}`"
+                    class="sxk-generate__tl-node is-running"
+                  >
+                    <div class="sxk-generate__tl-dot is-running-dot">
+                      <el-icon class="is-spin">
+                        <Loading />
+                      </el-icon>
+                    </div>
+                    <div class="sxk-generate__tl-info">
+                      <div class="sxk-generate__tl-head">
+                        <span class="sxk-generate__tl-step-idx">执行中</span>
+                        <span class="sxk-generate__tl-name">{{ liveCurrentAgent }}</span>
+                        <el-tag
+                          size="small"
+                          type="primary"
+                          effect="light"
+                          class="sxk-generate__tl-status-tag"
+                        >
+                          <el-icon
+                            class="is-spin"
+                            style="margin-right: 3px"
+                          >
+                            <Loading />
+                          </el-icon>
+                          进行中
+                        </el-tag>
+                      </div>
+                      <div class="sxk-generate__tl-msg is-running-msg">
+                        Agent 正在执行...
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <span
-                v-if="i < currentDraft.agent_trace.length - 1 || liveCurrentAgent"
-                class="sxk-generate__tl-line"
-              />
-            </div>
-            <!-- Phase E: SSE 流式中"正在执行"占位节点 -->
-            <div
-              v-if="liveCurrentAgent"
-              :key="`running-${liveCurrentAgent}`"
-              class="sxk-generate__tl-node is-running"
-            >
-              <div class="sxk-generate__tl-dot is-running-dot">
-                <el-icon class="is-spin"><Loading /></el-icon>
-              </div>
-              <div class="sxk-generate__tl-info">
-                <div class="sxk-generate__tl-head">
-                  <span class="sxk-generate__tl-step-idx">执行中</span>
-                  <span class="sxk-generate__tl-name">{{ liveCurrentAgent }}</span>
-                  <el-tag size="small" type="primary" effect="light" class="sxk-generate__tl-status-tag">
-                    <el-icon class="is-spin" style="margin-right: 3px"><Loading /></el-icon>
-                    进行中
-                  </el-tag>
-                </div>
-                <div class="sxk-generate__tl-msg is-running-msg">Agent 正在执行...</div>
-              </div>
-            </div>
-          </div>
 
-          <!-- ============ 折叠时：摘要信息条 ============ -->
-          <div v-if="!showAgentTrace" class="sxk-generate__tl-collapsed">
-            <span v-if="currentDraft.validation?.issues?.length" class="sxk-generate__tl-collapsed-warn">
-              <el-icon><WarningFilled /></el-icon>
-              {{ currentDraft.validation.issues.length }} 个待优化项
-            </span>
-            <!-- "所有 Agent 步骤已完成"提示默认隐藏（避免与时间线节点信息重复） -->
-            <span v-else-if="false" class="sxk-generate__tl-collapsed-ok">
-              <el-icon><CircleCheckFilled /></el-icon>
-              所有 Agent 步骤已完成
-            </span>
-            <!-- <el-link type="primary" :underline="false">
+                <!-- ============ 折叠时：摘要信息条 ============ -->
+                <div
+                  v-if="!showAgentTrace"
+                  class="sxk-generate__tl-collapsed"
+                >
+                  <span
+                    v-if="currentDraft.validation?.issues?.length"
+                    class="sxk-generate__tl-collapsed-warn"
+                  >
+                    <el-icon><WarningFilled /></el-icon>
+                    {{ currentDraft.validation.issues.length }} 个待优化项
+                  </span>
+                  <!-- "所有 Agent 步骤已完成"提示默认隐藏（避免与时间线节点信息重复） -->
+                  <span
+                    v-else-if="false"
+                    class="sxk-generate__tl-collapsed-ok"
+                  >
+                    <el-icon><CircleCheckFilled /></el-icon>
+                    所有 Agent 步骤已完成
+                  </span>
+                  <!-- <el-link type="primary" :underline="false">
               点击展开时间线
               <el-icon><ArrowDown /></el-icon>
             </el-link> -->
-          </div>
-        </el-card>
-          </el-col>
-          <el-col :xs="24" :sm="16" :md="17" :lg="18">
-        <!-- 版本对比墙 + 当前预览 -->
-        <el-card
-          class="sxk-generate__card is-scrollable"
-          shadow="never"
-          :style="cardScrollStyle"
-        >
-          <template #footer>
-            <div class="sxk-generate__stage-foot">
-              <span class="sxk-generate__stage-foot-tip">
-                <el-icon><InfoFilled /></el-icon>
-                确认无误后点击「选定此版本」进入编辑与渠道适配
-              </span>
-              <el-button
-                type="primary"
-                size="small"
-                @click="onSelectDraftVersion(currentDraft.draft_versions.find(x => String(x.index) === draftVersionIndex))"
-                :loading="selectingDraft"
-              >
-                选定此版本 →
-              </el-button>
-            </div>
-          </template>
-          <template #header>
-            <div class="sxk-generate__card-head">
-              <div class="sxk-generate__card-head-left">
-                <b>初稿对比</b>
-                <span class="sxk-generate__card-tip">
-                  点击下方任一卡片预览完整内容，满意后点击「选定」进入下一步
-                </span>
-              </div>
-              <el-button size="small" :loading="triggering" @click="onRegenerateDraft">
-                <el-icon><Refresh /></el-icon>
-                重新生成
-              </el-button>
-            </div>
-          </template>
-
-          <!-- 版本对比卡片墙 -->
-          <div class="sxk-generate__version-grid">
-            <div
-              v-for="v in currentDraft.draft_versions"
-              :key="v.index"
-              class="sxk-generate__version-card"
-              :class="{ 'is-selected': String(v.index) === draftVersionIndex }"
-              @click="draftVersionIndex = String(v.index)"
+                </div>
+              </el-card>
+            </el-col>
+            <el-col
+              :xs="24"
+              :sm="16"
+              :md="17"
+              :lg="18"
             >
-              <div class="sxk-generate__version-card-head">
-                <span class="sxk-generate__version-card-radio">
-                  <span
-                    class="sxk-generate__radio-dot"
-                    :class="{ 'is-checked': String(v.index) === draftVersionIndex }"
-                  />
-                </span>
-                <span class="sxk-generate__version-card-no">版本 {{ v.index }}</span>
-                <el-tag
-                  v-if="String(v.index) === draftVersionIndex"
-                  size="small"
-                  type="primary"
-                  effect="light"
-                  class="sxk-generate__version-card-tag"
-                >
-                  当前查看
-                </el-tag>
-              </div>
-              <div class="sxk-generate__version-card-title">
-                {{ v.title || ('版本 ' + v.index) }}
-              </div>
-              <div class="sxk-generate__version-card-meta">
-                <span class="sxk-generate__version-card-stat">
-                  <el-icon><Document /></el-icon>
-                  {{ v.body?.length || 0 }} 字
-                </span>
-                <span class="sxk-generate__version-card-stat">
-                  <el-icon><CollectionTag /></el-icon>
-                  {{ v.tags?.length || 0 }} 标签
-                </span>
-              </div>
-            </div>
-          </div>
+              <!-- 版本对比墙 + 当前预览 -->
+              <el-card
+                class="sxk-generate__card is-scrollable"
+                shadow="never"
+                :style="cardScrollStyle"
+              >
+                <template #footer>
+                  <div class="sxk-generate__stage-foot">
+                    <span class="sxk-generate__stage-foot-tip">
+                      <el-icon><InfoFilled /></el-icon>
+                      确认无误后点击「选定此版本」进入编辑与渠道适配
+                    </span>
+                    <el-button
+                      type="primary"
+                      size="small"
+                      :loading="selectingDraft"
+                      @click="onSelectDraftVersion(currentDraft.draft_versions.find(x => String(x.index) === draftVersionIndex))"
+                    >
+                      选定此版本 →
+                    </el-button>
+                  </div>
+                </template>
+                <template #header>
+                  <div class="sxk-generate__card-head">
+                    <div class="sxk-generate__card-head-left">
+                      <b>初稿对比</b>
+                      <span class="sxk-generate__card-tip">
+                        点击下方任一卡片预览完整内容，满意后点击「选定」进入下一步
+                      </span>
+                    </div>
+                    <el-button
+                      size="small"
+                      :loading="triggering"
+                      @click="onRegenerateDraft"
+                    >
+                      <el-icon><Refresh /></el-icon>
+                      重新生成
+                    </el-button>
+                  </div>
+                </template>
 
-          <!-- 当前版本完整预览 -->
-          <div
-            v-for="v in currentDraft.draft_versions"
-            v-show="String(v.index) === draftVersionIndex"
-            :key="`preview-${v.index}`"
-            class="sxk-generate__version-preview"
-          >
-            <div class="sxk-generate__doc-page">
-              <h1 class="sxk-generate__doc-title">{{ v.title }}</h1>
-              <div
-                class="sxk-generate__doc-content markdown-body"
-                v-html="renderArticle(v.body, v.images, v.title)"
-              />
-              <div v-if="v.tags?.length" class="sxk-generate__doc-tags">
-                <el-tag
-                  v-for="t in v.tags"
-                  :key="t"
-                  size="small"
-                  type="info"
-                  effect="light"
-                  style="margin: 2px"
-                >
-                  #{{ t }}
-                </el-tag>
-              </div>
-            </div>
-          </div>
-        </el-card>
-          </el-col>
-        </el-row>
-      </div>
+                <!-- 版本对比卡片墙 -->
+                <div class="sxk-generate__version-grid">
+                  <div
+                    v-for="v in currentDraft.draft_versions"
+                    :key="v.index"
+                    class="sxk-generate__version-card"
+                    :class="{ 'is-selected': String(v.index) === draftVersionIndex }"
+                    @click="draftVersionIndex = String(v.index)"
+                  >
+                    <div class="sxk-generate__version-card-head">
+                      <span class="sxk-generate__version-card-radio">
+                        <span
+                          class="sxk-generate__radio-dot"
+                          :class="{ 'is-checked': String(v.index) === draftVersionIndex }"
+                        />
+                      </span>
+                      <span class="sxk-generate__version-card-no">版本 {{ v.index }}</span>
+                      <el-tag
+                        v-if="String(v.index) === draftVersionIndex"
+                        size="small"
+                        type="primary"
+                        effect="light"
+                        class="sxk-generate__version-card-tag"
+                      >
+                        当前查看
+                      </el-tag>
+                    </div>
+                    <div class="sxk-generate__version-card-title">
+                      {{ v.title || ('版本 ' + v.index) }}
+                    </div>
+                    <div class="sxk-generate__version-card-meta">
+                      <span class="sxk-generate__version-card-stat">
+                        <el-icon><Document /></el-icon>
+                        {{ v.body?.length || 0 }} 字
+                      </span>
+                      <span class="sxk-generate__version-card-stat">
+                        <el-icon><CollectionTag /></el-icon>
+                        {{ v.tags?.length || 0 }} 标签
+                      </span>
+                    </div>
+                  </div>
+                </div>
 
-      <!-- ============ 阶段 1：编辑选定内容 + 多选渠道 ============ -->
-      <div v-else-if="draftStep === 1" class="sxk-generate__stage">
-        <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
-        <!--
+                <!-- 当前版本完整预览 -->
+                <div
+                  v-for="v in currentDraft.draft_versions"
+                  v-show="String(v.index) === draftVersionIndex"
+                  :key="`preview-${v.index}`"
+                  class="sxk-generate__version-preview"
+                >
+                  <div class="sxk-generate__doc-page">
+                    <h1 class="sxk-generate__doc-title">
+                      {{ v.title }}
+                    </h1>
+                    <div
+                      class="sxk-generate__doc-content markdown-body"
+                      v-html="renderArticle(v.body, v.images, v.title)"
+                    />
+                    <div
+                      v-if="v.tags?.length"
+                      class="sxk-generate__doc-tags"
+                    >
+                      <el-tag
+                        v-for="t in v.tags"
+                        :key="t"
+                        size="small"
+                        type="info"
+                        effect="light"
+                        style="margin: 2px"
+                      >
+                        #{{ t }}
+                      </el-tag>
+                    </div>
+                  </div>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
+
+        <!-- ============ 阶段 1：编辑选定内容 + 多选渠道 ============ -->
+        <div
+          v-else-if="draftStep === 1"
+          class="sxk-generate__stage"
+        >
+          <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
+          <!--
         <div class="sxk-generate__stage-hero">
           <div class="sxk-generate__stage-hero-no">2</div>
           <div class="sxk-generate__stage-hero-info">
@@ -845,125 +1021,143 @@
           </div>
         </div>
         -->
-        <el-row :gutter="16" class="sxk-generate__stage1-row">
-          <!-- 左侧：编辑选定内容 -->
-          <el-col :span="16">
-            <el-card
-              class="sxk-generate__card is-scrollable"
-              shadow="never"
-              :style="cardScrollStyle"
-            >
-              <template #header>
-                <div class="sxk-generate__card-head">
-                  <b>编辑选定内容</b>
-                  <span class="sxk-generate__card-tip">
-                    改动标题与正文，确认后进入配图与保存
-                  </span>
-                </div>
-              </template>
-              <div class="sxk-generate__edit-title">
-                <el-input
-                  v-model="draftEditingVersion.title"
-                  placeholder="文案标题"
-                  size="large"
-                >
-                  <template #prepend>标题</template>
-                </el-input>
-              </div>
-              <div class="sxk-generate__edit-body">
-                <div class="sxk-generate__edit-body-head">
-                  <span>正文</span>
-                  <span class="sxk-generate__edit-body-cnt">{{ bodyCharCount }} 字</span>
-                </div>
-                <el-input
-                  class="sxk-generate__edit-body-input"
-                  type="textarea"
-                  v-model="draftEditingVersion.body"
-                  resize="vertical"
-                />
-              </div>
-              <div v-if="draftEditingVersion.tags?.length" class="sxk-generate__edit-tags">
-                <el-tag
-                  v-for="t in draftEditingVersion.tags"
-                  :key="t"
-                  size="small"
-                  style="margin: 2px"
-                >
-                  {{ t }}
-                </el-tag>
-              </div>
-            </el-card>
-          </el-col>
-
-          <!-- 右侧：渠道多选 -->
-          <el-col :span="8">
-            <el-card
-              class="sxk-generate__card sxk-generate__channel-pane is-scrollable"
-              shadow="never"
-              :style="cardScrollStyle"
-            >
-              <template #header>
-                <div class="sxk-generate__card-head">
-                  <div class="sxk-generate__channel-pane-head">
-                    <b>发布渠道</b>
-                    <span class="sxk-generate__card-tip">可多选</span>
+          <el-row
+            :gutter="16"
+            class="sxk-generate__stage1-row"
+          >
+            <!-- 左侧：编辑选定内容 -->
+            <el-col :span="16">
+              <el-card
+                class="sxk-generate__card is-scrollable"
+                shadow="never"
+                :style="cardScrollStyle"
+              >
+                <template #header>
+                  <div class="sxk-generate__card-head">
+                    <b>编辑选定内容</b>
+                    <span class="sxk-generate__card-tip">
+                      改动标题与正文，确认后进入配图与保存
+                    </span>
                   </div>
-                  <span class="sxk-generate__channel-count">
-                    已选 {{ selectedChannels.length }} / {{ channelOptions.length }}
-                  </span>
-                </div>
-              </template>
-              <!-- 渠道列表（独立滚动区域） -->
-              <div class="sxk-generate__channel-scroll">
-                <el-checkbox-group v-model="selectedChannels" class="sxk-generate__channel-list">
-                  <el-checkbox
-                    v-for="ch in channelOptions"
-                    :key="ch.name"
-                    :value="ch.name"
-                    :class="['sxk-generate__channel-item', { 'is-checked': selectedChannels.includes(ch.name) }]"
+                </template>
+                <div class="sxk-generate__edit-title">
+                  <el-input
+                    v-model="draftEditingVersion.title"
+                    placeholder="文案标题"
+                    size="large"
                   >
-                    <!-- 自定义内容：包含虚拟勾选框 + 文案 -->
-                    <div class="sxk-generate__channel-content">
-                      <!-- 虚拟勾选框（视觉上替代 el-checkbox 原生方框） -->
-                      <span
-                        class="sxk-generate__channel-check"
-                        :class="{ 'is-checked': selectedChannels.includes(ch.name) }"
-                      >
-                        <el-icon v-if="selectedChannels.includes(ch.name)"><Check /></el-icon>
-                      </span>
-                      <div class="sxk-generate__channel-info">
-                        <div class="sxk-generate__channel-name">{{ ch.display_name }}</div>
-                        <div class="sxk-generate__channel-meta">
-                          {{ ch.tone }} · {{ ch.format }}
+                    <template #prepend>
+                      标题
+                    </template>
+                  </el-input>
+                </div>
+                <div class="sxk-generate__edit-body">
+                  <div class="sxk-generate__edit-body-head">
+                    <span>正文</span>
+                    <span class="sxk-generate__edit-body-cnt">{{ bodyCharCount }} 字</span>
+                  </div>
+                  <el-input
+                    v-model="draftEditingVersion.body"
+                    class="sxk-generate__edit-body-input"
+                    type="textarea"
+                    :autosize="{ minRows: 10 }"
+                  />
+                </div>
+                <div
+                  v-if="draftEditingVersion.tags?.length"
+                  class="sxk-generate__edit-tags"
+                >
+                  <el-tag
+                    v-for="t in draftEditingVersion.tags"
+                    :key="t"
+                    size="small"
+                    style="margin: 2px"
+                  >
+                    {{ t }}
+                  </el-tag>
+                </div>
+              </el-card>
+            </el-col>
+
+            <!-- 右侧：渠道多选 -->
+            <el-col :span="8">
+              <el-card
+                class="sxk-generate__card sxk-generate__channel-pane is-scrollable"
+                shadow="never"
+                :style="cardScrollStyle"
+              >
+                <template #header>
+                  <div class="sxk-generate__card-head">
+                    <div class="sxk-generate__channel-pane-head">
+                      <b>发布渠道</b>
+                      <span class="sxk-generate__card-tip">可多选</span>
+                    </div>
+                    <span class="sxk-generate__channel-count">
+                      已选 {{ selectedChannels.length }} / {{ channelOptions.length }}
+                    </span>
+                  </div>
+                </template>
+                <!-- 渠道列表（独立滚动区域） -->
+                <div class="sxk-generate__channel-scroll">
+                  <el-checkbox-group
+                    v-model="selectedChannels"
+                    class="sxk-generate__channel-list"
+                  >
+                    <el-checkbox
+                      v-for="ch in channelOptions"
+                      :key="ch.name"
+                      :value="ch.name"
+                      :class="['sxk-generate__channel-item', { 'is-checked': selectedChannels.includes(ch.name) }]"
+                    >
+                      <!-- 自定义内容：包含虚拟勾选框 + 文案 -->
+                      <div class="sxk-generate__channel-content">
+                        <!-- 虚拟勾选框（视觉上替代 el-checkbox 原生方框） -->
+                        <span
+                          class="sxk-generate__channel-check"
+                          :class="{ 'is-checked': selectedChannels.includes(ch.name) }"
+                        >
+                          <el-icon v-if="selectedChannels.includes(ch.name)"><Check /></el-icon>
+                        </span>
+                        <div class="sxk-generate__channel-info">
+                          <div class="sxk-generate__channel-name">
+                            {{ ch.display_name }}
+                          </div>
+                          <div class="sxk-generate__channel-meta">
+                            {{ ch.tone }} · {{ ch.format }}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </el-checkbox>
-                </el-checkbox-group>
-              </div>
-              <!-- 底部 CTA：sticky 始终可见 -->
-              <div class="sxk-generate__channel-foot">
-                <el-button
-                  type="primary"
-                  size="large"
-                  class="sxk-generate__channel-submit"
-                  @click="onAdapt"
-                  :loading="adaptingDraft"
-                  :disabled="!selectedChannels.length"
-                >
-                  <el-icon v-if="!adaptingDraft"><Right /></el-icon>
-                  {{ adaptingDraft ? '适配中...' : '确认适配（' + selectedChannels.length + ' 个渠道）' }}
-                </el-button>
-              </div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </div>
+                    </el-checkbox>
+                  </el-checkbox-group>
+                </div>
+                <!-- 底部 CTA：sticky 始终可见 -->
+                <div class="sxk-generate__channel-foot">
+                  <el-button
+                    type="primary"
+                    size="large"
+                    class="sxk-generate__channel-submit"
+                    :loading="adaptingDraft"
+                    :disabled="!selectedChannels.length"
+                    @click="onAdapt"
+                  >
+                    <el-icon v-if="!adaptingDraft">
+                      <Right />
+                    </el-icon>
+                    {{ adaptingDraft ? '适配中...' : '确认适配（' + selectedChannels.length + ' 个渠道）' }}
+                  </el-button>
+                </div>
+              </el-card>
+            </el-col>
+          </el-row>
+        </div>
 
-      <!-- ============ 阶段 2：配图与保存（卡片对比墙 + 预览/编辑）============ -->
-      <div v-else class="sxk-generate__stage">
-        <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
-        <!--
+        <!-- ============ 阶段 2：配图与保存（卡片对比墙 + 预览/编辑）============ -->
+        <div
+          v-else
+          class="sxk-generate__stage"
+        >
+          <!-- 阶段标题 hero（已注释，由右栏 segmented 替代） -->
+          <!--
         <div class="sxk-generate__stage-hero">
           <div class="sxk-generate__stage-hero-no">3</div>
           <div class="sxk-generate__stage-hero-info">
@@ -972,29 +1166,33 @@
           </div>
         </div>
         -->
-        <el-card class="sxk-generate__card is-scrollable sxk-generate__card-horizontal" :body-style="cardScrollStyle" shadow="never">
-          <template #header>
-            <div class="sxk-generate__card-head">
-              <div class="sxk-generate__card-head-left">
-                <b>配图与保存</b>
-                <span class="sxk-generate__card-tip">
-                  共 {{ currentDraft.versions?.length || 0 }} 个渠道 · 已配图
-                  {{ adaptedCount }} / {{ currentDraft.versions?.length || 0 }}
-                </span>
-              </div>
-              <!-- 阶段 2 顶部操作组（按状态动态展示） -->
-              <div class="sxk-generate__stage2-actions">
-                <!-- 始终可用：仅导出（无需配图）-->
-                <el-button
-                  size="small"
-                  :icon="Download"
-                  :loading="exportingDraft"
-                  @click="onExport"
-                >
-                  {{ exportingDraft ? '导出中' : '导出' }}
-                </el-button>
-                <!-- 重新配图（完成后可再次生成）-->
-                <!-- <el-button
+          <el-card
+            class="sxk-generate__card is-scrollable sxk-generate__card-horizontal"
+            :body-style="cardScrollStyle"
+            shadow="never"
+          >
+            <template #header>
+              <div class="sxk-generate__card-head">
+                <div class="sxk-generate__card-head-left">
+                  <b>配图与保存</b>
+                  <span class="sxk-generate__card-tip">
+                    共 {{ currentDraft.versions?.length || 0 }} 个渠道 · 已配图
+                    {{ adaptedCount }} / {{ currentDraft.versions?.length || 0 }}
+                  </span>
+                </div>
+                <!-- 阶段 2 顶部操作组（按状态动态展示） -->
+                <div class="sxk-generate__stage2-actions">
+                  <!-- 始终可用：仅导出（无需配图）-->
+                  <el-button
+                    size="small"
+                    :icon="Download"
+                    :loading="exportingDraft"
+                    @click="onExport"
+                  >
+                    {{ exportingDraft ? '导出中' : '导出' }}
+                  </el-button>
+                  <!-- 重新配图（完成后可再次生成）-->
+                  <!-- <el-button
                   v-if="currentDraft.history_id && !finalizingDraft"
                   size="small"
                   type="warning"
@@ -1004,209 +1202,249 @@
                 >
                   重新配图
                 </el-button> -->
-                <!-- 主 CTA：生成配图并保存 -->
-                <el-button
-                  v-if="!currentDraft.history_id"
-                  size="default"
-                  type="primary"
-                  @click="onFinalize"
-                  :loading="finalizingDraft"
-                >
-                  <el-icon v-if="!finalizingDraft"><Picture /></el-icon>
-                  {{ finalizingDraft ? '文生图中...' : '生成配图并保存' }}
-                </el-button>
-                <el-button
-                  v-else
-                  size="default"
-                  type="success"
-                  disabled
-                >
-                  <el-icon><CircleCheckFilled /></el-icon>
-                  已保存到历史
-                </el-button>
-              </div>
-            </div>
-          </template>
-
-          <!-- 渠道对比卡（横向） -->
-          <div class="sxk-generate__version-grid sxk-generate__channel-wall">
-            <div
-              v-for="v in currentDraft.versions"
-              :key="v.index"
-              class="sxk-generate__version-card"
-              :class="{
-                'is-selected': String(v.index) === adaptVersionIndex,
-                'is-finalized': v.images?.length > 0
-              }"
-              @click="adaptVersionIndex = String(v.index)"
-            >
-              <div class="sxk-generate__version-card-head">
-                <span class="sxk-generate__version-card-radio">
-                  <span
-                    class="sxk-generate__radio-dot"
-                    :class="{ 'is-checked': String(v.index) === adaptVersionIndex }"
-                  />
-                </span>
-                <span class="sxk-generate__version-card-no">
-                  {{ v.channel || `渠道 ${v.index}` }}
-                </span>
-              </div>
-              <div class="sxk-generate__version-card-meta">
-                <span class="sxk-generate__version-card-stat">
-                  <el-icon><Document /></el-icon>
-                  {{ v.body?.length || 0 }} 字
-                </span>
-                <span class="sxk-generate__version-card-stat">
-                  <el-icon><Picture /></el-icon>
-                  {{ v.images?.length || 0 }} 图
-                </span>
-                <span class="sxk-generate__version-card-stat">
-                  <el-icon><Star /></el-icon>
-                  {{ (v.votes?.like || 0) - (v.votes?.dislike || 0) }}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 当前渠道预览/编辑 -->
-          <div
-            v-for="v in currentDraft.versions"
-            v-show="String(v.index) === adaptVersionIndex"
-            :key="`preview-${v.index}`"
-            class="sxk-generate__version-preview"
-          >
-            <!-- 顶部工具栏：仅保留"预览/编辑"切换（左侧重复的渠道信息已在顶部卡墙显示，删除） -->
-            <div class="sxk-generate__channel-toolbar">
-              <el-radio-group v-model="genEditMode" size="small" class="sxk-generate__mode-switch">
-                <el-radio-button :value="false">
-                  <el-icon><View /></el-icon>
-                  预览
-                </el-radio-button>
-                <el-radio-button :value="true">
-                  <el-icon><Edit /></el-icon>
-                  编辑
-                </el-radio-button>
-              </el-radio-group>
-            </div>
-
-            <!-- 预览 -->
-            <div v-if="!genEditMode" class="sxk-generate__doc-page">
-              <h1 class="sxk-generate__doc-title">{{ v.title }}</h1>
-              <div
-                class="sxk-generate__doc-content markdown-body"
-                v-html="renderArticle(v.body, v.images, v.title)"
-              />
-              <div v-if="v.tags?.length" class="sxk-generate__doc-tags">
-                <el-tag
-                  v-for="t in v.tags"
-                  :key="t"
-                  size="small"
-                  type="info"
-                  effect="light"
-                  style="margin: 2px"
-                >
-                  #{{ t }}
-                </el-tag>
-              </div>
-            </div>
-
-            <!-- 编辑 -->
-            <div v-else class="sxk-generate__edit-area">
-              <div class="sxk-generate__edit-title">
-                <el-input v-model="v.title" size="large" placeholder="文案标题">
-                  <template #prepend>标题</template>
-                </el-input>
-              </div>
-              <div class="sxk-generate__edit-body">
-                <div class="sxk-generate__edit-body-head">
-                  <span>正文</span>
-                  <span class="sxk-generate__edit-body-cnt">{{ (v.body || '').length }} 字</span>
-                </div>
-                <el-input
-                  type="textarea"
-                  v-model="v.body"
-                  :autosize="{ minRows: 12, maxRows: 22 }"
-                  resize="vertical"
-                />
-              </div>
-              <div v-if="v.images?.length" class="sxk-generate__img-ref-list">
-                <div class="sxk-generate__img-ref-head">
-                  <el-icon><Picture /></el-icon>
-                  配图参考（{{ v.images.length }} 张，预览时自动穿插在正文中）
-                </div>
-                <div class="sxk-generate__img-ref-grid">
-                  <div
-                    v-for="(img, i) in v.images"
-                    :key="i"
-                    class="sxk-generate__img-ref-item"
-                  >
-                    <img :src="img.url" :alt="img.caption" />
-                    <span class="sxk-generate__img-ref-cap">
-                      {{ img.caption || `配图 ${i + 1}` }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="sxk-generate__img-ref-empty">
-                <el-icon><PictureFilled /></el-icon>
-                <span>暂无配图，点击右上「生成配图并保存」可自动配图</span>
-              </div>
-            </div>
-
-            <!-- 操作按钮：👍/👎 A/B 投票 + SEO 分析 -->
-            <div class="sxk-generate__version-tools">
-              <span class="sxk-generate__tools-tip">
-                <el-icon><InfoFilled /></el-icon>
-                对当前渠道版本进行反馈，或查看 SEO 优化建议
-              </span>
-              <div class="sxk-generate__tools-actions">
-                <!-- ============ 反馈组：👍/👎 投票 ============ -->
-                <div class="sxk-generate__tools-group">
-                  <span class="sxk-generate__tools-group-label">反馈</span>
-                  <button
-                    class="sxk-generate__vote-btn is-like"
-                    :class="{ 'is-active': votedDir(v) === 'like' }"
-                    @click="onCastVote(v)"
-                    :title="votedDir(v) === 'like' ? '取消点赞' : '点赞'"
-                  >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                      <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
-                    </svg>
-                    <span class="sxk-generate__vote-num">{{ v.votes?.like || 0 }}</span>
-                  </button>
-                  <button
-                    class="sxk-generate__vote-btn is-dislike"
-                    :class="{ 'is-active': votedDir(v) === 'dislike' }"
-                    @click="onCastVote(v, 'dislike')"
-                    :title="votedDir(v) === 'dislike' ? '取消点踩' : '点踩'"
-                  >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                      <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
-                    </svg>
-                    <span class="sxk-generate__vote-num">{{ v.votes?.dislike || 0 }}</span>
-                  </button>
-                </div>
-
-                <!-- ============ 分析组：SEO 分析 ============ -->
-                <div class="sxk-generate__tools-group">
-                  <span class="sxk-generate__tools-group-label">分析</span>
+                  <!-- 主 CTA：生成配图并保存 -->
                   <el-button
-                    size="small"
+                    v-if="!currentDraft.history_id"
+                    size="default"
                     type="primary"
-                    plain
-                    @click="onAnalyzeSeo(v)"
+                    :loading="finalizingDraft"
+                    @click="onFinalize"
                   >
-                    <el-icon><Search /></el-icon>
-                    SEO 分析
+                    <el-icon v-if="!finalizingDraft">
+                      <Picture />
+                    </el-icon>
+                    {{ finalizingDraft ? '文生图中...' : '生成配图并保存' }}
+                  </el-button>
+                  <el-button
+                    v-else
+                    size="default"
+                    type="success"
+                    disabled
+                  >
+                    <el-icon><CircleCheckFilled /></el-icon>
+                    已保存到历史
                   </el-button>
                 </div>
               </div>
-            </div>
-          </div>
+            </template>
 
-        </el-card>
-      </div>
-    </basic-block>
+            <!-- 渠道对比卡（横向） -->
+            <div class="sxk-generate__version-grid sxk-generate__channel-wall">
+              <div
+                v-for="v in currentDraft.versions"
+                :key="v.index"
+                class="sxk-generate__version-card"
+                :class="{
+                  'is-selected': String(v.index) === adaptVersionIndex,
+                  'is-finalized': v.images?.length > 0
+                }"
+                @click="adaptVersionIndex = String(v.index)"
+              >
+                <div class="sxk-generate__version-card-head">
+                  <span class="sxk-generate__version-card-radio">
+                    <span
+                      class="sxk-generate__radio-dot"
+                      :class="{ 'is-checked': String(v.index) === adaptVersionIndex }"
+                    />
+                  </span>
+                  <span class="sxk-generate__version-card-no">
+                    {{ v.channel || `渠道 ${v.index}` }}
+                  </span>
+                </div>
+                <div class="sxk-generate__version-card-meta">
+                  <span class="sxk-generate__version-card-stat">
+                    <el-icon><Document /></el-icon>
+                    {{ v.body?.length || 0 }} 字
+                  </span>
+                  <span class="sxk-generate__version-card-stat">
+                    <el-icon><Picture /></el-icon>
+                    {{ v.images?.length || 0 }} 图
+                  </span>
+                  <span class="sxk-generate__version-card-stat">
+                    <el-icon><Star /></el-icon>
+                    {{ (v.votes?.like || 0) - (v.votes?.dislike || 0) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 当前渠道预览/编辑 -->
+            <div
+              v-for="v in currentDraft.versions"
+              v-show="String(v.index) === adaptVersionIndex"
+              :key="`preview-${v.index}`"
+              class="sxk-generate__version-preview"
+            >
+              <!-- 顶部工具栏：仅保留"预览/编辑"切换（左侧重复的渠道信息已在顶部卡墙显示，删除） -->
+              <div class="sxk-generate__channel-toolbar">
+                <el-radio-group
+                  v-model="genEditMode"
+                  size="small"
+                  class="sxk-generate__mode-switch"
+                >
+                  <el-radio-button :value="false">
+                    <el-icon><View /></el-icon>
+                    预览
+                  </el-radio-button>
+                  <el-radio-button :value="true">
+                    <el-icon><Edit /></el-icon>
+                    编辑
+                  </el-radio-button>
+                </el-radio-group>
+              </div>
+
+              <!-- 预览 -->
+              <div
+                v-if="!genEditMode"
+                class="sxk-generate__doc-page"
+              >
+                <h1 class="sxk-generate__doc-title">
+                  {{ v.title }}
+                </h1>
+                <div
+                  class="sxk-generate__doc-content markdown-body"
+                  v-html="renderArticle(v.body, v.images, v.title)"
+                />
+                <div
+                  v-if="v.tags?.length"
+                  class="sxk-generate__doc-tags"
+                >
+                  <el-tag
+                    v-for="t in v.tags"
+                    :key="t"
+                    size="small"
+                    type="info"
+                    effect="light"
+                    style="margin: 2px"
+                  >
+                    #{{ t }}
+                  </el-tag>
+                </div>
+              </div>
+
+              <!-- 编辑 -->
+              <div
+                v-else
+                class="sxk-generate__edit-area"
+              >
+                <div class="sxk-generate__edit-title">
+                  <el-input
+                    v-model="v.title"
+                    size="large"
+                    placeholder="文案标题"
+                  >
+                    <template #prepend>
+                      标题
+                    </template>
+                  </el-input>
+                </div>
+                <div class="sxk-generate__edit-body">
+                  <div class="sxk-generate__edit-body-head">
+                    <span>正文</span>
+                    <span class="sxk-generate__edit-body-cnt">{{ (v.body || '').length }} 字</span>
+                  </div>
+                  <el-input
+                    v-model="v.body"
+                    type="textarea"
+                    :autosize="{ minRows: 12 }"
+                  />
+                </div>
+                <div
+                  v-if="v.images?.length"
+                  class="sxk-generate__img-ref-list"
+                >
+                  <div class="sxk-generate__img-ref-head">
+                    <el-icon><Picture /></el-icon>
+                    配图参考（{{ v.images.length }} 张，预览时自动穿插在正文中）
+                  </div>
+                  <div class="sxk-generate__img-ref-grid">
+                    <div
+                      v-for="(img, i) in v.images"
+                      :key="i"
+                      class="sxk-generate__img-ref-item"
+                    >
+                      <img
+                        :src="img.url"
+                        :alt="img.caption"
+                      >
+                      <span class="sxk-generate__img-ref-cap">
+                        {{ img.caption || `配图 ${i + 1}` }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div
+                  v-else
+                  class="sxk-generate__img-ref-empty"
+                >
+                  <el-icon><PictureFilled /></el-icon>
+                  <span>暂无配图，点击右上「生成配图并保存」可自动配图</span>
+                </div>
+              </div>
+
+              <!-- 操作按钮：👍/👎 A/B 投票 + SEO 分析 -->
+              <div class="sxk-generate__version-tools">
+                <span class="sxk-generate__tools-tip">
+                  <el-icon><InfoFilled /></el-icon>
+                  对当前渠道版本进行反馈，或查看 SEO 优化建议
+                </span>
+                <div class="sxk-generate__tools-actions">
+                  <!-- ============ 反馈组：👍/👎 投票 ============ -->
+                  <div class="sxk-generate__tools-group">
+                    <span class="sxk-generate__tools-group-label">反馈</span>
+                    <button
+                      class="sxk-generate__vote-btn is-like"
+                      :class="{ 'is-active': votedDir(v) === 'like' }"
+                      :title="votedDir(v) === 'like' ? '取消点赞' : '点赞'"
+                      @click="onCastVote(v)"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="currentColor"
+                      >
+                        <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
+                      </svg>
+                      <span class="sxk-generate__vote-num">{{ v.votes?.like || 0 }}</span>
+                    </button>
+                    <button
+                      class="sxk-generate__vote-btn is-dislike"
+                      :class="{ 'is-active': votedDir(v) === 'dislike' }"
+                      :title="votedDir(v) === 'dislike' ? '取消点踩' : '点踩'"
+                      @click="onCastVote(v, 'dislike')"
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="currentColor"
+                      >
+                        <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
+                      </svg>
+                      <span class="sxk-generate__vote-num">{{ v.votes?.dislike || 0 }}</span>
+                    </button>
+                  </div>
+
+                  <!-- ============ 分析组：SEO 分析 ============ -->
+                  <div class="sxk-generate__tools-group">
+                    <span class="sxk-generate__tools-group-label">分析</span>
+                    <el-button
+                      size="small"
+                      type="primary"
+                      plain
+                      @click="onAnalyzeSeo(v)"
+                    >
+                      <el-icon><Search /></el-icon>
+                      SEO 分析
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </div>
+      </basic-block>
     </div>
     <!-- /.sxk-generate__body -->
 
@@ -1220,7 +1458,10 @@
       append-to-body
       custom-class="sxk-generate__done-dialog"
     >
-      <div v-if="currentDraft" class="sxk-generate__done-drawer">
+      <div
+        v-if="currentDraft"
+        class="sxk-generate__done-drawer"
+      >
         <div class="sxk-generate__done-bg" />
         <div class="sxk-generate__done-body">
           <!-- 右上角关闭按钮（在白色 body 区域，不在绿色背景上） -->
@@ -1234,7 +1475,9 @@
           <div class="sxk-generate__done-icon">
             <el-icon><CircleCheckFilled /></el-icon>
           </div>
-          <h2 class="sxk-generate__done-title">配图与保存已完成</h2>
+          <h2 class="sxk-generate__done-title">
+            配图与保存已完成
+          </h2>
 
           <!-- 一行紧凑的元信息 chip（取代 3 张统计卡） -->
           <div class="sxk-generate__done-meta">
@@ -1279,7 +1522,7 @@
         </div>
       </div>
       <template #footer>
-        <span></span>
+        <span />
       </template>
     </el-dialog>
 
@@ -1303,19 +1546,31 @@
             <el-icon><DataAnalysis /></el-icon>
           </div>
           <div class="sxk-generate__seo-header-text">
-            <div class="sxk-generate__seo-header-title">SEO 智能分析</div>
-            <div class="sxk-generate__seo-header-sub" v-if="seoTarget">
+            <div class="sxk-generate__seo-header-title">
+              SEO 智能分析
+            </div>
+            <div
+              v-if="seoTarget"
+              class="sxk-generate__seo-header-sub"
+            >
               {{ seoTarget.channel }} · {{ seoTarget.title || '未命名版本' }}
             </div>
           </div>
         </div>
       </template>
-      <div v-if="seoResult" v-loading="seoLoading" class="sxk-generate__seo">
+      <div
+        v-if="seoResult"
+        v-loading="seoLoading"
+        class="sxk-generate__seo"
+      >
         <!-- ============ 评分主卡 ============ -->
         <div class="sxk-generate__seo-hero">
           <!-- 左侧：环形评分 -->
           <div class="sxk-generate__seo-ring">
-            <svg viewBox="0 0 120 120" class="sxk-generate__seo-ring-svg">
+            <svg
+              viewBox="0 0 120 120"
+              class="sxk-generate__seo-ring-svg"
+            >
               <circle
                 cx="60"
                 cy="60"
@@ -1339,15 +1594,23 @@
               />
             </svg>
             <div class="sxk-generate__seo-ring-text">
-              <div class="sxk-generate__seo-ring-num" :style="{ color: seoScoreColor }">
+              <div
+                class="sxk-generate__seo-ring-num"
+                :style="{ color: seoScoreColor }"
+              >
                 {{ seoResult.score }}
               </div>
-              <div class="sxk-generate__seo-ring-tip">/100</div>
+              <div class="sxk-generate__seo-ring-tip">
+                /100
+              </div>
             </div>
           </div>
           <!-- 右侧：评分等级 + 关键词 + 维度统计 -->
           <div class="sxk-generate__seo-side">
-            <div class="sxk-generate__seo-grade" :style="{ background: seoScoreColor + '15', color: seoScoreColor }">
+            <div
+              class="sxk-generate__seo-grade"
+              :style="{ background: seoScoreColor + '15', color: seoScoreColor }"
+            >
               {{ seoScoreGrade }}
             </div>
             <!-- 维度统计胶囊 -->
@@ -1369,7 +1632,10 @@
               </div>
             </div>
             <!-- 关键词 -->
-            <div v-if="seoResult.keywords?.length" class="sxk-generate__seo-kw">
+            <div
+              v-if="seoResult.keywords?.length"
+              class="sxk-generate__seo-kw"
+            >
               <span class="sxk-generate__seo-kw-label">关键词</span>
               <el-tag
                 v-for="(k, idx) in seoResult.keywords"
@@ -1432,9 +1698,15 @@
               :class="['is-' + s.level]"
             >
               <div class="sxk-generate__seo-suggestion-status">
-                <el-icon v-if="s.level === 'good'"><CircleCheckFilled /></el-icon>
-                <el-icon v-else-if="s.level === 'warning'"><WarningFilled /></el-icon>
-                <el-icon v-else><CircleCloseFilled /></el-icon>
+                <el-icon v-if="s.level === 'good'">
+                  <CircleCheckFilled />
+                </el-icon>
+                <el-icon v-else-if="s.level === 'warning'">
+                  <WarningFilled />
+                </el-icon>
+                <el-icon v-else>
+                  <CircleCloseFilled />
+                </el-icon>
               </div>
               <div class="sxk-generate__seo-suggestion-body">
                 <div class="sxk-generate__seo-suggestion-type">
@@ -1449,7 +1721,10 @@
         </div>
 
         <!-- ============ Meta 描述建议 ============ -->
-        <div v-if="seoResult.stats.meta_description" class="sxk-generate__seo-section">
+        <div
+          v-if="seoResult.stats.meta_description"
+          class="sxk-generate__seo-section"
+        >
           <div class="sxk-generate__seo-section-title">
             <el-icon><Document /></el-icon>
             建议 Meta 描述
@@ -1473,7 +1748,9 @@
           <span class="sxk-generate__seo-footer-tip">
             建议将得分提升至 80+ 后再发布
           </span>
-          <el-button @click="seoVisible = false">关闭</el-button>
+          <el-button @click="seoVisible = false">
+            关闭
+          </el-button>
           <el-button
             v-if="seoResult"
             type="primary"
@@ -1500,7 +1777,7 @@
  * 草稿状态机：stage ∈ draft | editing | adapted | done
  * 持久化：localStorage[`sxk-draft-id-${tabId}`]，每个 Tab 独立，刷新自动恢复
  */
-import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onActivated, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -1899,39 +2176,43 @@ const canJumpTo = (i) => {
   return i < draftStep.value && currentDraft.value
 }
 
+// 将步骤序号映射为后端 stage 字段值
+const stageValueMap = ['draft', 'editing', 'adapted']
+
 const onStepJump = (i) => {
+  // 点击当前阶段无反应
+  if (i === draftStep.value) return
+
   // 禁用未达成的阶段
   if (i > draftStep.value && !(i === 2 && stage2Completed.value)) {
     ElMessage.info(`请先完成：${stepDefs[draftStep.value].title}`)
     return
   }
+
   // 阶段 2 已完成时不允许再跳回
   if (i === 2 && stage2Completed.value) {
     ElMessage.info('已完成的工作不能修改')
     return
   }
-  // 向前跳（已完成 → 当前）：可点击
+
+  // 向前回退：弹窗确认
   if (i < draftStep.value && currentDraft.value) {
-    // 回退到阶段 0：提示需保存当前编辑
-    if (i === 0) {
-      ElMessageBox.confirm(
-        '回到阶段 1/2 的编辑内容将不会保存，确定继续？',
-        '回到生成初稿',
-        { type: 'warning', confirmButtonText: '确定回到', cancelButtonText: '取消' }
-      )
-        .then(() => {
-          draftStep.value = i
-          ElMessage.info(`已切回：${stepDefs[i].title}`)
-        })
-        .catch(() => {})
-      return
-    }
-    // 阶段 0 → 1 之间回退
-    draftStep.value = i
-    ElMessage.info(`已切回：${stepDefs[i].title}`)
+    const fromTitle = stepDefs[draftStep.value].title
+    const toTitle = stepDefs[i].title
+    ElMessageBox.confirm(
+      `即将从「${fromTitle}」回到「${toTitle}」，当前阶段未保存的内容将丢失，确定继续？`,
+      `回到：${toTitle}`,
+      { type: 'warning', confirmButtonText: '确定回到', cancelButtonText: '取消' }
+    )
+      .then(() => {
+        currentDraft.value.stage = stageValueMap[i]
+        // 重置阶段 2 完成标记（仅在回退到阶段 0 或 1 时）
+        if (i < 2) stage2Completed.value = false
+        ElMessage.success(`已回到：${toTitle}`)
+      })
+      .catch(() => {})
     return
   }
-  // 点击当前阶段无反应
 }
 
 const confirmDiscard = () => {
@@ -2058,12 +2339,8 @@ const stepTitle = computed(() => {
   return ['生成初稿', '编辑与渠道适配', '配图与保存'][draftStep.value]
 })
 
-// el-card 整体样式：用 calc 锁死高度（不依赖父级传递，最稳）
-// element-plus el-card 默认 { display: flex; flex-direction: column; overflow: hidden }
-// el-card__body 默认 { flex-grow: 1; overflow: auto }
-// 锁死 el-card 高度后：body 自动撑满 + 滚动，footer 自动在底部
+// el-card 样式：不锁死高度，让内容自然撑开，页面整体滚动
 const cardScrollStyle = computed(() => ({
-  height: 'calc(100vh - 200px)',  // 浏览器高度 - 顶部(100) - 右栏头(60) - 底部留白(40)
   display: 'flex',
   flexDirection: 'column'
 }))
@@ -2215,6 +2492,11 @@ onMounted(async () => {
       if (tid) await onTemplateChange(String(tid))
     }
   }
+})
+
+// keep-alive 重新激活时，刷新场景 schema（用户可能在其他 Tab 修改了动态参数名称）
+onActivated(async () => {
+  await loadSceneSchemas()
 })
 
 onBeforeUnmount(() => {
@@ -2815,14 +3097,13 @@ void renderMarkdown
   display: flex;
   flex-direction: column;
   width: 100% !important;
-  height: 100% !important; // 关键：撑满父级 .avue-view 高度
+  min-height: 100% !important; // 不锁死高度，内容自然撑开
   max-width: 100% !important;
   margin: 0 !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
   box-sizing: border-box;
   position: relative;
-  overflow: hidden; // 关键：禁止任何方向溢出（避免横向滚动条）
   // 关键：内部用 flex 嵌套实现横向排列
   & > .sxk-page-welcome,
   & > .sxk-generate__body {
@@ -2834,15 +3115,14 @@ void renderMarkdown
     flex-direction: row;
     align-items: center;
     margin-bottom: 12px;
-    flex-shrink: 0; // 关键：welcome 不被压缩
+    flex-shrink: 0;
   }
   & > .sxk-generate__body {
     flex-direction: row;
     gap: 12px;
-    align-items: stretch;
-    flex: 1 1 auto !important; // 关键：body 撑满剩余高度
+    align-items: flex-start; // 不拉伸，让内容决定高度
+    flex: 1 1 auto !important;
     height: auto !important;
-    min-height: 0; // 关键：允许内容滚动
   }
 }
 
@@ -2858,34 +3138,26 @@ void renderMarkdown
   width: 100% !important; // 关键：撑满父容器宽度
   box-sizing: border-box; // 关键：避免 padding 撑大
   // display 和 gap 由 .sxk-generate 的子选择器接管
-  overflow: hidden;
 
   @media (max-width: 1100px) {
     flex-direction: column;
-    overflow: visible;
   }
 }
 
-// ---------- 左栏：生成配置 + 阶段指示（全宽撑满 + 固定高度 + 内部滚动） ----------
+// ---------- 左栏：生成配置 + 阶段指示（全宽撑满，内容自然展开） ----------
 .sxk-generate__config {
   // 关键：默认全宽撑满（首次访问无草稿时）
   flex: 1 1 auto;
   width: 100%;
   max-width: 100%;
-  // 关键：撑满父容器高度（让内部可滚动）
   display: flex;
   flex-direction: column;
-  align-self: stretch;
-  // 固定高度 = 父级（动态跟随浏览器尺寸变化）
-  height: 100% !important; // 关键：撑满父级 body 高度
-  min-height: 0;
-  overflow: hidden; // 关键：禁止横向溢出
+  align-self: flex-start;
 
   // 关键：当父级是 .sxk-generate__body（有右栏兄弟）时，左栏占 50%
   .sxk-generate__body > & {
-    flex: 1 1 0% !important; // 关键：flex row 中各占 1 等分
+    flex: 1 1 0% !important;
     width: 50% !important;
-    height: 100% !important; // 关键：撑满父级 body 高度
     min-width: 0;
   }
 
@@ -2930,38 +3202,21 @@ void renderMarkdown
     line-height: 1.4;
   }
 
-  // 让 basic-block 自身撑满
+  // 让 basic-block 自然展开
   :deep(.basic-block) {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    min-height: 0;
   }
   :deep(.basic-block__body) {
     display: flex;
     flex-direction: column;
     flex: 1 1 0%;
-    min-height: 0;
   }
-  // 关键：basic-block__body 内的 el-form 撑满 + 独立滚动
+  // basic-block__body 内的 el-form 自然展开
   :deep(.basic-block__body) > .el-form {
     flex: 1 1 0%;
-    min-height: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
     // 滚动条与文字保持距离
     padding-right: 20px;
-    // 自定义滚动条（10px 深色）
-    &::-webkit-scrollbar {
-      width: 10px;
-      background-color: rgba(0, 0, 0, 0.04);
-    }
-    &::-webkit-scrollbar-thumb {
-      background: $text-placeholder;
-      border-radius: 5px;
-      border: 2px solid transparent;
-      background-clip: padding-box;
-    }
   }
   @media (max-width: 1100px) {
     max-width: 100%;
@@ -3844,51 +4099,28 @@ void renderMarkdown
 
 // ---------- 右栏：主区域 ----------
 .sxk-generate__main {
-  flex: 1 1 0% !important; // 关键：与 config 等分
+  flex: 1 1 0% !important;
   width: 50% !important;
-  min-width: 0;  // 关键：允许缩小
-  height: 100% !important; // 关键：撑满父级 body 高度
+  min-width: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-self: stretch;
-  overflow: hidden; // 关键：禁止横向溢出（避免出现横向滚动条）
-  // 减少 basic-block 内边距：让卡片与页面底部更紧凑
+  align-self: flex-start;
+  // 减少 basic-block 内边距
   :deep(.basic-block) {
-    padding: $spacing-md $spacing-lg $spacing-sm; // 上 16 / 左右 24 / 下 8
-    height: 100%; // 关键：撑满 .sxk-generate__main 父容器
+    padding: $spacing-md $spacing-lg $spacing-sm;
   }
-  // basic-block 内部 __body 撑满
+  // basic-block 内部 __body 自然展开
   :deep(.basic-block__body) {
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0;
-    overflow-y: auto; // 关键：内容超出时纵向滚动
-    overflow-x: hidden; // 关键：禁止横向滚动
-    // 美化滚动条
-    &::-webkit-scrollbar { width: 8px; }
-    &::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
-    &::-webkit-scrollbar-track { background: transparent; }
   }
-  // 关键：basic-block__body 内的 el-form 撑满 + 独立滚动（初始页面）
   :deep(.basic-block__body) > .el-form {
     flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    // 美化滚动条
-    &::-webkit-scrollbar { width: 8px; }
-    &::-webkit-scrollbar-thumb {
-      background: $text-placeholder;
-      border-radius: $radius-sm;
-    }
-    &::-webkit-scrollbar-track { background: rgba(0,0,0,0.04); }
   }
-  // 引导卡片（无 currentDraft）时，也支持滚动
   :deep(.basic-block__body) > .sxk-generate__guide {
     flex: 1 1 auto;
-    overflow-y: auto;
-    &::-webkit-scrollbar { width: 8px; }
   }
 }
 
@@ -4031,25 +4263,18 @@ void renderMarkdown
 .sxk-generate__stage {
   display: flex;
   flex-direction: column;
-  flex: 1; // 占满 main 剩余高度
-  min-height: 0; // 关键：flex 子项可滚动
+  flex: 1;
   gap: $spacing-md;
-  // 阶段顶部加视觉分隔（让用户知道进入了新阶段）
   padding-top: 4px;
 }
 
-// 阶段 0 行布局：左 Agent 链路（窄/竖向） + 右 初稿对比（主区）
-// 两栏卡片占满父容器高度（动态跟随浏览器尺寸）
-// ★ 阶段 1（编辑与渠道适配）共用此布局：左侧编辑内容 + 右侧发布渠道
+// 阶段 0/1 行布局：左 Agent 链路（窄/竖向） + 右 初稿对比（主区）
+// 两栏卡片内容自然展开，不锁死高度
 .sxk-generate__stage0-row,
 .sxk-generate__stage1-row {
-  align-items: stretch;
-  height: 100%; // 跟随父级 stage
-  min-height: 0;
+  align-items: flex-start; // 不拉伸，让内容决定高度
   > [class*='el-col'] {
-    height: 100%; // 让 el-col 高度 = row 高度
     .sxk-generate__card {
-      height: 100% !important; // 跟随 col（覆盖 inline style 的 calc）
       min-height: 0;
     }
   }
@@ -4121,31 +4346,11 @@ void renderMarkdown
   :deep(.el-card__body) {
     padding: $spacing-md;
   }
-  // 可滚动卡片：固定高度 + 内部 body 滚动（body 样式由 :body-style 传递）
+  // 卡片内容自然展开（不固定高度，页面整体滚动）
   &.is-scrollable {
-    // 让 body 内部用 flex column：版本卡墙固定 + 预览区独立滚动
     :deep(.el-card__body) {
       display: flex !important;
       flex-direction: column !important;
-      // 滚动条样式（10px 深色更醒目）
-      &::-webkit-scrollbar {
-        width: 10px;
-        background-color: rgba(0, 0, 0, 0.04);
-      }
-      &::-webkit-scrollbar-thumb {
-        background: $text-placeholder;
-        border-radius: 5px;
-        border: 2px solid transparent;
-        background-clip: padding-box;
-        &:hover {
-          background: $text-regular;
-          background-clip: padding-box;
-        }
-      }
-      &::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.03);
-        border-radius: 5px;
-      }
     }
   }
   &.is-clean {
@@ -5018,21 +5223,9 @@ void renderMarkdown
   border: 1px dashed $border-light;
 }
 .sxk-generate__version-preview {
-  // 关键：去掉 fadeInUp 动画（用户要求点击卡墙时不要加载动画）
-  // 之前：animation: fadeInUp 0.25s ease;
-  // 关键：预览区独立滚动（仅此区，超出时滚动）
   flex: 1 1 0%;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  // 自定义滚动条
-  &::-webkit-scrollbar { width: 8px; }
-  &::-webkit-scrollbar-thumb {
-    background: $text-placeholder;
-    border-radius: $radius-sm;
-  }
-  &::-webkit-scrollbar-track { background: rgba(0,0,0,0.04); }
 }
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
@@ -5264,19 +5457,13 @@ void renderMarkdown
 .sxk-generate__edit-body {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0%; // 撑满 body 剩余高度
-  min-height: 0; // flex 子项可滚动
-  // textarea 容器：固定 height（让卡片下方有留白），用户可拖拽
+  flex: 1 1 0%;
+  // textarea 自动撑开高度，完整展示所有内容
   :deep(.el-textarea) {
     flex: 0 1 auto;
     display: flex;
-    min-height: 0;
-    // 关键：固定 height（让卡片下方有留白）
-    height: 480px;
-    overflow: hidden; // 容器内部滚动
   }
   :deep(.el-textarea__inner) {
-    flex: 1 1 0%;
     font-size: $font-size-base;
     line-height: 1.9;
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", Georgia, "宋体", serif;
@@ -5286,9 +5473,6 @@ void renderMarkdown
     transition: all 0.18s ease;
     border-color: transparent;
     color: $text-primary;
-    overflow-y: auto !important;
-    // 用户可拖拽改变高度（不再 !important resize none）
-    resize: vertical;
     &:hover {
       border-color: rgba(64, 158, 255, 0.4);
     }
@@ -5846,10 +6030,7 @@ void renderMarkdown
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
-  // 关键：flex 撑满 + 内部独立滚动
   flex: 1 1 0%;
-  min-height: 0;
-  overflow-y: auto;
 }
 .sxk-generate__edit-title {
   :deep(.el-input-group__prepend) {

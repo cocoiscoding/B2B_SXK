@@ -15,18 +15,31 @@
     @update:model-value="(v) => $emit('update:modelValue', v)"
     @open="load"
   >
-    <div v-loading="loading" class="detail-wrap">
+    <div
+      v-loading="loading"
+      class="detail-wrap"
+    >
       <!-- 头部 -->
       <div class="detail-head">
-        <div class="detail-head__icon" :style="iconStyle">
-          <el-icon :size="28"><component :is="iconComp" /></el-icon>
+        <div
+          class="detail-head__icon"
+          :style="iconStyle"
+        >
+          <el-icon :size="28">
+            <component :is="iconComp" />
+          </el-icon>
         </div>
         <div class="detail-head__body">
           <h3>{{ sceneName || data?.name || '模板详情' }}</h3>
           <p>{{ sceneDesc || data?.description }}</p>
         </div>
-        <button class="detail-head__close" @click="$emit('update:modelValue', false)">
-          <el-icon :size="20"><Close /></el-icon>
+        <button
+          class="detail-head__close"
+          @click="$emit('update:modelValue', false)"
+        >
+          <el-icon :size="20">
+            <Close />
+          </el-icon>
         </button>
       </div>
 
@@ -36,10 +49,16 @@
         <div class="detail-section">
           <div class="detail-section__header">
             <h4 class="detail-section__title">
-              <el-icon class="detail-section__icon"><Checked /></el-icon>
+              <el-icon class="detail-section__icon">
+                <Checked />
+              </el-icon>
               场景参数
             </h4>
-            <el-button type="primary" size="small" @click="onEditScene">
+            <el-button
+              type="primary"
+              size="small"
+              @click="onEditScene"
+            >
               <el-icon><EditPen /></el-icon>
               <span>编辑场景</span>
             </el-button>
@@ -54,11 +73,18 @@
                 <el-icon><Tickets /></el-icon>
               </div>
               <div class="param-card__content">
-                <div class="param-card__name">{{ p.label }}</div>
-                <div class="param-card__desc">{{ paramDesc(p) }}</div>
+                <div class="param-card__name">
+                  {{ p.label }}
+                </div>
+                <div class="param-card__desc">
+                  {{ paramDesc(p) }}
+                </div>
               </div>
             </div>
-            <div v-if="schemaParams.length === 0" class="detail-empty">
+            <div
+              v-if="schemaParams.length === 0"
+              class="detail-empty"
+            >
               当前场景暂无参数说明
             </div>
           </div>
@@ -68,11 +94,17 @@
         <div class="detail-section">
           <div class="detail-section__header">
             <h4 class="detail-section__title">
-              <el-icon class="detail-section__icon"><Files /></el-icon>
+              <el-icon class="detail-section__icon">
+                <Files />
+              </el-icon>
               已有模板
               <!-- <span class="detail-section__count">共 {{ siblingTemplates.length }} 个</span> -->
             </h4>
-            <el-button type="primary" size="small" @click="onAddTemplate">
+            <el-button
+              type="primary"
+              size="small"
+              @click="onAddTemplate"
+            >
               <el-icon><Plus /></el-icon>
               <span>添加模板</span>
             </el-button>
@@ -87,11 +119,24 @@
             >
               <div class="tpl-card__main">
                 <div class="tpl-card__title-row">
-                  <el-icon class="tpl-card__icon" :style="{ color: sceneColor }"><Document /></el-icon>
+                  <el-icon
+                    class="tpl-card__icon"
+                    :style="{ color: sceneColor }"
+                  >
+                    <Document />
+                  </el-icon>
                   <span class="tpl-card__name">{{ tpl.name }}</span>
-                  <el-tag size="small" effect="light" :style="styleTagStyle">{{ formatLabel(tpl) }}</el-tag>
+                  <el-tag
+                    size="small"
+                    effect="light"
+                    :style="styleTagStyle"
+                  >
+                    {{ formatLabel(tpl) }}
+                  </el-tag>
                 </div>
-                <p class="tpl-card__desc">{{ tpl.description }}</p>
+                <p class="tpl-card__desc">
+                  {{ tpl.description }}
+                </p>
                 <div class="tpl-card__meta">
                   <span class="tpl-card__meta-item">
                     <el-icon><TrendCharts /></el-icon>
@@ -111,10 +156,18 @@
                 >
                   <el-icon><EditPen /></el-icon>
                 </button>
-                <button class="tpl-card__use-btn" @click.stop="onUseItem(tpl)">使用</button>
+                <button
+                  class="tpl-card__use-btn"
+                  @click.stop="onUseItem(tpl)"
+                >
+                  使用
+                </button>
               </div>
             </div>
-            <div v-if="siblingTemplates.length === 0" class="detail-empty">
+            <div
+              v-if="siblingTemplates.length === 0"
+              class="detail-empty"
+            >
               该场景下暂无模板
             </div>
           </div>
@@ -124,7 +177,10 @@
 
     <template #footer>
       <div class="detail-footer">
-        <el-button type="primary" @click="onUse">
+        <el-button
+          type="primary"
+          @click="onUse"
+        >
           <el-icon><MagicStick /></el-icon>
           <span>使用此场景生成</span>
         </el-button>

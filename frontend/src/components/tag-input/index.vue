@@ -4,7 +4,10 @@
   - 用于：产品知识库的目标客户/竞品/卖点，自定义模板的标签等
 -->
 <template>
-  <div class="tag-input" :class="{ 'is-focused': focused, 'is-disabled': disabled }">
+  <div
+    class="tag-input"
+    :class="{ 'is-focused': focused, 'is-disabled': disabled }"
+  >
     <el-tag
       v-for="(tag, idx) in modelValue"
       :key="tag + '-' + idx"
@@ -24,7 +27,7 @@
       @keydown.delete="onBackspace"
       @blur="onBlur"
       @focus="focused = true"
-    />
+    >
   </div>
 </template>
 

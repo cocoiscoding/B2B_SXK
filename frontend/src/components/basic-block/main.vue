@@ -5,13 +5,23 @@
   - padding prop：自定义内边距（默认 'medium'，'none' 可去掉 padding）
 -->
 <template>
-  <div class="basic-block" :class="classes" :style="style">
+  <div
+    class="basic-block"
+    :class="classes"
+    :style="style"
+  >
     <!-- 标题区（可选） -->
-    <div v-if="$slots.header" class="basic-block__header">
+    <div
+      v-if="$slots.header"
+      class="basic-block__header"
+    >
       <div class="basic-block__header-left">
         <slot name="header" />
       </div>
-      <div v-if="$slots.aside" class="basic-block__header-aside">
+      <div
+        v-if="$slots.aside"
+        class="basic-block__header-aside"
+      >
         <slot name="aside" />
       </div>
     </div>

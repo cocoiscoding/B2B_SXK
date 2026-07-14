@@ -10,11 +10,18 @@
     <!-- 顶部欢迎条：与首页风格一致 -->
     <div class="sxk-page-welcome">
       <div class="sxk-page-welcome__left">
-        <h2 class="sxk-page-welcome__title">场景模板管理</h2>
-        <p class="sxk-page-welcome__desc">管理营销场景与子模板，支撑多 Agent 内容生成</p>
+        <h2 class="sxk-page-welcome__title">
+          场景模板管理
+        </h2>
+        <p class="sxk-page-welcome__desc">
+          管理营销场景与子模板，支撑多 Agent 内容生成
+        </p>
       </div>
       <div class="sxk-page-welcome__actions">
-        <el-button type="primary" @click="onAddScene">
+        <el-button
+          type="primary"
+          @click="onAddScene"
+        >
           <el-icon><Grid /></el-icon>
           <span>新建场景</span>
         </el-button>
@@ -23,15 +30,36 @@
 
     <!-- 4 个统计卡片 -->
     <el-row :gutter="16">
-      <el-col :xs="24" :sm="12" :md="6" v-for="card in statCards" :key="card.label">
-        <basic-block hover-shadow padding="small">
+      <el-col
+        v-for="card in statCards"
+        :key="card.label"
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
+        <basic-block
+          hover-shadow
+          padding="small"
+        >
           <div class="mini-stat">
-            <div class="mini-stat__icon" :style="{ background: card.bg, color: card.color }">
-              <el-icon :size="20"><component :is="card.icon" /></el-icon>
+            <div
+              class="mini-stat__icon"
+              :style="{ background: card.bg, color: card.color }"
+            >
+              <el-icon :size="20">
+                <component :is="card.icon" />
+              </el-icon>
             </div>
             <div class="mini-stat__body">
-              <div class="mini-stat__value" :style="{ color: card.color }">{{ card.value }}</div>
-              <div class="mini-stat__label">{{ card.label }}</div>
+              <div
+                class="mini-stat__value"
+                :style="{ color: card.color }"
+              >
+                {{ card.value }}
+              </div>
+              <div class="mini-stat__label">
+                {{ card.label }}
+              </div>
             </div>
           </div>
         </basic-block>
@@ -39,24 +67,45 @@
     </el-row>
 
     <!-- 场景卡片列表 -->
-    <div class="scene-list" v-loading="loading">
+    <div
+      v-loading="loading"
+      class="scene-list"
+    >
       <div
         v-for="scene in sceneList"
         :key="scene.scene_code"
         class="scene-card"
       >
         <!-- 紧凑横向布局：图标 | 名称+描述 | 标签 | 元信息 | 操作 -->
-        <div class="scene-card__icon" :style="{ background: tplColor(scene.scene_code, scene.name).bg, color: tplColor(scene.scene_code, scene.name).color }">
-          <el-icon :size="20"><component :is="tplColor(scene.scene_code, scene.name).icon" /></el-icon>
+        <div
+          class="scene-card__icon"
+          :style="{ background: tplColor(scene.scene_code, scene.name).bg, color: tplColor(scene.scene_code, scene.name).color }"
+        >
+          <el-icon :size="20">
+            <component :is="tplColor(scene.scene_code, scene.name).icon" />
+          </el-icon>
         </div>
 
-        <div class="scene-card__main" @click="onDetail(scene)">
+        <div
+          class="scene-card__main"
+          @click="onDetail(scene)"
+        >
           <div class="scene-card__name-row">
             <span class="scene-card__name">{{ scene.name }}</span>
-            <el-tag v-if="isCustomScene(scene.scene_code)" size="small" type="warning" effect="plain" class="scene-card__tag">自定义</el-tag>
+            <el-tag
+              v-if="isCustomScene(scene.scene_code)"
+              size="small"
+              type="warning"
+              effect="plain"
+              class="scene-card__tag"
+            >
+              自定义
+            </el-tag>
             <span class="scene-card__sub-count">· {{ getSceneTemplates(scene.scene_code).length }} 个子模板</span>
           </div>
-          <div class="scene-card__desc">{{ scene.description || '暂无描述' }}</div>
+          <div class="scene-card__desc">
+            {{ scene.description || '暂无描述' }}
+          </div>
         </div>
 
         <!-- 中部：子模板预览标签（限 2 个）-->
@@ -67,8 +116,13 @@
               :key="tpl.template_id"
               size="small"
               effect="plain"
-            >{{ tpl.name }}</el-tag>
-            <span v-if="getSceneTemplates(scene.scene_code).length > 2" class="scene-card__more">
+            >
+              {{ tpl.name }}
+            </el-tag>
+            <span
+              v-if="getSceneTemplates(scene.scene_code).length > 2"
+              class="scene-card__more"
+            >
               +{{ getSceneTemplates(scene.scene_code).length - 2 }}
             </span>
           </template>
@@ -81,7 +135,14 @@
         </div>
 
         <div class="scene-card__actions">
-          <el-button link type="primary" size="small" @click="onDetail(scene)">查看详情</el-button>
+          <el-button
+            link
+            type="primary"
+            size="small"
+            @click="onDetail(scene)"
+          >
+            查看详情
+          </el-button>
           <span class="scene-card__divider">|</span>
           <el-button
             link
@@ -89,13 +150,20 @@
             size="small"
             :icon="Delete"
             @click="onDeleteScene(scene)"
-          >删除</el-button>
+          >
+            删除
+          </el-button>
         </div>
       </div>
 
       <!-- 空状态 -->
-      <div v-if="!loading && sceneList.length === 0" class="empty">
-        <el-icon style="font-size: 48px; color: var(--el-text-color-placeholder)"><Grid /></el-icon>
+      <div
+        v-if="!loading && sceneList.length === 0"
+        class="empty"
+      >
+        <el-icon style="font-size: 48px; color: var(--el-text-color-placeholder)">
+          <Grid />
+        </el-icon>
         <p>还没有任何场景，点击右上角"新建场景"开始创建</p>
       </div>
     </div>
@@ -125,33 +193,77 @@
     >
       <div class="sm-head">
         <div class="sm-head__left">
-          <el-icon :size="20" color="var(--el-color-primary)"><Setting /></el-icon>
+          <el-icon
+            :size="20"
+            color="var(--el-color-primary)"
+          >
+            <Setting />
+          </el-icon>
           <div>
             <h3>管理场景</h3>
             <p>查看、编辑或删除已有场景</p>
           </div>
         </div>
-        <el-icon class="sm-head__close" @click="sceneManageVisible = false"><Close /></el-icon>
+        <el-icon
+          class="sm-head__close"
+          @click="sceneManageVisible = false"
+        >
+          <Close />
+        </el-icon>
       </div>
       <div class="sm-body">
-        <div v-for="s in sceneSchemasList" :key="s.scene_code" class="sm-item">
-          <div class="sm-item__icon" :style="{ background: tplColor(s.scene_code, s.name).bg, color: tplColor(s.scene_code, s.name).color }">
-            <el-icon :size="18"><component :is="tplColor(s.scene_code, s.name).icon" /></el-icon>
+        <div
+          v-for="s in sceneSchemasList"
+          :key="s.scene_code"
+          class="sm-item"
+        >
+          <div
+            class="sm-item__icon"
+            :style="{ background: tplColor(s.scene_code, s.name).bg, color: tplColor(s.scene_code, s.name).color }"
+          >
+            <el-icon :size="18">
+              <component :is="tplColor(s.scene_code, s.name).icon" />
+            </el-icon>
           </div>
           <div class="sm-item__info">
-            <div class="sm-item__name">{{ s.name }}</div>
-            <div class="sm-item__desc">{{ s.description || '暂无描述' }}</div>
-            <div class="sm-item__params">{{ (s.params || []).length }} 个参数</div>
+            <div class="sm-item__name">
+              {{ s.name }}
+            </div>
+            <div class="sm-item__desc">
+              {{ s.description || '暂无描述' }}
+            </div>
+            <div class="sm-item__params">
+              {{ (s.params || []).length }} 个参数
+            </div>
           </div>
           <div class="sm-item__actions">
-            <el-button link type="primary" @click="onEditScene(s)">编辑</el-button>
-            <el-button link type="danger" @click="onDeleteScene(s)">删除</el-button>
+            <el-button
+              link
+              type="primary"
+              @click="onEditScene(s)"
+            >
+              编辑
+            </el-button>
+            <el-button
+              link
+              type="danger"
+              @click="onDeleteScene(s)"
+            >
+              删除
+            </el-button>
           </div>
         </div>
-        <div v-if="sceneSchemasList.length === 0" class="sm-empty">暂无场景数据</div>
+        <div
+          v-if="sceneSchemasList.length === 0"
+          class="sm-empty"
+        >
+          暂无场景数据
+        </div>
       </div>
       <div class="sm-foot">
-        <el-button @click="sceneManageVisible = false">关闭</el-button>
+        <el-button @click="sceneManageVisible = false">
+          关闭
+        </el-button>
       </div>
     </el-dialog>
   </div>

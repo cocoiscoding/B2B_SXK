@@ -27,30 +27,47 @@
     @open="load"
   >
     <!-- ========== 头部 ========== -->
-  <template #header>
-    <div class="hdm-head">
-      <div class="hdm-head__left">
-        <h3 class="hdm-head__title">
-          <el-icon class="hdm-head__icon"><Document /></el-icon>
-          历史详情
-        </h3>
-        <p v-if="data" class="hdm-head__sub">
-          {{ data.product?.name || '已删除产品' }}
-          <span v-if="data.scene_name">· {{ data.scene_name }}</span>
+    <template #header>
+      <div class="hdm-head">
+        <div class="hdm-head__left">
+          <h3 class="hdm-head__title">
+            <el-icon class="hdm-head__icon">
+              <Document />
+            </el-icon>
+            历史详情
+          </h3>
+          <p
+            v-if="data"
+            class="hdm-head__sub"
+          >
+            {{ data.product?.name || '已删除产品' }}
+            <span v-if="data.scene_name">· {{ data.scene_name }}</span>
           <!-- <span v-if="data.created_at">· {{ formatDateTime(data.created_at) }}</span> -->
-        </p>
+          </p>
+        </div>
+        <button
+          class="hdm-head__close"
+          @click="$emit('update:modelValue', false)"
+        >
+          <el-icon :size="20">
+            <Close />
+          </el-icon>
+        </button>
       </div>
-      <button class="hdm-head__close" @click="$emit('update:modelValue', false)">
-        <el-icon :size="20"><Close /></el-icon>
-      </button>
-    </div>
-  </template>
+    </template>
 
     <!-- ========== 可滚动内容区 ========== -->
-    <div class="hdm-body" v-loading="loading">
+    <div
+      v-loading="loading"
+      class="hdm-body"
+    >
       <template v-if="!loading && data">
         <!-- 描述列表 -->
-        <el-descriptions :column="3" border class="hdm-desc">
+        <el-descriptions
+          :column="3"
+          border
+          class="hdm-desc"
+        >
           <el-descriptions-item label="产品">
             {{ data.product?.name || '已删除产品' }}
           </el-descriptions-item>
@@ -68,7 +85,10 @@
             >
               {{ ch }}
             </el-tag>
-            <span v-if="!splitChannels(data.channel).length" class="hdm-muted">未标记</span>
+            <span
+              v-if="!splitChannels(data.channel).length"
+              class="hdm-muted"
+            >未标记</span>
           </el-descriptions-item>
           <el-descriptions-item label="风格">
             {{ data.style || '—' }}
@@ -88,7 +108,10 @@
             </span>
           </el-descriptions-item>
           <!-- 整体反馈 -->
-          <el-descriptions-item label="整体反馈" :span="3">
+          <el-descriptions-item
+            label="整体反馈"
+            :span="3"
+          >
             <div class="hdm-feedback">
               <span
                 class="hdm-status"
@@ -134,7 +157,10 @@
             >
               ● {{ displayCreator() }}
             </span>
-            <span v-else class="hdm-muted">未标记</span>
+            <span
+              v-else
+              class="hdm-muted"
+            >未标记</span>
           </el-descriptions-item>
         </el-descriptions>
 
@@ -158,13 +184,23 @@
           </span>
           <span class="hdm-leading__pills">
             <span class="hdm-leading__pill is-like">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+              <svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="currentColor"
+              >
                 <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
               </svg>
               {{ leadingVersion(data.versions).votes?.like || 0 }}
             </span>
             <span class="hdm-leading__pill is-dislike">
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+              <svg
+                viewBox="0 0 24 24"
+                width="12"
+                height="12"
+                fill="currentColor"
+              >
                 <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
               </svg>
               {{ leadingVersion(data.versions).votes?.dislike || 0 }}
@@ -178,7 +214,10 @@
             版本内容（{{ data.versions?.length || 0 }} 个）
           </span>
           <div class="hdm-bar__actions">
-            <el-button size="small" @click="editMode = !editMode">
+            <el-button
+              size="small"
+              @click="editMode = !editMode"
+            >
               <el-icon><EditPen v-if="!editMode" /><View v-else /></el-icon>
               {{ editMode ? '预览' : '编辑' }}
             </el-button>
@@ -195,7 +234,11 @@
         </div>
 
         <!-- 多版本 Tab -->
-        <el-tabs v-model="activeVersionIndex" type="card" class="hdm-tabs">
+        <el-tabs
+          v-model="activeVersionIndex"
+          type="card"
+          class="hdm-tabs"
+        >
           <el-tab-pane
             v-for="(v, i) in data.versions"
             :key="v.version_key || v.index"
@@ -206,13 +249,23 @@
                 <span>版本 {{ v.index }}</span>
                 <span class="hdm-tab-label__pills">
                   <span class="hdm-tab-label__pill is-like">
-                    <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="currentColor"
+                    >
                       <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
                     </svg>
                     {{ v.votes?.like || 0 }}
                   </span>
                   <span class="hdm-tab-label__pill is-dislike">
-                    <svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor">
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      fill="currentColor"
+                    >
                       <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
                     </svg>
                     {{ v.votes?.dislike || 0 }}
@@ -223,16 +276,24 @@
 
             <!-- 编辑模式 -->
             <template v-if="editMode">
-              <el-input v-model="v.title" style="margin-bottom: 8px">
-                <template #prepend>标题</template>
+              <el-input
+                v-model="v.title"
+                style="margin-bottom: 8px"
+              >
+                <template #prepend>
+                  标题
+                </template>
               </el-input>
               <el-input
+                v-model="v.body"
                 type="textarea"
                 :rows="10"
-                v-model="v.body"
                 class="hdm-edit-body"
               />
-              <div v-if="v.images?.length" class="hdm-img-ref-list">
+              <div
+                v-if="v.images?.length"
+                class="hdm-img-ref-list"
+              >
                 <div class="hdm-img-ref-list__title">
                   配图（{{ v.images.length }} 张，预览时自动穿插在正文中）：
                 </div>
@@ -241,7 +302,10 @@
                   :key="k"
                   class="hdm-img-ref"
                 >
-                  <img :src="img.url" :alt="img.caption" />
+                  <img
+                    :src="img.url"
+                    :alt="img.caption"
+                  >
                   {{ img.caption || ('配图 ' + (k + 1)) }}
                 </span>
               </div>
@@ -250,7 +314,9 @@
             <!-- 预览模式：Word 文档式 -->
             <template v-else>
               <div class="hdm-doc-page">
-                <h1 class="hdm-doc-title">{{ v.title }}</h1>
+                <h1 class="hdm-doc-title">
+                  {{ v.title }}
+                </h1>
                 <div
                   class="hdm-doc-content markdown-body"
                   v-html="renderArticle(v.body, v.images, v.title)"
@@ -262,7 +328,10 @@
           </el-tab-pane>
         </el-tabs>
       </template>
-      <div v-else-if="!loading" class="hdm-empty">
+      <div
+        v-else-if="!loading"
+        class="hdm-empty"
+      >
         <el-empty description="暂无数据" />
       </div>
     </div>
@@ -279,8 +348,15 @@
           :class="{ 'is-active': votedDir(currentVersion) === 'like' }"
           @click="onVote(currentVersion, 'like')"
         >
-          <span class="hdm-vote__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="14" height="14">
+          <span
+            class="hdm-vote__icon"
+            aria-hidden="true"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+            >
               <path
                 d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"
                 fill="currentColor"
@@ -297,8 +373,15 @@
           :class="{ 'is-active': votedDir(currentVersion) === 'dislike' }"
           @click="onVote(currentVersion, 'dislike')"
         >
-          <span class="hdm-vote__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="14" height="14">
+          <span
+            class="hdm-vote__icon"
+            aria-hidden="true"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+            >
               <path
                 d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z"
                 fill="currentColor"
@@ -309,7 +392,12 @@
           <span class="hdm-vote__num">{{ currentVersion?.votes?.dislike || 0 }}</span>
         </button>
       </div>
-      <el-button link size="small" class="hdm-vote__seo" @click="onAnalyzeSeo(currentVersion)">
+      <el-button
+        link
+        size="small"
+        class="hdm-vote__seo"
+        @click="onAnalyzeSeo(currentVersion)"
+      >
         <el-icon><Search /></el-icon>
         SEO 分析
       </el-button>
@@ -318,12 +406,22 @@
     <!-- ========== 底部 ========== -->
     <template #footer>
       <div class="hdm-foot">
-        <el-button @click="$emit('update:modelValue', false)">关闭</el-button>
-        <el-button @click="onExport">导出</el-button>
-        <el-button type="danger" :loading="deleting" @click="onDelete">删除</el-button>
+        <el-button @click="$emit('update:modelValue', false)">
+          关闭
+        </el-button>
+        <el-button @click="onExport">
+          导出
+        </el-button>
+        <el-button
+          type="danger"
+          :loading="deleting"
+          @click="onDelete"
+        >
+          删除
+        </el-button>
         <el-button
           type="primary"
-          @click="$emit('edit', data?.generation_id)"
+          @click="enterEditMode"
         >
           重新编辑
         </el-button>
@@ -331,15 +429,31 @@
     </template>
 
     <!-- SEO 分析弹窗 -->
-    <el-dialog v-model="seoVisible" title="SEO 分析" width="560px" append-to-body>
-      <div v-if="seoResult" class="hdm-seo">
+    <el-dialog
+      v-model="seoVisible"
+      title="SEO 分析"
+      width="560px"
+      append-to-body
+    >
+      <div
+        v-if="seoResult"
+        class="hdm-seo"
+      >
         <div class="hdm-seo__score">
-          <div class="hdm-seo__num" :style="{ color: seoScoreColor }">
+          <div
+            class="hdm-seo__num"
+            :style="{ color: seoScoreColor }"
+          >
             {{ seoResult.score }}
           </div>
-          <div class="hdm-seo__tip">SEO 评分（满分 100）</div>
+          <div class="hdm-seo__tip">
+            SEO 评分（满分 100）
+          </div>
         </div>
-        <div v-if="seoResult.keywords?.length" class="hdm-seo__keywords">
+        <div
+          v-if="seoResult.keywords?.length"
+          class="hdm-seo__keywords"
+        >
           <span class="hdm-seo__keywords-title">关键词：</span>
           <el-tag
             v-for="k in seoResult.keywords"
@@ -371,7 +485,10 @@
           {{ seoResult.stats.headings }} · 平均句长
           {{ seoResult.stats.avg_sentence_length }} 字
         </div>
-        <div v-if="seoResult.stats.meta_description" class="hdm-seo__stats">
+        <div
+          v-if="seoResult.stats.meta_description"
+          class="hdm-seo__stats"
+        >
           建议 Meta：{{ seoResult.stats.meta_description }}
         </div>
       </div>
@@ -380,7 +497,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Document, EditPen, View, Loading, Search } from '@element-plus/icons-vue'
 import { sxkApi } from '@/mock/sxkApi'
@@ -530,6 +647,16 @@ watch(
 )
 
 // ========== 操作 ==========
+
+// 进入编辑模式（滚动到版本内容区，方便用户直接编辑）
+const enterEditMode = () => {
+  editMode.value = true
+  nextTick(() => {
+    const bar = document.querySelector('.hdm-bar')
+    if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
 const onExport = async () => {
   if (!data.value?.generation_id) return
   try {

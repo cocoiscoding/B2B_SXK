@@ -27,231 +27,429 @@
     <div class="pe-head">
       <div class="pe-head__left">
         <h3 class="pe-head__title">
-          <el-icon class="pe-head__icon"><component :is="dialogIcon" /></el-icon>
+          <el-icon class="pe-head__icon">
+            <component :is="dialogIcon" />
+          </el-icon>
           {{ dialogTitle }}
         </h3>
-        <p class="pe-head__sub">{{ dialogSubTitle }}</p>
+        <p class="pe-head__sub">
+          {{ dialogSubTitle }}
+        </p>
       </div>
-      <button class="pe-head__close" @click="$emit('update:modelValue', false)">
-        <el-icon :size="20"><Close /></el-icon>
+      <button
+        class="pe-head__close"
+        @click="$emit('update:modelValue', false)"
+      >
+        <el-icon :size="20">
+          <Close />
+        </el-icon>
       </button>
     </div>
 
     <!-- 可滚动内容区 -->
     <div class="pe-body">
-    <el-form
-      ref="formRef"
-      :model="form"
-      :rules="rules"
-      label-width="100px"
-      v-loading="loading"
-      :class="{ 'form-readonly': !editing }"
-    >
-      <el-form-item label="产品名称" prop="name">
-        <el-input v-if="editing" v-model="form.name" placeholder="如：智能数据平台 X" maxlength="64" show-word-limit />
-        <div v-else class="pe-readonly-text">{{ form.name || '无' }}</div>
-      </el-form-item>
-
-      <el-form-item label="产品分类" prop="category">
-        <el-select
-          v-if="editing"
-          v-model="form.category"
-          multiple
-          collapse-tags
-          collapse-tags-tooltip
-          clearable
-          placeholder="可多选"
-          style="width: 100%"
+      <el-form
+        ref="formRef"
+        v-loading="loading"
+        :model="form"
+        :rules="rules"
+        label-width="100px"
+        :class="{ 'form-readonly': !editing }"
+      >
+        <el-form-item
+          label="产品名称"
+          prop="name"
         >
-          <el-option label="数据分析" value="数据分析" />
-          <el-option label="CRM" value="CRM" />
-          <el-option label="营销自动化" value="营销自动化" />
-          <el-option label="企业版" value="企业版" />
-          <el-option label="其他" value="其他" />
-        </el-select>
-        <div v-else class="pe-readonly-text">
-          {{ (form.category && form.category.length) ? form.category.join('、') : '无' }}
-        </div>
-      </el-form-item>
-
-      <el-form-item label="产品描述" prop="description">
-        <el-input
-          v-if="editing"
-          v-model="form.description"
-          type="textarea"
-          :rows="3"
-          placeholder="建议至少 10 字符，简明描述产品定位"
-          maxlength="500"
-          show-word-limit
-        />
-        <div v-else class="pe-readonly-text pe-readonly-text--pre">{{ form.description || '无' }}</div>
-      </el-form-item>
-
-      <!-- 功能特性：动态列表 -->
-      <el-form-item label="功能特性" prop="features" required>
-        <div v-if="editing" class="dynamic-list">
+          <el-input
+            v-if="editing"
+            v-model="form.name"
+            placeholder="如：智能数据平台 X"
+            maxlength="64"
+            show-word-limit
+          />
           <div
-            v-for="(f, idx) in form.features"
-            :key="idx"
-            class="dynamic-list__row"
+            v-else
+            class="pe-readonly-text"
           >
-            <el-input
-              v-model="f.name"
-              placeholder="功能名称"
-              style="width: 160px"
-            />
-            <el-input
-              v-model="f.description"
-              placeholder="功能描述（可选）"
-              style="flex: 1"
-            />
-            <el-button
-              :disabled="form.features.length <= 1"
-              link
-              type="danger"
-              @click="removeFeature(idx)"
-            >删除</el-button>
+            {{ form.name || '无' }}
           </div>
-          <el-button link type="primary" @click="addFeature">
-            + 添加功能
-          </el-button>
-        </div>
-        <ul v-else class="pe-readonly-list">
-          <li
-            v-for="(f, idx) in form.features.filter((x) => x.name)"
-            :key="idx"
+        </el-form-item>
+
+        <el-form-item
+          label="产品分类"
+          prop="category"
+        >
+          <el-select
+            v-if="editing"
+            v-model="form.category"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            clearable
+            placeholder="可多选"
+            style="width: 100%"
           >
-            <span class="pe-readonly-list__name">{{ f.name }}</span>
-            <span v-if="f.description" class="pe-readonly-list__desc">{{ f.description }}</span>
-          </li>
-          <li v-if="!form.features.some((x) => x.name)" class="pe-readonly-text">无</li>
-        </ul>
-      </el-form-item>
-
-      <el-form-item label="目标客户">
-        <tag-input v-if="editing" ref="tagInputTarget" v-model="form.target_customers" placeholder="回车添加（如：制造业）" />
-        <div v-else class="pe-readonly-tags">
-          <el-tag v-for="t in form.target_customers" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
-          <span v-if="!form.target_customers.length" class="pe-readonly-text">无</span>
-        </div>
-      </el-form-item>
-
-      <el-form-item label="价格信息">
-        <el-input
-          v-if="editing"
-          v-model="form.pricing"
-          placeholder="如：基础版 ¥50,000/年"
-          maxlength="255"
-        />
-        <div v-else class="pe-readonly-text">{{ form.pricing || '无' }}</div>
-      </el-form-item>
-
-      <el-form-item label="竞品名称">
-        <tag-input v-if="editing" ref="tagInputCompetitors" v-model="form.competitors" placeholder="回车添加（如：产品 Y）" />
-        <div v-else class="pe-readonly-tags">
-          <el-tag v-for="t in form.competitors" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
-          <span v-if="!form.competitors.length" class="pe-readonly-text">无</span>
-        </div>
-      </el-form-item>
-
-      <el-form-item label="产品卖点">
-        <tag-input v-if="editing" ref="tagInputSelling" v-model="form.selling_points" placeholder="回车添加（如：部署快）" />
-        <div v-else class="pe-readonly-tags">
-          <el-tag v-for="t in form.selling_points" :key="t" type="info" effect="plain" class="pe-readonly-tag">{{ t }}</el-tag>
-          <span v-if="!form.selling_points.length" class="pe-readonly-text">无</span>
-        </div>
-      </el-form-item>
-
-      <!-- 产品图片（封面/截图等） -->
-      <el-form-item label="产品图片">
-        <div class="uploader-block">
-          <div class="uploader-block__head">
-            <span class="uploader-block__hint">支持 PNG / JPG / WebP / GIF，单张 ≤ 5MB，最多 8 张</span>
-            <span class="uploader-block__count">{{ imageBuffer.length }}/{{ IMG_MAX }} 张</span>
+            <el-option
+              label="数据分析"
+              value="数据分析"
+            />
+            <el-option
+              label="CRM"
+              value="CRM"
+            />
+            <el-option
+              label="营销自动化"
+              value="营销自动化"
+            />
+            <el-option
+              label="企业版"
+              value="企业版"
+            />
+            <el-option
+              label="其他"
+              value="其他"
+            />
+          </el-select>
+          <div
+            v-else
+            class="pe-readonly-text"
+          >
+            {{ (form.category && form.category.length) ? form.category.join('、') : '无' }}
           </div>
-          <div v-if="imageBuffer.length" class="image-grid">
+        </el-form-item>
+
+        <el-form-item
+          label="产品描述"
+          prop="description"
+        >
+          <el-input
+            v-if="editing"
+            v-model="form.description"
+            type="textarea"
+            :rows="3"
+            placeholder="建议至少 10 字符，简明描述产品定位"
+            maxlength="500"
+            show-word-limit
+          />
+          <div
+            v-else
+            class="pe-readonly-text pe-readonly-text--pre"
+          >
+            {{ form.description || '无' }}
+          </div>
+        </el-form-item>
+
+        <!-- 功能特性：动态列表 -->
+        <el-form-item
+          label="功能特性"
+          prop="features"
+          required
+        >
+          <div
+            v-if="editing"
+            class="dynamic-list"
+          >
             <div
-              v-for="img in imageBuffer"
-              :key="img.id"
-              class="image-card"
+              v-for="(f, idx) in form.features"
+              :key="idx"
+              class="dynamic-list__row"
             >
-              <img :src="img.dataUrl || img.url" :alt="img.name" />
-              <div v-if="editing" class="image-card__mask">
-                <button type="button" class="image-card__del" title="删除" @click="removeImage(img.id)">
-                  <el-icon><Close /></el-icon>
+              <el-input
+                v-model="f.name"
+                placeholder="功能名称"
+                style="width: 160px"
+              />
+              <el-input
+                v-model="f.description"
+                placeholder="功能描述（可选）"
+                style="flex: 1"
+              />
+              <el-button
+                :disabled="form.features.length <= 1"
+                link
+                type="danger"
+                @click="removeFeature(idx)"
+              >
+                删除
+              </el-button>
+            </div>
+            <el-button
+              link
+              type="primary"
+              @click="addFeature"
+            >
+              + 添加功能
+            </el-button>
+          </div>
+          <ul
+            v-else
+            class="pe-readonly-list"
+          >
+            <li
+              v-for="(f, idx) in form.features.filter((x) => x.name)"
+              :key="idx"
+            >
+              <span class="pe-readonly-list__name">{{ f.name }}</span>
+              <span
+                v-if="f.description"
+                class="pe-readonly-list__desc"
+              >{{ f.description }}</span>
+            </li>
+            <li
+              v-if="!form.features.some((x) => x.name)"
+              class="pe-readonly-text"
+            >
+              无
+            </li>
+          </ul>
+        </el-form-item>
+
+        <el-form-item label="目标客户">
+          <tag-input
+            v-if="editing"
+            ref="tagInputTarget"
+            v-model="form.target_customers"
+            placeholder="回车添加（如：制造业）"
+          />
+          <div
+            v-else
+            class="pe-readonly-tags"
+          >
+            <el-tag
+              v-for="t in form.target_customers"
+              :key="t"
+              type="info"
+              effect="plain"
+              class="pe-readonly-tag"
+            >
+              {{ t }}
+            </el-tag>
+            <span
+              v-if="!form.target_customers.length"
+              class="pe-readonly-text"
+            >无</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="价格信息">
+          <el-input
+            v-if="editing"
+            v-model="form.pricing"
+            placeholder="如：基础版 ¥50,000/年"
+            maxlength="255"
+          />
+          <div
+            v-else
+            class="pe-readonly-text"
+          >
+            {{ form.pricing || '无' }}
+          </div>
+        </el-form-item>
+
+        <el-form-item label="竞品名称">
+          <tag-input
+            v-if="editing"
+            ref="tagInputCompetitors"
+            v-model="form.competitors"
+            placeholder="回车添加（如：产品 Y）"
+          />
+          <div
+            v-else
+            class="pe-readonly-tags"
+          >
+            <el-tag
+              v-for="t in form.competitors"
+              :key="t"
+              type="info"
+              effect="plain"
+              class="pe-readonly-tag"
+            >
+              {{ t }}
+            </el-tag>
+            <span
+              v-if="!form.competitors.length"
+              class="pe-readonly-text"
+            >无</span>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="产品卖点">
+          <tag-input
+            v-if="editing"
+            ref="tagInputSelling"
+            v-model="form.selling_points"
+            placeholder="回车添加（如：部署快）"
+          />
+          <div
+            v-else
+            class="pe-readonly-tags"
+          >
+            <el-tag
+              v-for="t in form.selling_points"
+              :key="t"
+              type="info"
+              effect="plain"
+              class="pe-readonly-tag"
+            >
+              {{ t }}
+            </el-tag>
+            <span
+              v-if="!form.selling_points.length"
+              class="pe-readonly-text"
+            >无</span>
+          </div>
+        </el-form-item>
+
+        <!-- 产品图片（封面/截图等） -->
+        <el-form-item label="产品图片">
+          <div class="uploader-block">
+            <div class="uploader-block__head">
+              <span class="uploader-block__hint">支持 PNG / JPG / WebP / GIF，单张 ≤ 5MB，最多 8 张</span>
+              <span class="uploader-block__count">{{ imageBuffer.length }}/{{ IMG_MAX }} 张</span>
+            </div>
+            <div
+              v-if="imageBuffer.length"
+              class="image-grid"
+            >
+              <div
+                v-for="img in imageBuffer"
+                :key="img.id"
+                class="image-card"
+              >
+                <img
+                  :src="img.dataUrl || img.url"
+                  :alt="img.name"
+                >
+                <div
+                  v-if="editing"
+                  class="image-card__mask"
+                >
+                  <button
+                    type="button"
+                    class="image-card__del"
+                    title="删除"
+                    @click="removeImage(img.id)"
+                  >
+                    <el-icon><Close /></el-icon>
+                  </button>
+                </div>
+                <div
+                  class="image-card__name"
+                  :title="img.name"
+                >
+                  {{ img.name }}
+                </div>
+              </div>
+            </div>
+            <div
+              v-if="editing"
+              class="dropzone"
+              :class="{ 'dropzone--drag': imageDragOver }"
+              @click="$refs.imageInput.click()"
+              @dragenter.prevent="imageDragOver = true"
+              @dragover.prevent="imageDragOver = true"
+              @dragleave.prevent="imageDragOver = false"
+              @drop.prevent="onImageDrop"
+            >
+              <input
+                ref="imageInput"
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+                @change="onImagePick"
+              >
+              <el-icon class="dropzone__icon">
+                <PictureFilled />
+              </el-icon>
+              <div class="dropzone__text">
+                点击或拖拽上传图片
+              </div>
+            </div>
+            <div
+              v-if="!editing && !imageBuffer.length"
+              class="empty-text"
+            >
+              暂无图片
+            </div>
+          </div>
+        </el-form-item>
+
+        <!-- 文档附件（产品手册、竞品资料、报价单等） -->
+        <el-form-item label="文档附件">
+          <div class="uploader-block">
+            <div class="uploader-block__head">
+              <span class="uploader-block__hint">支持 PDF / Word / Excel / PPT / TXT / ZIP，单个 ≤ 20MB，最多 10 个</span>
+              <span class="uploader-block__count">{{ docBuffer.length }}/{{ DOC_MAX }} 个</span>
+            </div>
+            <div
+              v-if="docBuffer.length"
+              class="doc-list"
+            >
+              <div
+                v-for="d in docBuffer"
+                :key="d.id"
+                class="doc-item"
+              >
+                <span
+                  class="doc-item__ext"
+                  :class="extColorClass(d.ext)"
+                >{{ d.ext || 'file' }}</span>
+                <div class="doc-item__info">
+                  <div
+                    class="doc-item__name"
+                    :title="d.name"
+                  >
+                    {{ d.name }}
+                  </div>
+                  <div class="doc-item__meta">
+                    {{ formatSize(d.size) }}{{ d.ext ? ' · .' + d.ext : '' }}
+                  </div>
+                </div>
+                <button
+                  v-if="editing"
+                  type="button"
+                  class="doc-item__del"
+                  title="删除"
+                  @click="removeDoc(d.id)"
+                >
+                  <el-icon><Delete /></el-icon>
                 </button>
               </div>
-              <div class="image-card__name" :title="img.name">{{ img.name }}</div>
             </div>
-          </div>
-          <div
-            v-if="editing"
-            class="dropzone"
-            :class="{ 'dropzone--drag': imageDragOver }"
-            @click="$refs.imageInput.click()"
-            @dragenter.prevent="imageDragOver = true"
-            @dragover.prevent="imageDragOver = true"
-            @dragleave.prevent="imageDragOver = false"
-            @drop.prevent="onImageDrop"
-          >
-            <input
-              ref="imageInput"
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              @change="onImagePick"
-            />
-            <el-icon class="dropzone__icon"><PictureFilled /></el-icon>
-            <div class="dropzone__text">点击或拖拽上传图片</div>
-          </div>
-          <div v-if="!editing && !imageBuffer.length" class="empty-text">暂无图片</div>
-        </div>
-      </el-form-item>
-
-      <!-- 文档附件（产品手册、竞品资料、报价单等） -->
-      <el-form-item label="文档附件">
-        <div class="uploader-block">
-          <div class="uploader-block__head">
-            <span class="uploader-block__hint">支持 PDF / Word / Excel / PPT / TXT / ZIP，单个 ≤ 20MB，最多 10 个</span>
-            <span class="uploader-block__count">{{ docBuffer.length }}/{{ DOC_MAX }} 个</span>
-          </div>
-          <div v-if="docBuffer.length" class="doc-list">
-            <div v-for="d in docBuffer" :key="d.id" class="doc-item">
-              <span class="doc-item__ext" :class="extColorClass(d.ext)">{{ d.ext || 'file' }}</span>
-              <div class="doc-item__info">
-                <div class="doc-item__name" :title="d.name">{{ d.name }}</div>
-                <div class="doc-item__meta">{{ formatSize(d.size) }}{{ d.ext ? ' · .' + d.ext : '' }}</div>
+            <div
+              v-if="editing"
+              class="dropzone"
+              :class="{ 'dropzone--drag': docDragOver }"
+              @click="$refs.docInput.click()"
+              @dragenter.prevent="docDragOver = true"
+              @dragover.prevent="docDragOver = true"
+              @dragleave.prevent="docDragOver = false"
+              @drop.prevent="onDocDrop"
+            >
+              <input
+                ref="docInput"
+                type="file"
+                multiple
+                hidden
+                @change="onDocPick"
+              >
+              <el-icon class="dropzone__icon">
+                <UploadFilled />
+              </el-icon>
+              <div class="dropzone__text">
+                点击或拖拽上传文档
               </div>
-              <button v-if="editing" type="button" class="doc-item__del" title="删除" @click="removeDoc(d.id)">
-                <el-icon><Delete /></el-icon>
-              </button>
+            </div>
+            <div
+              v-if="!editing && !docBuffer.length"
+              class="empty-text"
+            >
+              暂无文档
             </div>
           </div>
-          <div
-            v-if="editing"
-            class="dropzone"
-            :class="{ 'dropzone--drag': docDragOver }"
-            @click="$refs.docInput.click()"
-            @dragenter.prevent="docDragOver = true"
-            @dragover.prevent="docDragOver = true"
-            @dragleave.prevent="docDragOver = false"
-            @drop.prevent="onDocDrop"
-          >
-            <input
-              ref="docInput"
-              type="file"
-              multiple
-              hidden
-              @change="onDocPick"
-            />
-            <el-icon class="dropzone__icon"><UploadFilled /></el-icon>
-            <div class="dropzone__text">点击或拖拽上传文档</div>
-          </div>
-          <div v-if="!editing && !docBuffer.length" class="empty-text">暂无文档</div>
-        </div>
-      </el-form-item>
-    </el-form>
+        </el-form-item>
+      </el-form>
     </div>
 
     <!-- 底部 -->
@@ -259,14 +457,28 @@
       <div class="pe-foot">
         <!-- 只读查看态：editing=false -->
         <template v-if="!editing">
-          <el-button @click="cancel">关闭</el-button>
+          <el-button @click="cancel">
+            关闭
+          </el-button>
           <!-- 关键：canEdit=false（不是创建者）→ 不显示"编辑"按钮 -->
-          <el-button v-if="canEdit" type="primary" @click="startEdit">编辑</el-button>
+          <el-button
+            v-if="canEdit"
+            type="primary"
+            @click="startEdit"
+          >
+            编辑
+          </el-button>
         </template>
         <!-- 编辑态：editing=true -->
         <template v-else>
-          <el-button @click="cancel">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="submit">
+          <el-button @click="cancel">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            :loading="saving"
+            @click="submit"
+          >
             {{ isEdit ? '保存修改' : '创建产品' }}
           </el-button>
         </template>

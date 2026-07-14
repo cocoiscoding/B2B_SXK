@@ -17,27 +17,45 @@
   >
     <div class="me-head">
       <h3 class="me-head__title">
-        <el-icon class="me-head__icon"><component :is="isEdit ? EditPen : Plus" /></el-icon>
+        <el-icon class="me-head__icon">
+          <component :is="isEdit ? EditPen : Plus" />
+        </el-icon>
         {{ isEdit ? '编辑成员' : '添加成员' }}
       </h3>
-      <button class="me-head__close" @click="$emit('update:modelValue', false)">
-        <el-icon :size="20"><Close /></el-icon>
+      <button
+        class="me-head__close"
+        @click="$emit('update:modelValue', false)"
+      >
+        <el-icon :size="20">
+          <Close />
+        </el-icon>
       </button>
     </div>
 
     <el-form
       ref="formRef"
+      v-loading="loading"
       :model="form"
       :rules="rules"
       label-width="92px"
-      v-loading="loading"
       class="me-form"
     >
-      <el-form-item label="用户名" prop="username">
-        <el-input v-model="form.username" :disabled="isEdit" placeholder="登录用户名（仅新增时设置）" maxlength="32" />
+      <el-form-item
+        label="用户名"
+        prop="username"
+      >
+        <el-input
+          v-model="form.username"
+          :disabled="isEdit"
+          placeholder="登录用户名（仅新增时设置）"
+          maxlength="32"
+        />
       </el-form-item>
 
-      <el-form-item :label="isEdit ? '重置密码' : '密码'" prop="password">
+      <el-form-item
+        :label="isEdit ? '重置密码' : '密码'"
+        prop="password"
+      >
         <el-input
           v-model="form.password"
           type="password"
@@ -47,16 +65,33 @@
         />
       </el-form-item>
 
-      <el-form-item label="昵称" prop="name">
-        <el-input v-model="form.name" placeholder="显示名称" maxlength="32" />
+      <el-form-item
+        label="昵称"
+        prop="name"
+      >
+        <el-input
+          v-model="form.name"
+          placeholder="显示名称"
+          maxlength="32"
+        />
       </el-form-item>
 
-      <el-form-item label="邮箱" prop="email">
-        <el-input v-model="form.email" placeholder="如：alice@example.com" maxlength="64" />
+      <el-form-item
+        label="邮箱"
+        prop="email"
+      >
+        <el-input
+          v-model="form.email"
+          placeholder="如：alice@example.com"
+          maxlength="64"
+        />
       </el-form-item>
 
       <el-form-item label="主题色">
-        <el-color-picker v-model="form.color" :predefine="colorPresets" />
+        <el-color-picker
+          v-model="form.color"
+          :predefine="colorPresets"
+        />
       </el-form-item>
 
       <el-form-item label="角色">
@@ -71,8 +106,14 @@
 
     <template #footer>
       <div class="me-foot">
-        <el-button @click="cancel">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submit">
+        <el-button @click="cancel">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="saving"
+          @click="submit"
+        >
           {{ isEdit ? '保存修改' : '创建成员' }}
         </el-button>
       </div>

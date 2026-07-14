@@ -10,16 +10,32 @@
         </basic-block>
       </el-col>
     </el-row>
-    <el-row :gutter="16" style="margin-top: 16px">
-      <el-col :xs="24" :sm="12" :md="6" v-for="card in cards" :key="card.title">
+    <el-row
+      :gutter="16"
+      style="margin-top: 16px"
+    >
+      <el-col
+        v-for="card in cards"
+        :key="card.title"
+        :xs="24"
+        :sm="12"
+        :md="6"
+      >
         <basic-block>
           <div class="stat-card">
-            <el-icon class="stat-icon" :style="{ color: card.color }">
+            <el-icon
+              class="stat-icon"
+              :style="{ color: card.color }"
+            >
               <component :is="card.icon" />
             </el-icon>
             <div class="stat-info">
-              <div class="stat-value">{{ card.value }}</div>
-              <div class="stat-label">{{ card.title }}</div>
+              <div class="stat-value">
+                {{ card.value }}
+              </div>
+              <div class="stat-label">
+                {{ card.title }}
+              </div>
             </div>
           </div>
         </basic-block>

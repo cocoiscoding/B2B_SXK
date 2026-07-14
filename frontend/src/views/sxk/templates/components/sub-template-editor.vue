@@ -25,15 +25,22 @@
     <div class="ste-head">
       <div class="ste-head__left">
         <h3 class="ste-head__title">
-          <el-icon class="ste-head__icon"><EditPen /></el-icon>
+          <el-icon class="ste-head__icon">
+            <EditPen />
+          </el-icon>
           {{ isEdit ? '编辑子模板' : '新建子模板' }}
         </h3>
         <p class="ste-head__sub">
           {{ isEdit ? '修改子模板的字段与配置' : `为「${currentSceneName}」场景新增子模板` }}
         </p>
       </div>
-      <button class="ste-head__close" @click="$emit('update:modelValue', false)">
-        <el-icon :size="20"><Close /></el-icon>
+      <button
+        class="ste-head__close"
+        @click="$emit('update:modelValue', false)"
+      >
+        <el-icon :size="20">
+          <Close />
+        </el-icon>
       </button>
     </div>
 
@@ -64,23 +71,47 @@
       <div class="ste-row">
         <div class="ste-field">
           <label class="ste-field__label">子模板名称 <span class="ste-field__req">*</span></label>
-          <el-input v-model="form.name" placeholder="如：官网首页Banner" />
+          <el-input
+            v-model="form.name"
+            placeholder="如：官网首页Banner"
+          />
         </div>
         <div class="ste-field">
           <label class="ste-field__label">风格标签 <span class="ste-field__req">*</span></label>
-          <el-input v-model="form.style" placeholder="如：专业正式 / 轻松活泼" />
+          <el-input
+            v-model="form.style"
+            placeholder="如：专业正式 / 轻松活泼"
+          />
         </div>
       </div>
 
       <!-- 输出格式 -->
       <div class="ste-field">
         <label class="ste-field__label">输出格式</label>
-        <el-select v-model="form.format" style="width: 100%">
-          <el-option label="长文案" value="long_text" />
-          <el-option label="短文案" value="short_text" />
-          <el-option label="表格" value="table" />
-          <el-option label="大纲" value="outline" />
-          <el-option label="邮件" value="email" />
+        <el-select
+          v-model="form.format"
+          style="width: 100%"
+        >
+          <el-option
+            label="长文案"
+            value="long_text"
+          />
+          <el-option
+            label="短文案"
+            value="short_text"
+          />
+          <el-option
+            label="表格"
+            value="table"
+          />
+          <el-option
+            label="大纲"
+            value="outline"
+          />
+          <el-option
+            label="邮件"
+            value="email"
+          />
         </el-select>
       </div>
 
@@ -104,7 +135,9 @@
           :rows="5"
           placeholder="请输入AI生成提示词，使用 [变量名] 引用产品字段"
         />
-        <p class="ste-field__hint">使用 [变量名] 引用产品字段，如 [产品名]、[卖点]、[目标客户]</p>
+        <p class="ste-field__hint">
+          使用 [变量名] 引用产品字段，如 [产品名]、[卖点]、[目标客户]
+        </p>
       </div>
 
       <!-- 内容结构（章节） -->
@@ -146,8 +179,16 @@
       <div class="ste-footer">
         <div class="ste-footer__left" />
         <div class="ste-footer__right">
-          <el-button @click="cancel">取消</el-button>
-          <el-button type="primary" :loading="saving" @click="submit">保存</el-button>
+          <el-button @click="cancel">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            :loading="saving"
+            @click="submit"
+          >
+            保存
+          </el-button>
         </div>
       </div>
     </template>
@@ -190,9 +231,25 @@ const blankForm = () => ({
 })
 const form = reactive(blankForm())
 
+// 每次弹窗打开时重新初始化（@open 只在首次渲染触发，后续打开复用实例不再触发）
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (val) init()
+  }
+)
+
 const init = () => {
   if (props.templateData) {
     // 编辑模式：回填
+    // sections 可能是字符串（后端 structure，如 "主标题 -> 副标题 -> CTA"）或数组
+    const rawSections = props.templateData.sections
+    let sectionList = []
+    if (Array.isArray(rawSections)) {
+      sectionList = rawSections.map((s) => ({ value: s.title || s.value || '' }))
+    } else if (typeof rawSections === 'string' && rawSections.trim()) {
+      sectionList = rawSections.split('->').map((s) => ({ value: s.trim() })).filter((s) => s.value)
+    }
     Object.assign(form, {
       scene: props.templateData.scene_code || '',
       name: props.templateData.name || '',
@@ -200,7 +257,7 @@ const init = () => {
       format: props.templateData.output_format || 'long_text',
       desc: props.templateData.description || '',
       prompt: props.templateData.prompt || '',
-      sections: (props.templateData.sections || []).map((s) => ({ value: s.title || s.value || '' }))
+      sections: sectionList
     })
   } else {
     Object.assign(form, blankForm())
@@ -245,6 +302,7 @@ const submit = async () => {
     emit('saved', {
       scene_code: form.scene,
       name: form.name.trim(),
+      tag: form.style.trim(),
       style: form.style.trim(),
       output_format: form.format,
       description: form.desc.trim(),

@@ -34,8 +34,8 @@ app.use(i18n)
 app.use(ElementPlus, { locale: zhCn })
 
 // 注册全局组件
-app.component('basicContainer', basicContainer)
-app.component('basicBlock', basicBlock)
+app.component('BasicContainer', basicContainer)
+app.component('BasicBlock', basicBlock)
 
 // 全局属性
 app.config.globalProperties.website = website

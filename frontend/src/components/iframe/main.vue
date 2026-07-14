@@ -1,6 +1,10 @@
 <template>
   <div class="iframe-container">
-    <iframe :src="src" frameborder="0" class="iframe" />
+    <iframe
+      :src="src"
+      frameborder="0"
+      class="iframe"
+    />
   </div>
 </template>
 

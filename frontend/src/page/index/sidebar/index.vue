@@ -4,11 +4,19 @@
     <div class="sidebar-logo">
       <div class="logo-badge">
         <!-- 闪电图标（原型 mdi:lightning-bolt，用内联 SVG 实现） -->
-        <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg
+          class="logo-icon"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden="true"
+        >
           <path d="M7 2v11h3v9l7-12h-4l3-8z" />
         </svg>
       </div>
-      <span v-show="!commonStore.isCollapse" class="logo-text">神行库</span>
+      <span
+        v-show="!commonStore.isCollapse"
+        class="logo-text"
+      >神行库</span>
     </div>
     <!-- 导航菜单 -->
     <el-scrollbar class="sidebar-scroll">
@@ -22,16 +30,31 @@
         router
         @select="onMenuSelect"
       >
-        <template v-for="item in menuList" :key="item.path">
+        <template
+          v-for="item in menuList"
+          :key="item.path"
+        >
           <!-- 单级菜单 -->
-          <el-menu-item v-if="!item.children || item.children.length === 0" :index="item.path">
-            <el-icon v-if="item.meta?.icon"><component :is="item.meta.icon" /></el-icon>
-            <template #title>{{ item.meta?.title || item.name }}</template>
+          <el-menu-item
+            v-if="!item.children || item.children.length === 0"
+            :index="item.path"
+          >
+            <el-icon v-if="item.meta?.icon">
+              <component :is="item.meta.icon" />
+            </el-icon>
+            <template #title>
+              {{ item.meta?.title || item.name }}
+            </template>
           </el-menu-item>
           <!-- 多级菜单 -->
-          <el-sub-menu v-else :index="item.path">
+          <el-sub-menu
+            v-else
+            :index="item.path"
+          >
             <template #title>
-              <el-icon v-if="item.meta?.icon"><component :is="item.meta.icon" /></el-icon>
+              <el-icon v-if="item.meta?.icon">
+                <component :is="item.meta.icon" />
+              </el-icon>
               <span>{{ item.meta?.title || item.name }}</span>
             </template>
             <el-menu-item
@@ -39,15 +62,22 @@
               :key="child.path"
               :index="resolvePath(item.path, child.path)"
             >
-              <el-icon v-if="child.meta?.icon"><component :is="child.meta.icon" /></el-icon>
-              <template #title>{{ child.meta?.title || child.name }}</template>
+              <el-icon v-if="child.meta?.icon">
+                <component :is="child.meta.icon" />
+              </el-icon>
+              <template #title>
+                {{ child.meta?.title || child.name }}
+              </template>
             </el-menu-item>
           </el-sub-menu>
         </template>
       </el-menu>
     </el-scrollbar>
     <!-- 底部版权（对齐原型：border-t border-white/10 text-white/60 text-xs） -->
-    <div v-show="!commonStore.isCollapse" class="sidebar-footer">
+    <div
+      v-show="!commonStore.isCollapse"
+      class="sidebar-footer"
+    >
       © 2026 神行库 AI 平台
     </div>
   </div>

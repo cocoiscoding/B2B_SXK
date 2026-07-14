@@ -72,11 +72,12 @@
 // 主内容区：对齐原型 main p-6（24px 内边距）
 .avue-view {
   flex: 1;
-  min-height: 0; // 关键：让子页面（如 generate）能 100% 撑满
-  min-width: 0; // 关键：让子页面在水平方向也能 100% 撑满
-  width: 100%; // 关键：显式撑满父容器宽度
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
   padding: $spacing-xl;
-  overflow: hidden; // 关键：让子页面（如 generate）自身控制滚动，不让外层滚动
+  overflow-x: hidden;
+  overflow-y: auto; // 内容超出时纵向滚动
 
   // 移动端缩小内边距
   @media (max-width: 768px) {

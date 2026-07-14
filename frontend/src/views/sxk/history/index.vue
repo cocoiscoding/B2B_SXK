@@ -7,11 +7,21 @@
     <!-- ========== 顶部欢迎条：与首页风格一致 ========== -->
     <div class="sxk-page-welcome">
       <div class="sxk-page-welcome__left">
-        <h2 class="sxk-page-welcome__title">生成历史</h2>
-        <p class="sxk-page-welcome__desc">共 <b style="color: #6366f1; font-size: 14px;">{{ total }}</b> 条记录</p>
+        <h2 class="sxk-page-welcome__title">
+          生成历史
+        </h2>
+        <p class="sxk-page-welcome__desc">
+          共 <b style="color: #6366f1; font-size: 14px;">{{ total }}</b> 条记录
+        </p>
       </div>
       <div class="sxk-page-welcome__actions">
-        <el-button :icon="Refresh" @click="load" :loading="loading">刷新</el-button>
+        <el-button
+          :icon="Refresh"
+          :loading="loading"
+          @click="load"
+        >
+          刷新
+        </el-button>
       </div>
     </div>
 
@@ -37,7 +47,10 @@
           style="width: 200px"
           @change="search"
         >
-          <el-option label="全部场景" value="" />
+          <el-option
+            label="全部场景"
+            value=""
+          />
           <el-option
             v-for="s in scenes"
             :key="s.scene_code"
@@ -53,56 +66,101 @@
           style="width: 140px"
           @change="search"
         >
-          <el-option label="全部" value="" />
-          <el-option label="校验通过" value="true" />
-          <el-option label="待完善" value="false" />
+          <el-option
+            label="全部"
+            value=""
+          />
+          <el-option
+            label="校验通过"
+            value="true"
+          />
+          <el-option
+            label="待完善"
+            value="false"
+          />
         </el-select>
 
-        <el-button type="primary" @click="search">搜索</el-button>
-        <el-button @click="reset">重置</el-button>
+        <el-button
+          type="primary"
+          @click="search"
+        >
+          搜索
+        </el-button>
+        <el-button @click="reset">
+          重置
+        </el-button>
       </div>
     </basic-block>
 
     <!-- ========== 表格列表（替换原卡片列表） ========== -->
     <basic-block>
-      <div v-if="loading && list.length === 0" class="sxk-history__loading">
-        <el-icon class="rotating"><Loading /></el-icon>
+      <div
+        v-if="loading && list.length === 0"
+        class="sxk-history__loading"
+      >
+        <el-icon class="rotating">
+          <Loading />
+        </el-icon>
         加载中...
       </div>
-      <div v-else-if="!list.length" class="sxk-history__empty">
+      <div
+        v-else-if="!list.length"
+        class="sxk-history__empty"
+      >
         <el-empty :description="emptyText" />
       </div>
       <el-table
         v-else
+        v-loading="loading"
         :data="list"
         class="sxk-history__table"
         :row-class-name="tableRowClass"
-        v-loading="loading"
         :highlight-current-row="false"
-        @row-click="onView"
         stripe
         border
         style="width: 100%; cursor: pointer;"
+        @row-click="onView"
       >
         <!-- 产品（关键：去掉小图标） -->
-        <el-table-column label="产品" min-width="200" prop="product.name" show-overflow-tooltip>
+        <el-table-column
+          label="产品"
+          min-width="200"
+          prop="product.name"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <span>{{ row.product?.name || '已删除产品' }}</span>
           </template>
         </el-table-column>
 
         <!-- 场景 -->
-        <el-table-column label="场景" min-width="160" show-overflow-tooltip>
+        <el-table-column
+          label="场景"
+          min-width="160"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
-            <el-tag v-if="row.scene_name" type="primary" effect="light" size="small">
+            <el-tag
+              v-if="row.scene_name"
+              type="primary"
+              effect="light"
+              size="small"
+            >
               {{ row.scene_name }}
             </el-tag>
-            <span v-else class="text-secondary">—</span>
+            <span
+              v-else
+              class="text-secondary"
+            >—</span>
           </template>
         </el-table-column>
 
         <!-- 渠道 -->
-        <el-table-column label="渠道" min-width="180" show-overflow-tooltip>
+        <el-table-column
+          label="渠道"
+          min-width="180"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <template v-if="splitChannels(row.channel).length">
               <el-tag
@@ -116,12 +174,19 @@
                 {{ ch }}
               </el-tag>
             </template>
-            <span v-else class="text-secondary">—</span>
+            <span
+              v-else
+              class="text-secondary"
+            >—</span>
           </template>
         </el-table-column>
 
         <!-- 创建人 -->
-        <el-table-column label="创建人" min-width="110" show-overflow-tooltip>
+        <el-table-column
+          label="创建人"
+          min-width="110"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <span
               v-if="row.created_by"
@@ -134,35 +199,55 @@
               />
               {{ displayCreator(row) }}
             </span>
-            <span v-else class="text-secondary">—</span>
+            <span
+              v-else
+              class="text-secondary"
+            >—</span>
           </template>
         </el-table-column>
 
         <!-- 校验状态 -->
-        <el-table-column label="校验状态" width="100">
+        <el-table-column
+          label="校验状态"
+          width="100"
+        >
           <template #default="{ row }">
             <el-tag
               :type="row.validated ? 'success' : 'warning'"
               effect="light"
               size="small"
             >
-              <span class="sxk-history__status-dot" :class="row.validated ? 'is-pass' : 'is-warn'" />
+              <span
+                class="sxk-history__status-dot"
+                :class="row.validated ? 'is-pass' : 'is-warn'"
+              />
               {{ row.validated ? '已校验' : '待完善' }}
             </el-tag>
           </template>
         </el-table-column>
 
         <!-- 反馈 -->
-        <el-table-column label="反馈" width="100">
+        <el-table-column
+          label="反馈"
+          width="100"
+        >
           <template #default="{ row }">
-            <div class="sxk-history__cell-feedback" @click.stop>
+            <div
+              class="sxk-history__cell-feedback"
+              @click.stop
+            >
               <button
                 class="sxk-history__icon-btn is-like"
                 :class="{ 'is-active': row.feedback === 'like' }"
                 title="点赞"
                 @click="onSetFeedback(row, 'like')"
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                >
                   <path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 7.59 6.59C7.22 6.95 7 7.45 7 8v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z" />
                 </svg>
               </button>
@@ -172,7 +257,12 @@
                 title="点踩"
                 @click="onSetFeedback(row, 'dislike')"
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="14"
+                  height="14"
+                  fill="currentColor"
+                >
                   <path d="M22 3h-4v12h4V3zm-20 11c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L10.83 23l5.59-5.59c.36-.36.58-.86.58-1.41V6c0-1.1-.9-2-2-2H5c-.83 0-1.54.5-1.84 1.22L.14 12.27c-.09.23-.14.47-.14.73v2z" />
                 </svg>
               </button>
@@ -181,32 +271,64 @@
         </el-table-column>
 
         <!-- 时间 -->
-        <el-table-column label="生成时间" width="160">
+        <el-table-column
+          label="生成时间"
+          width="160"
+        >
           <template #default="{ row }">
             <span class="text-secondary">{{ formatDateTime(row.created_at) }}</span>
           </template>
         </el-table-column>
 
         <!-- 操作 -->
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column
+          label="操作"
+          width="180"
+          fixed="right"
+        >
           <template #default="{ row }">
-            <div class="sxk-history__cell-actions" @click.stop>
-              <el-button text size="small" type="primary" @click="onView(row)">
+            <div
+              class="sxk-history__cell-actions"
+              @click.stop
+            >
+              <el-button
+                text
+                size="small"
+                type="primary"
+                @click="onView(row)"
+              >
                 查看
               </el-button>
-              <el-dropdown trigger="click" @command="(fmt) => onExport(row, fmt)">
-                <el-button text size="small">
+              <el-dropdown
+                trigger="click"
+                @command="(fmt) => onExport(row, fmt)"
+              >
+                <el-button
+                  text
+                  size="small"
+                >
                   导出 <el-icon><ArrowDown /></el-icon>
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="docx">Word (.docx)</el-dropdown-item>
-                    <el-dropdown-item command="markdown">Markdown (.md)</el-dropdown-item>
-                    <el-dropdown-item command="txt">纯文本 (.txt)</el-dropdown-item>
+                    <el-dropdown-item command="docx">
+                      Word (.docx)
+                    </el-dropdown-item>
+                    <el-dropdown-item command="markdown">
+                      Markdown (.md)
+                    </el-dropdown-item>
+                    <el-dropdown-item command="txt">
+                      纯文本 (.txt)
+                    </el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
-              <el-button text size="small" type="danger" @click="onDelete(row)">
+              <el-button
+                text
+                size="small"
+                type="danger"
+                @click="onDelete(row)"
+              >
                 删除
               </el-button>
             </div>

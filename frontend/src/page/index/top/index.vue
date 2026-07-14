@@ -2,13 +2,18 @@
   <div class="top-bar">
     <!-- 左侧：折叠按钮 + 面包屑（对齐原型 header 左侧 breadcrumb） -->
     <div class="top-left">
-      <div class="collapse-btn" @click="commonStore.setCollapse()">
+      <div
+        class="collapse-btn"
+        @click="commonStore.setCollapse()"
+      >
         <el-icon><Fold v-if="!commonStore.isCollapse" /><Expand v-else /></el-icon>
       </div>
       <!-- 面包屑：神行库 > 当前页（对齐原型 神行库 / chevron-right / 首页） -->
       <div class="breadcrumb">
         <span class="breadcrumb-parent">神行库</span>
-        <el-icon class="breadcrumb-sep"><ArrowRight /></el-icon>
+        <el-icon class="breadcrumb-sep">
+          <ArrowRight />
+        </el-icon>
         <span class="breadcrumb-current">{{ currentPageTitle }}</span>
       </div>
     </div>
@@ -16,19 +21,25 @@
     <!-- 右侧：通知 + 用户（对齐原型 header 右侧） -->
     <div class="top-right">
       <!-- 全屏 -->
-      <div class="top-item" @click="toggleFullScreen">
+      <div
+        class="top-item"
+        @click="toggleFullScreen"
+      >
         <el-icon><FullScreen /></el-icon>
       </div>
       <!-- 通知铃铛（带红点，对齐原型 bell-outline） -->
       <div class="top-item top-item--bell">
         <el-icon><Bell /></el-icon>
-        <span class="bell-dot"></span>
+        <span class="bell-dot" />
       </div>
-      <div class="top-divider"></div>
+      <div class="top-divider" />
       <!-- 用户信息 -->
       <el-dropdown @command="handleCommand">
         <span class="user-info">
-          <el-avatar :size="32" :src="userStore.userInfo.avatar">
+          <el-avatar
+            :size="32"
+            :src="userStore.userInfo.avatar"
+          >
             <el-icon><User /></el-icon>
           </el-avatar>
           <span class="username">{{ userStore.userInfo.nick_name || userStore.userInfo.user_name || '用户' }}</span>
@@ -36,8 +47,15 @@
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="info">个人信息</el-dropdown-item>
-            <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+            <el-dropdown-item command="info">
+              个人信息
+            </el-dropdown-item>
+            <el-dropdown-item
+              command="logout"
+              divided
+            >
+              退出登录
+            </el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>

@@ -1,9 +1,18 @@
 <template>
   <div class="error-page">
     <div class="error-content">
-      <h1 class="error-code">403</h1>
-      <p class="error-desc">无权限访问</p>
-      <el-button type="primary" @click="goHome">返回首页</el-button>
+      <h1 class="error-code">
+        403
+      </h1>
+      <p class="error-desc">
+        无权限访问
+      </p>
+      <el-button
+        type="primary"
+        @click="goHome"
+      >
+        返回首页
+      </el-button>
     </div>
   </div>
 </template>

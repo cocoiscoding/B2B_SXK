@@ -12,15 +12,22 @@
     <!-- ========== 顶部欢迎条：与首页风格一致 ========== -->
     <div class="sxk-page-welcome">
       <div class="sxk-page-welcome__left">
-        <h2 class="sxk-page-welcome__title">产品知识库</h2>
-        <p class="sxk-page-welcome__desc">上传并解析产品文档，为 AI Agent 提供精准的事实依据</p>
+        <h2 class="sxk-page-welcome__title">
+          产品知识库
+        </h2>
+        <p class="sxk-page-welcome__desc">
+          上传并解析产品文档，为 AI Agent 提供精准的事实依据
+        </p>
       </div>
       <div class="sxk-page-welcome__actions">
         <el-button @click="onImport">
           <el-icon><Upload /></el-icon>
           <span>Word/PDF 建库</span>
         </el-button>
-        <el-button type="primary" @click="onAdd">
+        <el-button
+          type="primary"
+          @click="onAdd"
+        >
           <el-icon><Plus /></el-icon>
           <span>添加产品</span>
         </el-button>
@@ -30,9 +37,17 @@
     <!-- ========== 搜索 + 分类 ========== -->
     <basic-block>
       <div class="search-bar">
-        <el-radio-group v-model="searchMode" size="small" @change="search">
-          <el-radio-button label="keyword">关键词</el-radio-button>
-          <el-radio-button label="semantic">语义</el-radio-button>
+        <el-radio-group
+          v-model="searchMode"
+          size="small"
+          @change="search"
+        >
+          <el-radio-button label="keyword">
+            关键词
+          </el-radio-button>
+          <el-radio-button label="semantic">
+            语义
+          </el-radio-button>
         </el-radio-group>
 
         <el-input
@@ -54,15 +69,37 @@
           style="width: 180px"
           @change="search"
         >
-          <el-option label="全部分类" value="" />
-          <el-option label="数据分析" value="数据分析" />
-          <el-option label="CRM" value="CRM" />
-          <el-option label="营销自动化" value="营销自动化" />
-          <el-option label="其他" value="其他" />
+          <el-option
+            label="全部分类"
+            value=""
+          />
+          <el-option
+            label="数据分析"
+            value="数据分析"
+          />
+          <el-option
+            label="CRM"
+            value="CRM"
+          />
+          <el-option
+            label="营销自动化"
+            value="营销自动化"
+          />
+          <el-option
+            label="其他"
+            value="其他"
+          />
         </el-select>
 
-        <el-button type="primary" @click="search">搜索</el-button>
-        <el-button @click="resetSearch">重置</el-button>
+        <el-button
+          type="primary"
+          @click="search"
+        >
+          搜索
+        </el-button>
+        <el-button @click="resetSearch">
+          重置
+        </el-button>
 
         <span class="stat-pill">共 <b>{{ total }}</b> 个产品</span>
       </div>
@@ -70,7 +107,10 @@
 
     <!-- ========== 统计卡片区（5.2.2）========== -->
     <!-- 用 CSS Grid auto-fit 让卡片数变化时自动平均铺满，不产生尾部空白 -->
-    <div class="cat-grid" v-if="stats">
+    <div
+      v-if="stats"
+      class="cat-grid"
+    >
       <!-- 产品总数：品牌蓝高亮 -->
       <!-- <div class="cat-card cat-card--total">
         <div class="cat-card__icon">
@@ -92,8 +132,12 @@
           <el-icon><component :is="cat.icon" /></el-icon>
         </div>
         <div class="cat-card__body">
-          <div class="cat-card__value">{{ cat.count }}</div>
-          <div class="cat-card__label">{{ cat.name }}</div>
+          <div class="cat-card__value">
+            {{ cat.count }}
+          </div>
+          <div class="cat-card__label">
+            {{ cat.name }}
+          </div>
         </div>
       </div>
     </div>
@@ -102,33 +146,58 @@
     <basic-block>
       <template #header>
         产品列表
-        <el-tag v-if="filters.keyword" type="info" effect="plain" size="small" style="margin-left: 8px">
+        <el-tag
+          v-if="filters.keyword"
+          type="info"
+          effect="plain"
+          size="small"
+          style="margin-left: 8px"
+        >
           关键词高亮：{{ filters.keyword }}
         </el-tag>
       </template>
 
-      <div v-if="loading" class="loading">
-        <el-icon class="rotating"><Loading /></el-icon>
+      <div
+        v-if="loading"
+        class="loading"
+      >
+        <el-icon class="rotating">
+          <Loading />
+        </el-icon>
         加载中...
       </div>
 
-      <div v-else-if="list.length === 0" class="empty">
-        <el-icon style="font-size: 48px; color: var(--el-text-color-placeholder)"><Search /></el-icon>
+      <div
+        v-else-if="list.length === 0"
+        class="empty"
+      >
+        <el-icon style="font-size: 48px; color: var(--el-text-color-placeholder)">
+          <Search />
+        </el-icon>
         <p>未找到匹配的产品</p>
       </div>
 
-      <el-row :gutter="16" v-else>
+      <el-row
+        v-else
+        :gutter="16"
+      >
         <el-col
+          v-for="item in list"
+          :key="item.product_id"
           :xs="24"
           :sm="12"
           :md="8"
           :lg="6"
-          v-for="item in list"
-          :key="item.product_id"
         >
-          <div class="product-card" :class="{ 'product-card--deleted': item.is_deleted }">
+          <div
+            class="product-card"
+            :class="{ 'product-card--deleted': item.is_deleted }"
+          >
             <div class="product-card__head">
-              <span class="product-name" v-html="highlight(item.name)" />
+              <span
+                class="product-name"
+                v-html="highlight(item.name)"
+              />
               <el-tag
                 v-if="item.category"
                 :type="categoryTagType(item.category)"
@@ -139,9 +208,15 @@
               </el-tag>
             </div>
 
-            <div class="product-desc" v-html="highlight(item.description)" />
+            <div
+              class="product-desc"
+              v-html="highlight(item.description)"
+            />
 
-            <div v-if="item.selling_points && item.selling_points.length" class="selling-points">
+            <div
+              v-if="item.selling_points && item.selling_points.length"
+              class="selling-points"
+            >
               <el-tag
                 v-for="sp in item.selling_points.slice(0, 3)"
                 :key="sp"
@@ -164,7 +239,13 @@
                 更新于 {{ formatDate(item.updated_at) }}
               </span>
               <div class="actions">
-                <el-button link type="primary" @click="onDetail(item)">查看</el-button>
+                <el-button
+                  link
+                  type="primary"
+                  @click="onDetail(item)"
+                >
+                  查看
+                </el-button>
                 <el-popconfirm
                   :title="`确定删除「${item.name}」吗？`"
                   confirm-button-text="确认删除"
@@ -175,7 +256,9 @@
                       link
                       type="danger"
                       :disabled="item.is_deleted"
-                    >删除</el-button>
+                    >
+                      删除
+                    </el-button>
                   </template>
                 </el-popconfirm>
               </div>
@@ -212,10 +295,10 @@
     <input
       ref="importFileInput"
       type="file"
-      accept=".docx,.pdf"
+      accept=".doc,.docx,.pdf"
       hidden
       @change="onImportFileChange"
-    />
+    >
   </div>
 </template>
 
@@ -448,7 +531,6 @@ const onDetail = (item) => {
   editTargetId.value = item.product_id
   editReadonly.value = true
   editCanEdit.value = canEditProduct(item)
-  importPrefill.value = null
   editVisible.value = true
 }
 
@@ -479,6 +561,16 @@ const onImportFileChange = async (e) => {
   const file = e.target.files?.[0]
   e.target.value = ''  // 允许同名文件重复选择
   if (!file) return
+
+  // 前端文件类型校验：仅允许 pdf / doc / docx
+  const allowedExts = ['.pdf', '.doc', '.docx']
+  const fileName = file.name.toLowerCase()
+  const isValid = allowedExts.some((ext) => fileName.endsWith(ext))
+  if (!isValid) {
+    ElMessage.warning('仅支持上传 PDF、DOC、DOCX 格式的文件')
+    return
+  }
+
   importing.value = true
   try {
     const res = await sxkApi.importDocx(file)

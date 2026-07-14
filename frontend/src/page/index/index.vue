@@ -1,5 +1,8 @@
 <template>
-  <div class="avue-contail" :class="{ 'avue--collapse': commonStore.isCollapse }">
+  <div
+    class="avue-contail"
+    :class="{ 'avue--collapse': commonStore.isCollapse }"
+  >
     <div class="avue-layout">
       <!-- 左侧导航栏（全高，对齐原型 aside：logo 在侧边栏顶部） -->
       <div class="avue-left">
@@ -18,14 +21,21 @@
         <div class="avue-view">
           <router-view v-slot="{ Component, route }">
             <keep-alive :max="15">
-              <component :is="Component" :key="route.path + '@' + (route.query.tabId || '')" />
+              <component
+                :is="Component"
+                :key="route.path + '@' + (route.query.tabId || '')"
+              />
             </keep-alive>
           </router-view>
         </div>
       </div>
     </div>
     <!-- 遮罩（移动端） -->
-    <div class="avue-shade" @click="commonStore.setCollapse()" v-show="commonStore.isCollapse"></div>
+    <div
+      v-show="commonStore.isCollapse"
+      class="avue-shade"
+      @click="commonStore.setCollapse()"
+    />
   </div>
 </template>
 

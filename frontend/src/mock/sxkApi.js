@@ -894,18 +894,21 @@ export const sxkApi = {
       // output_format 存入 constraints.output_format（后端无独立字段）
       const constraints = {
         ...(payload.constraints || {}),
-        output_format: payload.output_format || 'long_text'
+        output_format: payload.output_format || 'long_text',
+        style: payload.style || ''
       }
       return real({
         url: `/api/scenarios/${payload.scene_code}/templates`,
         method: 'post',
         data: {
           name: payload.name,
-          tag: payload.tag || '',
+          tag: payload.tag || payload.style || '',
           description: payload.description || '',
           prompt: payload.prompt || '',
           constraints,
-          structure: payload.sections || '',
+          structure: (Array.isArray(payload.sections) && payload.sections.length > 0)
+            ? payload.sections.map((s) => s.title || s.value || s).join(' -> ')
+            : (typeof payload.sections === 'string' ? payload.sections : ''),
           examples: payload.examples || [],
           differentiation_dims: payload.differentiation_dims || [],
           applicable_channels: payload.applicable_channels || [],
@@ -954,18 +957,21 @@ export const sxkApi = {
       // output_format 存入 constraints.output_format
       const constraints = {
         ...(payload.constraints || {}),
-        output_format: payload.output_format || 'long_text'
+        output_format: payload.output_format || 'long_text',
+        style: payload.style || ''
       }
       return real({
         url: `/api/scenarios/${payload.scene_code}/templates/${templateId}`,
         method: 'put',
         data: {
           name: payload.name,
-          tag: payload.tag || '',
+          tag: payload.tag || payload.style || '',
           description: payload.description || '',
           prompt: payload.prompt || '',
           constraints,
-          structure: payload.sections || '',
+          structure: (Array.isArray(payload.sections) && payload.sections.length > 0)
+            ? payload.sections.map((s) => s.title || s.value || s).join(' -> ')
+            : (typeof payload.sections === 'string' ? payload.sections : ''),
           examples: payload.examples || [],
           differentiation_dims: payload.differentiation_dims || [],
           applicable_channels: payload.applicable_channels || [],

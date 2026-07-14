@@ -57,12 +57,28 @@ def create_scenario(body: ScenarioCreate, user: dict = Depends(get_current_user)
 
 @router.put("/{scenario_id}", response_model=Scenario)
 def update_scenario(scenario_id: str, body: ScenarioCreate, user: dict = Depends(get_current_user)):
-    """更新场景。"""
-    existing = query_one("SELECT id, created_by FROM scenarios WHERE id = %s", (scenario_id,))
+    """更新场景。
+
+    若场景参数名发生变化，自动同步更新该场景下所有模板提示词中的
+    {旧参数名} 引用为 {新参数名}（按位置索引匹配）。
+    """
+    existing = query_one("SELECT id, created_by, parameters FROM scenarios WHERE id = %s", (scenario_id,))
     if not existing:
         raise HTTPException(404, f"场景 {scenario_id} 不存在")
     if not is_owner_or_admin(user, existing.get("created_by")):
         raise HTTPException(403, "无权修改该场景；内置场景仅管理员可修改")
+
+    # 对比新旧参数，找出改名的（按位置索引匹配）
+    old_params = existing.get("parameters") or []
+    new_params = [p.model_dump() for p in body.parameters]
+    renames = {}  # {old_name: new_name}
+    max_len = min(len(old_params), len(new_params))
+    for i in range(max_len):
+        old_name = (old_params[i] or {}).get("name", "")
+        new_name = (new_params[i] or {}).get("name", "")
+        if old_name and new_name and old_name != new_name:
+            renames[old_name] = new_name
+
     with transaction() as cur:
         cur.execute(
             """UPDATE scenarios SET
@@ -70,10 +86,30 @@ def update_scenario(scenario_id: str, body: ScenarioCreate, user: dict = Depends
             WHERE id=%s""",
             (
                 body.name, body.description,
-                Json([p.model_dump() for p in body.parameters]),
+                Json(new_params),
                 scenario_id,
             ),
         )
+        # 同步更新关联模板提示词中的 {旧参数名} → {新参数名}
+        if renames:
+            cur.execute(
+                "SELECT id, prompt FROM templates WHERE scenario_id = %s",
+                (scenario_id,),
+            )
+            rows = cur.fetchall()
+            for row in rows:
+                tpl_id, prompt = row[0], row[1]
+                if not prompt:
+                    continue
+                updated = prompt
+                for old_name, new_name in renames.items():
+                    updated = updated.replace(f"{{{old_name}}}", f"{{{new_name}}}")
+                if updated != prompt:
+                    cur.execute(
+                        "UPDATE templates SET prompt = %s WHERE id = %s",
+                        (updated, tpl_id),
+                    )
+
     return get_scenario(scenario_id)
 
 

@@ -3,22 +3,37 @@
     <!-- ============ 左侧：品牌展示区（与登录页完全一致）============ -->
     <aside class="login-brand">
       <div class="brand-header">
-        <div class="brand-logo">{{ website.logo }}</div>
-        <div class="brand-name">{{ website.indexTitle }}</div>
+        <div class="brand-logo">
+          {{ website.logo }}
+        </div>
+        <div class="brand-name">
+          {{ website.indexTitle }}
+        </div>
       </div>
 
       <div class="brand-body">
-        <h1 class="brand-title">开启你的<br/>智能营销之旅</h1>
-        <p class="brand-subtitle">注册账号，即可体验 AI 驱动的产品营销内容生成、知识库管理与多渠道分发能力。</p>
+        <h1 class="brand-title">
+          开启你的<br>智能营销之旅
+        </h1>
+        <p class="brand-subtitle">
+          注册账号，即可体验 AI 驱动的产品营销内容生成、知识库管理与多渠道分发能力。
+        </p>
 
         <ul class="brand-features">
-          <li v-for="f in features" :key="f.title">
+          <li
+            v-for="f in features"
+            :key="f.title"
+          >
             <div class="feature-icon">
               <el-icon><component :is="f.icon" /></el-icon>
             </div>
             <div class="feature-text">
-              <div class="feature-title">{{ f.title }}</div>
-              <div class="feature-desc">{{ f.desc }}</div>
+              <div class="feature-title">
+                {{ f.title }}
+              </div>
+              <div class="feature-desc">
+                {{ f.desc }}
+              </div>
             </div>
           </li>
         </ul>
@@ -38,7 +53,12 @@
           <p>填写以下信息完成注册</p>
         </div>
 
-        <el-form ref="regFormRef" :model="regForm" :rules="regRules" class="login-form">
+        <el-form
+          ref="regFormRef"
+          :model="regForm"
+          :rules="regRules"
+          class="login-form"
+        >
           <el-form-item prop="username">
             <el-input
               v-model="regForm.username"
@@ -77,13 +97,29 @@
             />
           </el-form-item>
           <el-form-item prop="code">
-            <el-row :gutter="10" style="width: 100%">
+            <el-row
+              :gutter="10"
+              style="width: 100%"
+            >
               <el-col :span="14">
-                <el-input v-model="regForm.code" :prefix-icon="Picture" placeholder="验证码" size="large" @keyup.enter="handleRegister" />
+                <el-input
+                  v-model="regForm.code"
+                  :prefix-icon="Picture"
+                  placeholder="验证码"
+                  size="large"
+                  @keyup.enter="handleRegister"
+                />
               </el-col>
               <el-col :span="10">
-                <div class="captcha-img" @click="refreshCaptcha">
-                  <div v-if="captchaSvg" class="captcha-img__svg" v-html="captchaSvg" />
+                <div
+                  class="captcha-img"
+                  @click="refreshCaptcha"
+                >
+                  <div
+                    v-if="captchaSvg"
+                    class="captcha-img__svg"
+                    v-html="captchaSvg"
+                  />
                   <span v-else>点击获取</span>
                 </div>
               </el-col>
@@ -93,7 +129,10 @@
           <!-- 用户协议 -->
           <div class="login-options">
             <el-checkbox v-model="agreed">
-              我已阅读并同意<a class="agree-link" @click.prevent="onAgreement">《用户协议》</a>
+              我已阅读并同意<a
+                class="agree-link"
+                @click.prevent="onAgreement"
+              >《用户协议》</a>
             </el-checkbox>
           </div>
 
@@ -114,7 +153,10 @@
         <!-- 已有账号？去登录 -->
         <div class="login-tip login-tip--center">
           <span>已有账号？</span>
-          <a class="link" @click="goLogin">立即登录</a>
+          <a
+            class="link"
+            @click="goLogin"
+          >立即登录</a>
         </div>
       </div>
     </main>

@@ -4,23 +4,38 @@
     <aside class="login-brand">
       <!-- 顶部 Logo + 产品名 -->
       <div class="brand-header">
-        <div class="brand-logo">{{ website.logo }}</div>
-        <div class="brand-name">{{ website.indexTitle }}</div>
+        <div class="brand-logo">
+          {{ website.logo }}
+        </div>
+        <div class="brand-name">
+          {{ website.indexTitle }}
+        </div>
       </div>
 
       <!-- 中部：主标语 + 特性亮点 -->
       <div class="brand-body">
-        <h1 class="brand-title">让产品营销<br/>更智能、更高效</h1>
-        <p class="brand-subtitle">基于 AI 的产品营销内容生成平台，从产品知识管理到多渠道内容分发的一站式解决方案。</p>
+        <h1 class="brand-title">
+          让产品营销<br>更智能、更高效
+        </h1>
+        <p class="brand-subtitle">
+          基于 AI 的产品营销内容生成平台，从产品知识管理到多渠道内容分发的一站式解决方案。
+        </p>
 
         <ul class="brand-features">
-          <li v-for="f in features" :key="f.title">
+          <li
+            v-for="f in features"
+            :key="f.title"
+          >
             <div class="feature-icon">
               <el-icon><component :is="f.icon" /></el-icon>
             </div>
             <div class="feature-text">
-              <div class="feature-title">{{ f.title }}</div>
-              <div class="feature-desc">{{ f.desc }}</div>
+              <div class="feature-title">
+                {{ f.title }}
+              </div>
+              <div class="feature-desc">
+                {{ f.desc }}
+              </div>
             </div>
           </li>
         </ul>
@@ -41,7 +56,12 @@
           <p>请输入您的账号信息登录</p>
         </div>
 
-        <el-form ref="loginFormRef" :model="loginForm" :rules="loginRules" class="login-form">
+        <el-form
+          ref="loginFormRef"
+          :model="loginForm"
+          :rules="loginRules"
+          class="login-form"
+        >
           <el-form-item prop="username">
             <el-input
               v-model="loginForm.username"
@@ -62,15 +82,34 @@
               @keyup.enter="handleLogin"
             />
           </el-form-item>
-          <el-form-item v-if="website.captchaMode" prop="code">
-            <el-row :gutter="10" style="width: 100%">
+          <el-form-item
+            v-if="website.captchaMode"
+            prop="code"
+          >
+            <el-row
+              :gutter="10"
+              style="width: 100%"
+            >
               <el-col :span="14">
-                <el-input v-model="loginForm.code" :prefix-icon="Picture" placeholder="请输入验证码" size="large" @keyup.enter="handleLogin" />
+                <el-input
+                  v-model="loginForm.code"
+                  :prefix-icon="Picture"
+                  placeholder="请输入验证码"
+                  size="large"
+                  @keyup.enter="handleLogin"
+                />
               </el-col>
               <el-col :span="10">
-                <div class="captcha-img" @click="refreshCaptcha">
+                <div
+                  class="captcha-img"
+                  @click="refreshCaptcha"
+                >
                   <!-- Phase 4：使用本地 SVG 验证码（v-html 注入），后端就绪后可改回 <img :src="captchaUrl"> -->
-                  <div v-if="captchaSvg" class="captcha-img__svg" v-html="captchaSvg" />
+                  <div
+                    v-if="captchaSvg"
+                    class="captcha-img__svg"
+                    v-html="captchaSvg"
+                  />
                   <span v-else>点击获取</span>
                 </div>
               </el-col>
@@ -79,8 +118,13 @@
 
           <!-- 记住我 + 忘记密码 -->
           <div class="login-options">
-            <el-checkbox v-model="remember">记住我</el-checkbox>
-            <a class="forget-link" @click="onForget">忘记密码？</a>
+            <el-checkbox v-model="remember">
+              记住我
+            </el-checkbox>
+            <a
+              class="forget-link"
+              @click="onForget"
+            >忘记密码？</a>
           </div>
 
           <el-form-item>
@@ -105,7 +149,10 @@
         <!-- 还没有账号？去注册 -->
         <div class="login-tip login-tip--center">
           <span>还没有账号？</span>
-          <a class="link" @click="goRegister">立即注册</a>
+          <a
+            class="link"
+            @click="goRegister"
+          >立即注册</a>
         </div>
       </div>
     </main>
@@ -219,7 +266,14 @@ const handleLogin = async () => {
       }
     }
 
-    // 3) 登录请求
+    // 3) 记住我：持久化 / 清除用户名
+    if (remember.value) {
+      localStorage.setItem('sxk-remember-username', loginForm.username)
+    } else {
+      localStorage.removeItem('sxk-remember-username')
+    }
+
+    // 4) 登录请求
     loading.value = true
     await userStore.loginByUsername(loginForm)
     ElMessage.success('登录成功')
@@ -234,6 +288,12 @@ const handleLogin = async () => {
 }
 
 onMounted(() => {
+  // 恢复"记住我"保存的用户名
+  const savedUsername = localStorage.getItem('sxk-remember-username')
+  if (savedUsername) {
+    loginForm.username = savedUsername
+    remember.value = true
+  }
   if (website.captchaMode) {
     refreshCaptcha()
   }

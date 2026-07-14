@@ -10,8 +10,12 @@
     <!-- 顶部欢迎条：与首页风格一致 -->
     <div class="sxk-page-welcome">
       <div class="sxk-page-welcome__left">
-        <h2 class="sxk-page-welcome__title">竞品分析</h2>
-        <p class="sxk-page-welcome__desc">查看每个产品的竞品情报，支持删除</p>
+        <h2 class="sxk-page-welcome__title">
+          竞品分析
+        </h2>
+        <p class="sxk-page-welcome__desc">
+          查看每个产品的竞品情报，支持删除
+        </p>
       </div>
     </div>
 
@@ -19,7 +23,9 @@
       <!-- 左侧：产品列表 -->
       <basic-block class="layout__left">
         <div class="product-list">
-          <div class="product-list__title">产品（{{ productList.length }}）</div>
+          <div class="product-list__title">
+            产品（{{ productList.length }}）
+          </div>
           <el-input
             v-model="productKeyword"
             placeholder="筛选产品"
@@ -40,13 +46,18 @@
               @click="selectProduct(p)"
             >
               <div class="product-item__info">
-                <div class="product-item__name">{{ p.name }}</div>
+                <div class="product-item__name">
+                  {{ p.name }}
+                </div>
                 <div class="product-item__cat">
                   {{ Array.isArray(p.category) ? p.category.join(' / ') : p.category }}
                 </div>
               </div>
             </div>
-            <div v-if="!filteredProducts.length" class="product-list__empty">
+            <div
+              v-if="!filteredProducts.length"
+              class="product-list__empty"
+            >
               没有匹配的产品
             </div>
           </el-scrollbar>
@@ -55,11 +66,23 @@
 
       <!-- 右侧：竞品列表 -->
       <basic-block class="layout__right">
-        <div v-if="!selectedId" class="empty-state">
-          <el-icon :size="48" color="#94a3b8"><Aim /></el-icon>
+        <div
+          v-if="!selectedId"
+          class="empty-state"
+        >
+          <el-icon
+            :size="48"
+            color="#94a3b8"
+          >
+            <Aim />
+          </el-icon>
           <p>请从左侧选择一个产品</p>
         </div>
-        <div v-else class="competitor-list" v-loading="loading">
+        <div
+          v-else
+          v-loading="loading"
+          class="competitor-list"
+        >
           <div class="competitor-list__head">
             <div>
               <div class="competitor-list__title">
@@ -79,7 +102,10 @@
             </el-button>
           </div>
 
-          <div v-if="!competitorList.length" class="competitor-list__empty">
+          <div
+            v-if="!competitorList.length"
+            class="competitor-list__empty"
+          >
             该产品暂无竞品数据
           </div>
 
@@ -90,7 +116,9 @@
           >
             <div class="comp-card__head">
               <div class="comp-card__name">
-                <el-icon class="comp-card__icon"><Aim /></el-icon>
+                <el-icon class="comp-card__icon">
+                  <Aim />
+                </el-icon>
                 {{ comp.name }}
               </div>
               <el-popconfirm
@@ -98,7 +126,13 @@
                 @confirm="removeCompetitor(comp)"
               >
                 <template #reference>
-                  <el-button link type="danger" size="small">删除</el-button>
+                  <el-button
+                    link
+                    type="danger"
+                    size="small"
+                  >
+                    删除
+                  </el-button>
                 </template>
               </el-popconfirm>
             </div>
@@ -111,7 +145,9 @@
               />
               <span class="comp-card__score-text">{{ (comp.score || 0).toFixed(1) }}</span>
             </div>
-            <div class="comp-card__summary">{{ comp.summary || '暂无摘要' }}</div>
+            <div class="comp-card__summary">
+              {{ comp.summary || '暂无摘要' }}
+            </div>
             <div class="comp-card__meta">
               来源：{{ comp.source || 'heuristic' }} ·
               更新：{{ formatTime(comp.last_updated) }}

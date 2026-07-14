@@ -25,15 +25,22 @@
     <div class="se-head">
       <div class="se-head__left">
         <h3 class="se-head__title">
-          <el-icon class="se-head__icon"><Grid /></el-icon>
+          <el-icon class="se-head__icon">
+            <Grid />
+          </el-icon>
           {{ isEdit ? '编辑场景' : '新建场景' }}
         </h3>
         <p class="se-head__sub">
           {{ isEdit ? '修改场景信息和参数配置' : '定义一个新的模板场景，并设置其参数' }}
         </p>
       </div>
-      <button class="se-head__close" @click="$emit('update:modelValue', false)">
-        <el-icon :size="20"><Close /></el-icon>
+      <button
+        class="se-head__close"
+        @click="$emit('update:modelValue', false)"
+      >
+        <el-icon :size="20">
+          <Close />
+        </el-icon>
       </button>
     </div>
 
@@ -43,11 +50,17 @@
       <div class="se-row">
         <div class="se-field">
           <label class="se-field__label">场景名称 <span class="se-field__req">*</span></label>
-          <el-input v-model="form.name" placeholder="如：客户案例包装" />
+          <el-input
+            v-model="form.name"
+            placeholder="如：客户案例包装"
+          />
         </div>
         <div class="se-field">
           <label class="se-field__label">场景描述</label>
-          <el-input v-model="form.description" placeholder="一句话说明该场景的用途" />
+          <el-input
+            v-model="form.description"
+            placeholder="一句话说明该场景的用途"
+          />
         </div>
       </div>
 
@@ -85,7 +98,10 @@
             <el-icon class="param-section__icon"><Checked /></el-icon>
             场景参数（{{ form.params.length }}）
           </span>
-          <el-button size="small" @click="addParam">
+          <el-button
+            size="small"
+            @click="addParam"
+          >
             <el-icon><Plus /></el-icon>
             <span>添加参数</span>
           </el-button>
@@ -121,11 +137,16 @@
           </div>
         </div>
 
-        <div v-if="form.params.length === 0" class="param-empty">
+        <div
+          v-if="form.params.length === 0"
+          class="param-empty"
+        >
           暂无参数，点击右上角"添加参数"
         </div>
 
-        <p class="param-section__hint">场景参数说明该模板需要用户提供哪些输入项</p>
+        <p class="param-section__hint">
+          场景参数说明该模板需要用户提供哪些输入项
+        </p>
       </div>
     </div>
 
@@ -134,8 +155,16 @@
       <div class="se-footer">
         <div class="se-footer__left" />
         <div class="se-footer__right">
-          <el-button @click="cancel">取消</el-button>
-          <el-button type="primary" :loading="loading" @click="submit">保存</el-button>
+          <el-button @click="cancel">
+            取消
+          </el-button>
+          <el-button
+            type="primary"
+            :loading="loading"
+            @click="submit"
+          >
+            保存
+          </el-button>
         </div>
       </div>
     </template>

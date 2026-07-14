@@ -1,12 +1,29 @@
 <template>
   <div class="lock-container">
     <div class="lock-box">
-      <el-icon class="lock-icon"><Lock /></el-icon>
-      <p class="lock-tip">屏幕已锁定</p>
-      <el-input v-model="password" type="password" placeholder="请输入锁屏密码" style="width: 240px; margin-bottom: 16px" @keyup.enter="unlock" />
+      <el-icon class="lock-icon">
+        <Lock />
+      </el-icon>
+      <p class="lock-tip">
+        屏幕已锁定
+      </p>
+      <el-input
+        v-model="password"
+        type="password"
+        placeholder="请输入锁屏密码"
+        style="width: 240px; margin-bottom: 16px"
+        @keyup.enter="unlock"
+      />
       <div>
-        <el-button type="primary" @click="unlock">解锁</el-button>
-        <el-button @click="logout">退出登录</el-button>
+        <el-button
+          type="primary"
+          @click="unlock"
+        >
+          解锁
+        </el-button>
+        <el-button @click="logout">
+          退出登录
+        </el-button>
       </div>
     </div>
   </div>

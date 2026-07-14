@@ -8,7 +8,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { serialize } from '@/util/util'
-import { getToken } from '@/util/auth'
+import { getToken, getRefreshToken } from '@/util/auth'
 import { isURL } from '@/util/validate'
 import website from '@/config/website'
 import { baseUrl } from '@/config/env'
@@ -97,17 +97,31 @@ axios.interceptors.response.use(
     if (httpStatus === 401) {
       // 登录/注册请求的 401 是凭证错误，不走 token 刷新
       if (!skipToken && !isTokenRefreshing) {
+        // 没有 refresh token 说明用户未登录或已登出，静默跳转登录页
+        const hasRefreshToken = !!getRefreshToken()
+        if (!hasRefreshToken) {
+          import('@/store/modules/user').then(({ useUserStore }) => {
+            useUserStore().fedLogOut().then(() => {
+              if (router.currentRoute.value.path !== '/login') {
+                router.push({ path: '/login' })
+              }
+            })
+          })
+          return Promise.reject(new Error(message))
+        }
         isTokenRefreshing = true
         import('@/store/modules/user').then(({ useUserStore }) => {
           const userStore = useUserStore()
           userStore
-            .refreshToken()
+            .refreshAccessToken()
             .then(() => {
-              ElMessage.success('Token 已刷新，如有需要请重新操作')
+              ElMessage.success('Token 已刷新，请重新操作')
             })
             .catch(() => {
               userStore.fedLogOut().then(() => {
-                router.push({ path: '/login' })
+                if (router.currentRoute.value.path !== '/login') {
+                  router.push({ path: '/login' })
+                }
               })
             })
             .finally(() => {
@@ -115,7 +129,10 @@ axios.interceptors.response.use(
             })
         })
       }
-      ElMessage({ message, type: 'error' })
+      // 已在登录页时不弹错误
+      if (router.currentRoute.value.path !== '/login') {
+        ElMessage({ message, type: 'error' })
+      }
       return Promise.reject(new Error(message))
     }
 

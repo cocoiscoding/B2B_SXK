@@ -12,10 +12,19 @@
     <!-- ========== 欢迎区（优化：渐变背景 + 4 个快捷操作） ========== -->
     <div class="welcome">
       <div class="welcome-text">
-        <h2 class="welcome-title">欢迎回来，{{ welcomeName }}</h2>
-        <p class="welcome-sub">今天是 {{ todayText }}，准备好创造精彩内容了吗？</p>
+        <h2 class="welcome-title">
+          欢迎回来，{{ welcomeName }}
+        </h2>
+        <p class="welcome-sub">
+          今天是 {{ todayText }}，准备好创造精彩内容了吗？
+        </p>
         <div class="welcome-greeting">
-          <el-tag :type="greetingTagType" effect="dark" size="small" round>
+          <el-tag
+            :type="greetingTagType"
+            effect="dark"
+            size="small"
+            round
+          >
             <el-icon><component :is="greetingIcon" /></el-icon>
             <span style="margin-left: 4px">{{ greetingText }}</span>
           </el-tag>
@@ -31,30 +40,59 @@
           @click="qa.action"
         >
           <div class="qa-icon">
-            <el-icon :size="22"><component :is="qa.icon" /></el-icon>
+            <el-icon :size="22">
+              <component :is="qa.icon" />
+            </el-icon>
           </div>
-          <div class="qa-label">{{ qa.label }}</div>
+          <div class="qa-label">
+            {{ qa.label }}
+          </div>
         </div>
       </div>
     </div>
 
     <!-- ========== 任务进度条（US013：生成中任务，原型无此项，为业务需求保留） ========== -->
-    <div v-if="stats.running_tasks > 0" class="progress-bar">
+    <div
+      v-if="stats.running_tasks > 0"
+      class="progress-bar"
+    >
       <div class="progress-info">
-        <el-icon class="rotating"><Loading /></el-icon>
+        <el-icon class="rotating">
+          <Loading />
+        </el-icon>
         <span>当前有 {{ stats.running_tasks }} 个生成任务进行中…</span>
       </div>
-      <el-button type="primary" link @click="goGenerate">查看进度</el-button>
+      <el-button
+        type="primary"
+        link
+        @click="goGenerate"
+      >
+        查看进度
+      </el-button>
     </div>
 
     <!-- ========== 系统公告 / 使用小贴士（轮播） ========== -->
     <div class="notice-bar">
-      <div class="notice-bar__icon" :style="{ background: currentNotice.bg, color: currentNotice.color }">
-        <el-icon :size="16"><component :is="currentNotice.icon" /></el-icon>
+      <div
+        class="notice-bar__icon"
+        :style="{ background: currentNotice.bg, color: currentNotice.color }"
+      >
+        <el-icon :size="16">
+          <component :is="currentNotice.icon" />
+        </el-icon>
       </div>
-      <transition name="notice-slide" mode="out-in">
-        <div :key="noticeIndex" class="notice-bar__content">
-          <span class="notice-bar__tag" :style="{ color: currentNotice.color, background: currentNotice.bg }">{{ currentNotice.tag }}</span>
+      <transition
+        name="notice-slide"
+        mode="out-in"
+      >
+        <div
+          :key="noticeIndex"
+          class="notice-bar__content"
+        >
+          <span
+            class="notice-bar__tag"
+            :style="{ color: currentNotice.color, background: currentNotice.bg }"
+          >{{ currentNotice.tag }}</span>
           <span class="notice-bar__text">{{ currentNotice.text }}</span>
         </div>
       </transition>
@@ -65,37 +103,67 @@
           class="notice-dot"
           :class="{ 'notice-dot--active': i === noticeIndex }"
           @click="switchNotice(i)"
-        ></span>
+        />
       </div>
     </div>
 
     <!-- ========== 数据看板（升级：3 个区块，每个包含多个指标） ==========
          关键：参考 SaaS 平台指标看板，每个区块展示一组关联指标 -->
-    <el-row :gutter="20" class="stat-row">
-      <el-col v-for="card in statCards" :key="card.label" :xs="24" :sm="24" :md="8">
-        <div class="stat-card" :style="{ '--card-color': card.color }">
+    <el-row
+      :gutter="20"
+      class="stat-row"
+    >
+      <el-col
+        v-for="card in statCards"
+        :key="card.label"
+        :xs="24"
+        :sm="24"
+        :md="8"
+      >
+        <div
+          class="stat-card"
+          :style="{ '--card-color': card.color }"
+        >
           <!-- 关键：区块头部（标题 + 同比 + 主数值 + sparkline）-->
           <div class="stat-head">
             <div class="stat-head__left">
-              <div class="stat-icon" :style="{ color: card.color, backgroundColor: card.bg }">
-                <el-icon :size="20"><component :is="card.icon" /></el-icon>
+              <div
+                class="stat-icon"
+                :style="{ color: card.color, backgroundColor: card.bg }"
+              >
+                <el-icon :size="20">
+                  <component :is="card.icon" />
+                </el-icon>
               </div>
               <div>
-                <div class="stat-label">{{ card.label }}</div>
+                <div class="stat-label">
+                  {{ card.label }}
+                </div>
                 <div class="stat-value">
-                  {{ card.value }}<span v-if="card.unit" class="stat-unit">{{ card.unit }}</span>
+                  {{ card.value }}<span
+                    v-if="card.unit"
+                    class="stat-unit"
+                  >{{ card.unit }}</span>
                 </div>
               </div>
             </div>
-            <div class="stat-trend" :class="`trend--${card.trend}`">
-              <el-icon :size="12"><component :is="card.trendIcon" /></el-icon>
+            <div
+              class="stat-trend"
+              :class="`trend--${card.trend}`"
+            >
+              <el-icon :size="12">
+                <component :is="card.trendIcon" />
+              </el-icon>
               <span>{{ card.trendText }}</span>
             </div>
           </div>
 
           <!-- 关键：sparkline 趋势线 + 副标题 -->
           <div class="stat-sparkline">
-            <svg viewBox="0 0 100 24" preserveAspectRatio="none">
+            <svg
+              viewBox="0 0 100 24"
+              preserveAspectRatio="none"
+            >
               <polyline
                 :points="card.sparkPoints"
                 :stroke="card.color"
@@ -104,7 +172,9 @@
               />
             </svg>
           </div>
-          <div class="stat-sub">{{ card.sub }}</div>
+          <div class="stat-sub">
+            {{ card.sub }}
+          </div>
 
           <!-- 关键：新增的子指标（每张卡片下方展示 3 个关联指标）-->
           <div class="stat-mini-grid">
@@ -113,13 +183,23 @@
               :key="mini.label"
               class="mini-stat"
             >
-              <div class="mini-stat__icon" :style="{ color: mini.color, backgroundColor: mini.bg }">
-                <el-icon :size="12"><component :is="mini.icon" /></el-icon>
+              <div
+                class="mini-stat__icon"
+                :style="{ color: mini.color, backgroundColor: mini.bg }"
+              >
+                <el-icon :size="12">
+                  <component :is="mini.icon" />
+                </el-icon>
               </div>
               <div class="mini-stat__body">
-                <div class="mini-stat__label">{{ mini.label }}</div>
+                <div class="mini-stat__label">
+                  {{ mini.label }}
+                </div>
                 <div class="mini-stat__value">
-                  {{ mini.value }}<span v-if="mini.unit" class="mini-stat__unit">{{ mini.unit }}</span>
+                  {{ mini.value }}<span
+                    v-if="mini.unit"
+                    class="mini-stat__unit"
+                  >{{ mini.unit }}</span>
                 </div>
               </div>
             </div>
@@ -131,14 +211,28 @@
     <!-- ========== NEW: 产品动态（横向卡片列表） ========== -->
     <div class="section-block">
       <div class="section-header">
-        <h3 class="section-title">产品动态</h3>
-        <el-button text type="primary" @click="goKnowledge">
+        <h3 class="section-title">
+          产品动态
+        </h3>
+        <el-button
+          text
+          type="primary"
+          @click="goKnowledge"
+        >
           查看全部产品
           <el-icon><ArrowRight /></el-icon>
         </el-button>
       </div>
-      <div v-if="recentProducts.length === 0" class="empty-tip">暂无产品记录</div>
-      <div v-else class="product-activity-grid">
+      <div
+        v-if="recentProducts.length === 0"
+        class="empty-tip"
+      >
+        暂无产品记录
+      </div>
+      <div
+        v-else
+        class="product-activity-grid"
+      >
         <div
           v-for="p in recentProducts"
           :key="p.product_id"
@@ -146,38 +240,68 @@
           @click="goProductDetail(p)"
         >
           <div class="product-activity__icon">
-            <el-icon :size="18"><Goods /></el-icon>
+            <el-icon :size="18">
+              <Goods />
+            </el-icon>
           </div>
           <div class="product-activity__body">
-            <div class="product-activity__name">{{ p.name }}</div>
+            <div class="product-activity__name">
+              {{ p.name }}
+            </div>
             <div class="product-activity__meta">
-              <span v-if="p.category && p.category.length" class="pa-category">
+              <span
+                v-if="p.category && p.category.length"
+                class="pa-category"
+              >
                 {{ Array.isArray(p.category) ? p.category[0] : p.category }}
               </span>
               <span class="pa-time">{{ relativeTime(p.updated_at) }}</span>
             </div>
           </div>
-          <el-icon class="product-activity__arrow"><ArrowRight /></el-icon>
+          <el-icon class="product-activity__arrow">
+            <ArrowRight />
+          </el-icon>
         </div>
       </div>
     </div>
 
     <!-- ========== NEW: 质量评分 + 内容资产统计（2 列） ========== -->
-    <el-row :gutter="20" class="analytics-row">
+    <el-row
+      :gutter="20"
+      class="analytics-row"
+    >
       <!-- 左：内容质量评分 -->
-      <el-col :xs="24" :md="12">
+      <el-col
+        :xs="24"
+        :md="12"
+      >
         <div class="analytics-card">
           <div class="analytics-card__header">
-            <h4 class="analytics-card__title">内容质量评分</h4>
+            <h4 class="analytics-card__title">
+              内容质量评分
+            </h4>
             <span class="analytics-card__sub">SEO 评估 · 共 {{ qualityData.total }} 篇</span>
           </div>
           <div class="quality-body">
             <!-- 环形图居中 -->
             <div class="quality-ring">
-              <svg viewBox="0 0 120 120" class="ring-svg">
-                <circle cx="60" cy="60" r="50" fill="none" stroke="#e5e7eb" stroke-width="10" />
+              <svg
+                viewBox="0 0 120 120"
+                class="ring-svg"
+              >
                 <circle
-                  cx="60" cy="60" r="50" fill="none"
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  fill="none"
+                  stroke="#e5e7eb"
+                  stroke-width="10"
+                />
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  fill="none"
                   :stroke="qualityRingColor"
                   stroke-width="10"
                   stroke-linecap="round"
@@ -186,22 +310,36 @@
                 />
               </svg>
               <div class="ring-center">
-                <div class="ring-score">{{ Math.round(qualityData.avgScore) }}</div>
-                <div class="ring-label">SEO 平均分</div>
+                <div class="ring-score">
+                  {{ Math.round(qualityData.avgScore) }}
+                </div>
+                <div class="ring-label">
+                  SEO 平均分
+                </div>
               </div>
             </div>
             <!-- 分布柱状条 -->
             <div class="quality-bars">
-              <div v-for="d in qualityData.distribution" :key="d.label" class="quality-bar-item">
+              <div
+                v-for="d in qualityData.distribution"
+                :key="d.label"
+                class="quality-bar-item"
+              >
                 <div class="quality-bar__head">
                   <span class="quality-bar__label">
-                    <span class="quality-bar__dot" :style="{ background: d.color }"></span>
+                    <span
+                      class="quality-bar__dot"
+                      :style="{ background: d.color }"
+                    />
                     {{ d.label }}
                   </span>
                   <span class="quality-bar__count">{{ d.count }} 篇 · {{ d.pct }}%</span>
                 </div>
                 <div class="quality-bar__track">
-                  <div class="quality-bar__fill" :style="{ width: d.pct + '%', background: d.color }"></div>
+                  <div
+                    class="quality-bar__fill"
+                    :style="{ width: d.pct + '%', background: d.color }"
+                  />
                 </div>
               </div>
             </div>
@@ -210,16 +348,33 @@
       </el-col>
 
       <!-- 右：内容资产统计 -->
-      <el-col :xs="24" :md="12">
+      <el-col
+        :xs="24"
+        :md="12"
+      >
         <div class="analytics-card">
           <div class="analytics-card__header">
-            <h4 class="analytics-card__title">内容资产统计</h4>
+            <h4 class="analytics-card__title">
+              内容资产统计
+            </h4>
             <span class="analytics-card__sub">按场景类型分布 · 共 {{ assetData.total }} 篇</span>
           </div>
           <div class="asset-body">
-            <div v-if="assetData.total === 0" class="asset-empty">暂无生成内容</div>
-            <div v-else class="asset-bars">
-              <div v-for="item in assetData.items" :key="item.label" class="asset-bar-item">
+            <div
+              v-if="assetData.total === 0"
+              class="asset-empty"
+            >
+              暂无生成内容
+            </div>
+            <div
+              v-else
+              class="asset-bars"
+            >
+              <div
+                v-for="item in assetData.items"
+                :key="item.label"
+                class="asset-bar-item"
+              >
                 <div class="asset-bar__head">
                   <span class="asset-bar__label">{{ item.label }}</span>
                   <span class="asset-bar__count">{{ item.count }} 篇</span>
@@ -228,7 +383,7 @@
                   <div
                     class="asset-bar__fill"
                     :style="{ width: item.pct + '%', background: item.color }"
-                  ></div>
+                  />
                 </div>
               </div>
             </div>
@@ -243,281 +398,437 @@
       <div class="dashboard-split__left">
         <!-- ========== 营销场景（重构 V2：分类筛选 + 5 卡片网格 + 缩略图 + 立即使用） ==========
          关键：参考 Notion 模板中心 / Figma Community，统一 5 卡片视觉 -->
-    <div class="section-block">
-      <div class="section-header">
-        <h3 class="section-title">常用营销场景</h3>
-        <el-button text type="primary" @click="goTemplates">
-          查看全部场景
-          <el-icon><ArrowRight /></el-icon>
-        </el-button>
-      </div>
-
-      <!-- 关键：合并 section-header（标题 + 查看全部）+ 工具栏（分类 + 排序）-->
-      <div v-if="topScenesByUsage.length > 0" class="section-toolbar">
-        <!-- 左侧：分类筛选 -->
-        <el-radio-group v-model="sceneCategory" size="small">
-          <el-radio-button label="all">全部</el-radio-button>
-          <el-radio-button label="product">产品</el-radio-button>
-          <el-radio-button label="marketing">营销</el-radio-button>
-          <el-radio-button label="sales">销售</el-radio-button>
-          <el-radio-button label="brand">品牌</el-radio-button>
-        </el-radio-group>
-        <!-- 右侧：排序 -->
-        <div class="section-toolbar__right">
-          <el-radio-group v-model="sceneSort" size="small">
-            <el-radio-button label="usage">使用最多</el-radio-button>
-            <el-radio-button label="recent">最新</el-radio-button>
-          </el-radio-group>
-        </div>
-      </div>
-
-      <!-- 加载中：骨架屏 -->
-      <div v-if="!dataLoaded" class="scenes-loading-grid">
-        <div class="scene-card-skeleton" v-for="i in 5" :key="`sk-${i}`">
-          <div class="skeleton-thumbnail"></div>
-          <div class="skeleton-line skeleton-line--title"></div>
-          <div class="skeleton-line skeleton-line--desc"></div>
-          <div class="skeleton-line skeleton-line--meta"></div>
-        </div>
-      </div>
-
-      <!-- 加载完成：5 卡片统一网格（关键：用 displayedScenes 判断，因为"最新"模式数据源不同） -->
-      <div v-else-if="displayedScenes.length > 0" class="scenes-grid">
-        <div
-          v-for="(tpl, idx) in displayedScenes"
-          :key="tpl.scene_code"
-          class="scene-card"
-          @click="useCommonTemplate(tpl)"
-        >
-          <!-- 关键：缩略图（4 格 + 装饰 + 排名徽章）-->
-          <div
-            class="scene-thumb"
-            :style="{ background: `linear-gradient(135deg, ${tpl.color} 0%, ${tpl.color}dd 100%)` }"
-          >
-            <div class="thumb-grid">
-              <div v-for="i in 4" :key="`cell-${i}`" class="thumb-cell"></div>
-            </div>
-            <div class="thumb-decoration thumb-decoration--1"></div>
-            <div class="thumb-decoration thumb-decoration--2"></div>
-            <!-- 排名徽章（#1 主力，其他隐藏）-->
-            <div v-if="idx === 0 && sceneSort === 'usage'" class="thumb-rank">
-              <el-icon :size="10"><Trophy /></el-icon>
-              <span>#1 主力</span>
-            </div>
-            <!-- 使用次数角标 -->
-            <div class="thumb-badge">
-              <el-icon :size="10"><DataLine /></el-icon>
-              <span>{{ tpl.use_count }}</span>
-            </div>
-          </div>
-
-          <!-- 关键：卡片主体（标题 + 描述 + 标签 + 操作）-->
-          <div class="scene-body">
-            <div class="scene-head">
-              <div class="scene-icon" :style="{ color: tpl.color, backgroundColor: tpl.bg }">
-                <el-icon :size="16"><component :is="tpl.icon" /></el-icon>
-              </div>
-              <div class="scene-title">{{ tpl.name }}</div>
-              <el-button
-                class="scene-fav"
-                text
-                size="small"
-                @click.stop="toggleFavorite(tpl.scene_code)"
-              >
-                <el-icon :size="14">
-                  <component :is="isFavorited(tpl.scene_code) ? 'StarFilled' : 'Star'" />
-                </el-icon>
-              </el-button>
-            </div>
-            <div class="scene-desc">{{ tpl.desc }}</div>
-
-            <!-- 标签组 -->
-            <div class="scene-tags">
-              <span
-                v-for="tag in (tpl.tags || []).slice(0, 2)"
-                :key="tag.text"
-                class="scene-tag"
-                :style="tag.style"
-              >{{ tag.text }}</span>
-            </div>
-
-            <!-- 关键：底部信息行（模板数 + 评分 + 使用按钮）-->
-            <div class="scene-foot">
-              <div class="scene-meta">
-                <span class="meta-item">
-                  <el-icon :size="11"><Document /></el-icon>
-                  {{ tpl.template_count || Math.floor(tpl.use_count * 1.5) }}
-                </span>
-                <span class="meta-divider">·</span>
-                <span class="meta-item">
-                  <el-icon :size="11"><StarFilled /></el-icon>
-                  {{ tpl.rating || '4.' + (5 + (idx % 3)) }}
-                </span>
-              </div>
-              <button class="scene-use-btn" @click.stop="useCommonTemplate(tpl)">
-                使用
-                <el-icon :size="12"><Right /></el-icon>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div v-else class="empty-tip">还没有常用场景，开始第一次生成吧</div>
-    </div>
-
-    <!-- ========== 最近生成（重构：时间分组 + 视图切换 + 状态筛选） ==========
-         关键：参考 Notion/Linear 的时间线分组，告别"单纯排列" -->
-    <!-- 关键：先关闭左列，再开右列 -->
-      </div>
-      <div class="dashboard-split__right">
-    <div class="section-block">
-      <div class="section-header">
-        <h3 class="section-title">最近生成</h3>
-        <el-button text type="primary" @click="goHistory">
-          查看全部
-          <el-icon><ArrowRight /></el-icon>
-        </el-button>
-      </div>
-
-      <div v-if="recentList.length === 0" class="empty-tip">暂无生成记录</div>
-
-      <template v-else>
-        <!-- 关键：单行紧凑布局（状态筛选 + 视图切换） -->
-        <div class="recent-toolbar">
-          <!-- 左侧：状态筛选 -->
-          <div class="recent-stats">
-            <el-radio-group v-model="recentFilter" size="small" class="recent-filter-row">
-              <el-radio-button label="all">全部</el-radio-button>
-              <el-radio-button label="success">已完成</el-radio-button>
-              <el-radio-button label="running">进行中</el-radio-button>
-              <el-radio-button label="failed">失败</el-radio-button>
-            </el-radio-group>
-          </div>
-
-          <!-- 右侧：视图切换（仅图标，更紧凑） -->
-          <el-radio-group v-model="recentViewMode" size="small">
-            <el-radio-button label="timeline">
-              <el-icon><Clock /></el-icon>
-            </el-radio-button>
-            <el-radio-button label="list">
-              <el-icon><Menu /></el-icon>
-            </el-radio-button>
-            <el-radio-button label="grid">
-              <el-icon><Grid /></el-icon>
-            </el-radio-button>
-          </el-radio-group>
-        </div>
-
-        <!-- 关键：3 种视图模式 -->
-        <!-- ============ 时间线视图（默认） ============ -->
-        <div v-if="recentViewMode === 'timeline'" class="recent-timeline">
-          <div
-            v-for="group in groupedRecentList"
-            :key="group.label"
-            class="timeline-group"
-          >
-            <!-- 关键：分组头（日期 + 数量 + 圆点）-->
-            <div class="timeline-group__header">
-              <div class="timeline-dot"></div>
-              <div class="timeline-label">{{ group.label }}</div>
-              <div class="timeline-count">{{ group.items.length }} 条</div>
-              <div class="timeline-line"></div>
-            </div>
-            <!-- 该分组下的列表项 -->
-            <div
-              v-for="item in group.items"
-              :key="item.generation_id"
-              class="timeline-item"
-              :class="`timeline-item--${item.status}`"
-              @click="goHistoryDetail(item)"
+        <div class="section-block">
+          <div class="section-header">
+            <h3 class="section-title">
+              常用营销场景
+            </h3>
+            <el-button
+              text
+              type="primary"
+              @click="goTemplates"
             >
-              <!-- 左侧时间戳 -->
-              <div class="timeline-time">{{ formatTimeOfDay(item.created_at) }}</div>
-              <!-- 彩色状态条 -->
-              <div class="timeline-bar"></div>
-              <!-- 主内容 -->
-              <div class="timeline-icon" :style="recentIconStyle(item)">
-                <el-icon :size="16"><component :is="recentIconComp(item)" /></el-icon>
-              </div>
-              <div class="timeline-content">
-                <div class="timeline-title">{{ item.product.name }} · {{ item.template.name }}</div>
-                <div class="timeline-meta">
-                  <span v-if="item.duration_ms" class="timeline-duration">
-                    <el-icon :size="10"><Timer /></el-icon>
-                    {{ formatDuration(item.duration_ms) }}
-                  </span>
+              查看全部场景
+              <el-icon><ArrowRight /></el-icon>
+            </el-button>
+          </div>
+
+          <!-- 关键：合并 section-header（标题 + 查看全部）+ 工具栏（分类 + 排序）-->
+          <div
+            v-if="topScenesByUsage.length > 0"
+            class="section-toolbar"
+          >
+            <!-- 左侧：分类筛选 -->
+            <el-radio-group
+              v-model="sceneCategory"
+              size="small"
+            >
+              <el-radio-button label="all">
+                全部
+              </el-radio-button>
+              <el-radio-button label="product">
+                产品
+              </el-radio-button>
+              <el-radio-button label="marketing">
+                营销
+              </el-radio-button>
+              <el-radio-button label="sales">
+                销售
+              </el-radio-button>
+              <el-radio-button label="brand">
+                品牌
+              </el-radio-button>
+            </el-radio-group>
+            <!-- 右侧：排序 -->
+            <div class="section-toolbar__right">
+              <el-radio-group
+                v-model="sceneSort"
+                size="small"
+              >
+                <el-radio-button label="usage">
+                  使用最多
+                </el-radio-button>
+                <el-radio-button label="recent">
+                  最新
+                </el-radio-button>
+              </el-radio-group>
+            </div>
+          </div>
+
+          <!-- 加载中：骨架屏 -->
+          <div
+            v-if="!dataLoaded"
+            class="scenes-loading-grid"
+          >
+            <div
+              v-for="i in 5"
+              :key="`sk-${i}`"
+              class="scene-card-skeleton"
+            >
+              <div class="skeleton-thumbnail" />
+              <div class="skeleton-line skeleton-line--title" />
+              <div class="skeleton-line skeleton-line--desc" />
+              <div class="skeleton-line skeleton-line--meta" />
+            </div>
+          </div>
+
+          <!-- 加载完成：5 卡片统一网格（关键：用 displayedScenes 判断，因为"最新"模式数据源不同） -->
+          <div
+            v-else-if="displayedScenes.length > 0"
+            class="scenes-grid"
+          >
+            <div
+              v-for="(tpl, idx) in displayedScenes"
+              :key="tpl.scene_code"
+              class="scene-card"
+              @click="useCommonTemplate(tpl)"
+            >
+              <!-- 关键：缩略图（4 格 + 装饰 + 排名徽章）-->
+              <div
+                class="scene-thumb"
+                :style="{ background: `linear-gradient(135deg, ${tpl.color} 0%, ${tpl.color}dd 100%)` }"
+              >
+                <div class="thumb-grid">
+                  <div
+                    v-for="i in 4"
+                    :key="`cell-${i}`"
+                    class="thumb-cell"
+                  />
+                </div>
+                <div class="thumb-decoration thumb-decoration--1" />
+                <div class="thumb-decoration thumb-decoration--2" />
+                <!-- 排名徽章（#1 主力，其他隐藏）-->
+                <div
+                  v-if="idx === 0 && sceneSort === 'usage'"
+                  class="thumb-rank"
+                >
+                  <el-icon :size="10">
+                    <Trophy />
+                  </el-icon>
+                  <span>#1 主力</span>
+                </div>
+                <!-- 使用次数角标 -->
+                <div class="thumb-badge">
+                  <el-icon :size="10">
+                    <DataLine />
+                  </el-icon>
+                  <span>{{ tpl.use_count }}</span>
                 </div>
               </div>
-              <!-- 右侧：状态 + 操作 -->
-              <el-tag :type="recentStatusType(item.status)" size="small" effect="light" round>
-                {{ statusText(item.status) }}
-              </el-tag>
-              <el-button
-                class="timeline-action"
-                size="small"
-                type="primary"
-                link
-                @click.stop="goHistoryDetail(item)"
-              >
-                <el-icon :size="13"><View /></el-icon>
-              </el-button>
-            </div>
-          </div>
-        </div>
 
-        <!-- ============ 列表视图 ============ -->
-        <div v-else-if="recentViewMode === 'list'" class="recent-list">
-          <div
-            v-for="item in filteredRecentList"
-            :key="item.generation_id"
-            class="list-item"
-            :class="`list-item--${item.status}`"
-            @click="goHistoryDetail(item)"
-          >
-            <div class="list-bar"></div>
-            <div class="list-icon" :style="recentIconStyle(item)">
-              <el-icon :size="16"><component :is="recentIconComp(item)" /></el-icon>
-            </div>
-            <div class="list-content">
-              <div class="list-title">{{ item.product.name }} · {{ item.template.name }}</div>
-              <div class="list-sub">
-                <span class="list-time">{{ formatExactTime(item.created_at) }}</span>
-                <span v-if="item.duration_ms" class="list-duration">
-                  · <el-icon :size="10"><Timer /></el-icon> {{ formatDuration(item.duration_ms) }}
-                </span>
+              <!-- 关键：卡片主体（标题 + 描述 + 标签 + 操作）-->
+              <div class="scene-body">
+                <div class="scene-head">
+                  <div
+                    class="scene-icon"
+                    :style="{ color: tpl.color, backgroundColor: tpl.bg }"
+                  >
+                    <el-icon :size="16">
+                      <component :is="tpl.icon" />
+                    </el-icon>
+                  </div>
+                  <div class="scene-title">
+                    {{ tpl.name }}
+                  </div>
+                  <el-button
+                    class="scene-fav"
+                    text
+                    size="small"
+                    @click.stop="toggleFavorite(tpl.scene_code)"
+                  >
+                    <el-icon :size="14">
+                      <component :is="isFavorited(tpl.scene_code) ? 'StarFilled' : 'Star'" />
+                    </el-icon>
+                  </el-button>
+                </div>
+                <div class="scene-desc">
+                  {{ tpl.desc }}
+                </div>
+
+                <!-- 标签组 -->
+                <div class="scene-tags">
+                  <span
+                    v-for="tag in (tpl.tags || []).slice(0, 2)"
+                    :key="tag.text"
+                    class="scene-tag"
+                    :style="tag.style"
+                  >{{ tag.text }}</span>
+                </div>
+
+                <!-- 关键：底部信息行（模板数 + 评分 + 使用按钮）-->
+                <div class="scene-foot">
+                  <div class="scene-meta">
+                    <span class="meta-item">
+                      <el-icon :size="11"><Document /></el-icon>
+                      {{ tpl.template_count || Math.floor(tpl.use_count * 1.5) }}
+                    </span>
+                    <span class="meta-divider">·</span>
+                    <span class="meta-item">
+                      <el-icon :size="11"><StarFilled /></el-icon>
+                      {{ tpl.rating || '4.' + (5 + (idx % 3)) }}
+                    </span>
+                  </div>
+                  <button
+                    class="scene-use-btn"
+                    @click.stop="useCommonTemplate(tpl)"
+                  >
+                    使用
+                    <el-icon :size="12">
+                      <Right />
+                    </el-icon>
+                  </button>
+                </div>
               </div>
             </div>
-            <el-tag :type="recentStatusType(item.status)" size="small" effect="light" round>
-              {{ statusText(item.status) }}
-            </el-tag>
+          </div>
+
+          <div
+            v-else
+            class="empty-tip"
+          >
+            还没有常用场景，开始第一次生成吧
           </div>
         </div>
 
-        <!-- ============ 网格视图 ============ -->
-        <div v-else class="recent-grid">
-          <div
-            v-for="item in filteredRecentList"
-            :key="item.generation_id"
-            class="grid-card"
-            :class="`grid-card--${item.status}`"
-            @click="goHistoryDetail(item)"
-          >
-            <div class="grid-bar"></div>
-            <div class="grid-icon" :style="recentIconStyle(item)">
-              <el-icon :size="20"><component :is="recentIconComp(item)" /></el-icon>
-            </div>
-            <div class="grid-title">{{ item.product.name }}</div>
-            <div class="grid-template">{{ item.template.name }}</div>
-            <div class="grid-foot">
-              <el-tag :type="recentStatusType(item.status)" size="small" effect="light" round>
-                {{ statusText(item.status) }}
-              </el-tag>
-            </div>
+        <!-- ========== 最近生成（重构：时间分组 + 视图切换 + 状态筛选） ==========
+         关键：参考 Notion/Linear 的时间线分组，告别"单纯排列" -->
+        <!-- 关键：先关闭左列，再开右列 -->
+      </div>
+      <div class="dashboard-split__right">
+        <div class="section-block">
+          <div class="section-header">
+            <h3 class="section-title">
+              最近生成
+            </h3>
+            <el-button
+              text
+              type="primary"
+              @click="goHistory"
+            >
+              查看全部
+              <el-icon><ArrowRight /></el-icon>
+            </el-button>
           </div>
+
+          <div
+            v-if="recentList.length === 0"
+            class="empty-tip"
+          >
+            暂无生成记录
+          </div>
+
+          <template v-else>
+            <!-- 关键：单行紧凑布局（状态筛选 + 视图切换） -->
+            <div class="recent-toolbar">
+              <!-- 左侧：状态筛选 -->
+              <div class="recent-stats">
+                <el-radio-group
+                  v-model="recentFilter"
+                  size="small"
+                  class="recent-filter-row"
+                >
+                  <el-radio-button label="all">
+                    全部
+                  </el-radio-button>
+                  <el-radio-button label="success">
+                    已完成
+                  </el-radio-button>
+                  <el-radio-button label="running">
+                    进行中
+                  </el-radio-button>
+                  <el-radio-button label="failed">
+                    失败
+                  </el-radio-button>
+                </el-radio-group>
+              </div>
+
+              <!-- 右侧：视图切换（仅图标，更紧凑） -->
+              <el-radio-group
+                v-model="recentViewMode"
+                size="small"
+              >
+                <el-radio-button label="timeline">
+                  <el-icon><Clock /></el-icon>
+                </el-radio-button>
+                <el-radio-button label="list">
+                  <el-icon><Menu /></el-icon>
+                </el-radio-button>
+                <el-radio-button label="grid">
+                  <el-icon><Grid /></el-icon>
+                </el-radio-button>
+              </el-radio-group>
+            </div>
+
+            <!-- 关键：3 种视图模式 -->
+            <!-- ============ 时间线视图（默认） ============ -->
+            <div
+              v-if="recentViewMode === 'timeline'"
+              class="recent-timeline"
+            >
+              <div
+                v-for="group in groupedRecentList"
+                :key="group.label"
+                class="timeline-group"
+              >
+                <!-- 关键：分组头（日期 + 数量 + 圆点）-->
+                <div class="timeline-group__header">
+                  <div class="timeline-dot" />
+                  <div class="timeline-label">
+                    {{ group.label }}
+                  </div>
+                  <div class="timeline-count">
+                    {{ group.items.length }} 条
+                  </div>
+                  <div class="timeline-line" />
+                </div>
+                <!-- 该分组下的列表项 -->
+                <div
+                  v-for="item in group.items"
+                  :key="item.generation_id"
+                  class="timeline-item"
+                  :class="`timeline-item--${item.status}`"
+                  @click="goHistoryDetail(item)"
+                >
+                  <!-- 左侧时间戳 -->
+                  <div class="timeline-time">
+                    {{ formatTimeOfDay(item.created_at) }}
+                  </div>
+                  <!-- 彩色状态条 -->
+                  <div class="timeline-bar" />
+                  <!-- 主内容 -->
+                  <div
+                    class="timeline-icon"
+                    :style="recentIconStyle(item)"
+                  >
+                    <el-icon :size="16">
+                      <component :is="recentIconComp(item)" />
+                    </el-icon>
+                  </div>
+                  <div class="timeline-content">
+                    <div class="timeline-title">
+                      {{ item.product.name }} · {{ item.template.name }}
+                    </div>
+                    <div class="timeline-meta">
+                      <span
+                        v-if="item.duration_ms"
+                        class="timeline-duration"
+                      >
+                        <el-icon :size="10"><Timer /></el-icon>
+                        {{ formatDuration(item.duration_ms) }}
+                      </span>
+                    </div>
+                  </div>
+                  <!-- 右侧：状态 + 操作 -->
+                  <el-tag
+                    :type="recentStatusType(item.status)"
+                    size="small"
+                    effect="light"
+                    round
+                  >
+                    {{ statusText(item.status) }}
+                  </el-tag>
+                  <el-button
+                    class="timeline-action"
+                    size="small"
+                    type="primary"
+                    link
+                    @click.stop="goHistoryDetail(item)"
+                  >
+                    <el-icon :size="13">
+                      <View />
+                    </el-icon>
+                  </el-button>
+                </div>
+              </div>
+            </div>
+
+            <!-- ============ 列表视图 ============ -->
+            <div
+              v-else-if="recentViewMode === 'list'"
+              class="recent-list"
+            >
+              <div
+                v-for="item in filteredRecentList"
+                :key="item.generation_id"
+                class="list-item"
+                :class="`list-item--${item.status}`"
+                @click="goHistoryDetail(item)"
+              >
+                <div class="list-bar" />
+                <div
+                  class="list-icon"
+                  :style="recentIconStyle(item)"
+                >
+                  <el-icon :size="16">
+                    <component :is="recentIconComp(item)" />
+                  </el-icon>
+                </div>
+                <div class="list-content">
+                  <div class="list-title">
+                    {{ item.product.name }} · {{ item.template.name }}
+                  </div>
+                  <div class="list-sub">
+                    <span class="list-time">{{ formatExactTime(item.created_at) }}</span>
+                    <span
+                      v-if="item.duration_ms"
+                      class="list-duration"
+                    >
+                      · <el-icon :size="10"><Timer /></el-icon> {{ formatDuration(item.duration_ms) }}
+                    </span>
+                  </div>
+                </div>
+                <el-tag
+                  :type="recentStatusType(item.status)"
+                  size="small"
+                  effect="light"
+                  round
+                >
+                  {{ statusText(item.status) }}
+                </el-tag>
+              </div>
+            </div>
+
+            <!-- ============ 网格视图 ============ -->
+            <div
+              v-else
+              class="recent-grid"
+            >
+              <div
+                v-for="item in filteredRecentList"
+                :key="item.generation_id"
+                class="grid-card"
+                :class="`grid-card--${item.status}`"
+                @click="goHistoryDetail(item)"
+              >
+                <div class="grid-bar" />
+                <div
+                  class="grid-icon"
+                  :style="recentIconStyle(item)"
+                >
+                  <el-icon :size="20">
+                    <component :is="recentIconComp(item)" />
+                  </el-icon>
+                </div>
+                <div class="grid-title">
+                  {{ item.product.name }}
+                </div>
+                <div class="grid-template">
+                  {{ item.template.name }}
+                </div>
+                <div class="grid-foot">
+                  <el-tag
+                    :type="recentStatusType(item.status)"
+                    size="small"
+                    effect="light"
+                    round
+                  >
+                    {{ statusText(item.status) }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
-      </template>
-    </div>
       </div>
     </div>
   </div>

@@ -9,26 +9,41 @@
     <!-- 用户横幅卡片：左侧头像 + 姓名/角色，右侧注册时间 -->
     <section class="sxk-userinfo__banner">
       <div class="banner-left">
-        <div class="banner-avatar" :style="{ background: avatarBg }">{{ avatarText }}</div>
+        <div
+          class="banner-avatar"
+          :style="{ background: avatarBg }"
+        >
+          {{ avatarText }}
+        </div>
         <div class="banner-meta">
           <div class="banner-name">
             <span class="name-text">{{ displayName }}</span>
-            <el-tag :type="info.is_admin ? 'danger' : 'primary'" effect="light" round>
+            <el-tag
+              :type="info.is_admin ? 'danger' : 'primary'"
+              effect="light"
+              round
+            >
               {{ info.is_admin ? '管理员' : '普通用户' }}
             </el-tag>
           </div>
           <div class="banner-sub">
             <el-icon><User /></el-icon>
             <span>{{ info.username || '-' }}</span>
-            <el-icon class="ml"><Message /></el-icon>
+            <el-icon class="ml">
+              <Message />
+            </el-icon>
             <span>{{ info.email || '-' }}</span>
           </div>
         </div>
       </div>
       <div class="banner-right">
         <div class="stat-item">
-          <div class="stat-label">注册时间</div>
-          <div class="stat-value">{{ formatDate(info.created_at) || '—' }}</div>
+          <div class="stat-label">
+            注册时间
+          </div>
+          <div class="stat-value">
+            {{ formatDate(info.created_at) || '—' }}
+          </div>
         </div>
       </div>
     </section>
@@ -38,15 +53,38 @@
       <div class="card-title">
         <el-icon><Document /></el-icon>
         <span>账号信息</span>
-        <el-button type="primary" text class="card-edit-btn" @click="openProfileDialog">编辑</el-button>
+        <el-button
+          type="primary"
+          text
+          class="card-edit-btn"
+          @click="openProfileDialog"
+        >
+          编辑
+        </el-button>
       </div>
-      <el-descriptions :column="2" border class="sxk-userinfo__desc">
-        <el-descriptions-item label="用户名">{{ info.username || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="姓名">{{ info.name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="角色">{{ info.is_admin ? '管理员' : '普通用户' }}</el-descriptions-item>
-        <el-descriptions-item label="邮箱">{{ info.email || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="用户ID">{{ info.id || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="注册时间">{{ formatDate(info.created_at) || '-' }}</el-descriptions-item>
+      <el-descriptions
+        :column="2"
+        border
+        class="sxk-userinfo__desc"
+      >
+        <el-descriptions-item label="用户名">
+          {{ info.username || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="姓名">
+          {{ info.name || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="角色">
+          {{ info.is_admin ? '管理员' : '普通用户' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="邮箱">
+          {{ info.email || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="用户ID">
+          {{ info.id || '-' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="注册时间">
+          {{ formatDate(info.created_at) || '-' }}
+        </el-descriptions-item>
       </el-descriptions>
     </section>
 
@@ -59,59 +97,154 @@
       <div class="security-list">
         <div class="security-item">
           <div class="security-info">
-            <div class="security-name">登录密码</div>
-            <div class="security-desc">建议定期更换密码，保障账号安全</div>
+            <div class="security-name">
+              登录密码
+            </div>
+            <div class="security-desc">
+              建议定期更换密码，保障账号安全
+            </div>
           </div>
-          <el-button type="primary" text @click="handleEditPassword">修改</el-button>
+          <el-button
+            type="primary"
+            text
+            @click="handleEditPassword"
+          >
+            修改
+          </el-button>
         </div>
         <div class="security-item">
           <div class="security-info">
-            <div class="security-name">绑定邮箱</div>
-            <div class="security-desc">{{ info.email ? `已绑定 ${info.email}` : '未绑定' }}</div>
+            <div class="security-name">
+              绑定邮箱
+            </div>
+            <div class="security-desc">
+              {{ info.email ? `已绑定 ${info.email}` : '未绑定' }}
+            </div>
           </div>
-          <el-button type="primary" text @click="openProfileDialog">{{ info.email ? '更换' : '去绑定' }}</el-button>
+          <el-button
+            type="primary"
+            text
+            @click="openProfileDialog"
+          >
+            {{ info.email ? '更换' : '去绑定' }}
+          </el-button>
         </div>
       </div>
     </section>
 
     <!-- 编辑资料弹窗 -->
-    <el-dialog v-model="profileDialog" title="编辑个人资料" width="440px" append-to-body>
-      <el-form ref="profileFormRef" :model="profileForm" :rules="profileRules" label-width="80px">
+    <el-dialog
+      v-model="profileDialog"
+      title="编辑个人资料"
+      width="440px"
+      append-to-body
+    >
+      <el-form
+        ref="profileFormRef"
+        :model="profileForm"
+        :rules="profileRules"
+        label-width="80px"
+      >
         <el-form-item label="用户名">
-          <el-input :model-value="info.username" disabled />
+          <el-input
+            :model-value="info.username"
+            disabled
+          />
         </el-form-item>
-        <el-form-item label="姓名" prop="name">
-          <el-input v-model="profileForm.name" placeholder="请输入姓名" />
+        <el-form-item
+          label="姓名"
+          prop="name"
+        >
+          <el-input
+            v-model="profileForm.name"
+            placeholder="请输入姓名"
+          />
         </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="profileForm.email" placeholder="请输入邮箱" />
+        <el-form-item
+          label="邮箱"
+          prop="email"
+        >
+          <el-input
+            v-model="profileForm.email"
+            placeholder="请输入邮箱"
+          />
         </el-form-item>
         <el-form-item label="头像色">
           <el-color-picker v-model="profileForm.color" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="profileDialog = false">取消</el-button>
-        <el-button type="primary" :loading="profileSaving" @click="submitProfile">保存</el-button>
+        <el-button @click="profileDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="profileSaving"
+          @click="submitProfile"
+        >
+          保存
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 修改密码弹窗 -->
-    <el-dialog v-model="pwdDialog" title="修改密码" width="420px" append-to-body>
-      <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-width="90px">
-        <el-form-item label="原密码" prop="old">
-          <el-input v-model="pwdForm.old" type="password" show-password placeholder="请输入原密码" />
+    <el-dialog
+      v-model="pwdDialog"
+      title="修改密码"
+      width="420px"
+      append-to-body
+    >
+      <el-form
+        ref="pwdFormRef"
+        :model="pwdForm"
+        :rules="pwdRules"
+        label-width="90px"
+      >
+        <el-form-item
+          label="原密码"
+          prop="old"
+        >
+          <el-input
+            v-model="pwdForm.old"
+            type="password"
+            show-password
+            placeholder="请输入原密码"
+          />
         </el-form-item>
-        <el-form-item label="新密码" prop="new">
-          <el-input v-model="pwdForm.new" type="password" show-password placeholder="6-20 位" />
+        <el-form-item
+          label="新密码"
+          prop="new"
+        >
+          <el-input
+            v-model="pwdForm.new"
+            type="password"
+            show-password
+            placeholder="6-20 位"
+          />
         </el-form-item>
-        <el-form-item label="确认密码" prop="confirm">
-          <el-input v-model="pwdForm.confirm" type="password" show-password placeholder="请再次输入新密码" />
+        <el-form-item
+          label="确认密码"
+          prop="confirm"
+        >
+          <el-input
+            v-model="pwdForm.confirm"
+            type="password"
+            show-password
+            placeholder="请再次输入新密码"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="pwdDialog = false">取消</el-button>
-        <el-button type="primary" :loading="pwdSaving" @click="submitPwd">确认修改</el-button>
+        <el-button @click="pwdDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="pwdSaving"
+          @click="submitPwd"
+        >
+          确认修改
+        </el-button>
       </template>
     </el-dialog>
   </div>

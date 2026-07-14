@@ -22,13 +22,22 @@
     <div class="tc-head">
       <div class="tc-head__left">
         <h3 class="tc-head__title">
-          <el-icon class="tc-head__icon"><Plus /></el-icon>
+          <el-icon class="tc-head__icon">
+            <Plus />
+          </el-icon>
           创建自定义模板
         </h3>
-        <p class="tc-head__sub">定义一个新的内容生成模板</p>
+        <p class="tc-head__sub">
+          定义一个新的内容生成模板
+        </p>
       </div>
-      <button class="tc-head__close" @click="$emit('update:modelValue', false)">
-        <el-icon :size="20"><Close /></el-icon>
+      <button
+        class="tc-head__close"
+        @click="$emit('update:modelValue', false)"
+      >
+        <el-icon :size="20">
+          <Close />
+        </el-icon>
       </button>
     </div>
 
@@ -40,12 +49,26 @@
         :rules="rules"
         label-width="100px"
       >
-        <el-form-item label="模板名称" prop="name">
-          <el-input v-model="form.name" placeholder="如：金融业产品介绍" maxlength="64" />
+        <el-form-item
+          label="模板名称"
+          prop="name"
+        >
+          <el-input
+            v-model="form.name"
+            placeholder="如：金融业产品介绍"
+            maxlength="64"
+          />
         </el-form-item>
 
-        <el-form-item label="适用场景" prop="scene_code">
-          <el-select v-model="form.scene_code" placeholder="请选择" style="width: 100%">
+        <el-form-item
+          label="适用场景"
+          prop="scene_code"
+        >
+          <el-select
+            v-model="form.scene_code"
+            placeholder="请选择"
+            style="width: 100%"
+          >
             <el-option
               v-for="s in meta.scene_codes || []"
               :key="s.code"
@@ -55,8 +78,15 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="输出格式" prop="output_format">
-          <el-select v-model="form.output_format" placeholder="请选择" style="width: 100%">
+        <el-form-item
+          label="输出格式"
+          prop="output_format"
+        >
+          <el-select
+            v-model="form.output_format"
+            placeholder="请选择"
+            style="width: 100%"
+          >
             <el-option
               v-for="o in meta.output_formats || []"
               :key="o.code"
@@ -76,7 +106,10 @@
           />
         </el-form-item>
 
-        <el-form-item label="提示词 Prompt" prop="prompt">
+        <el-form-item
+          label="提示词 Prompt"
+          prop="prompt"
+        >
           <el-input
             v-model="form.prompt"
             type="textarea"
@@ -107,9 +140,17 @@
                 type="danger"
                 :disabled="form.sections.length <= 1"
                 @click="removeSection(idx)"
-              >删除</el-button>
+              >
+                删除
+              </el-button>
             </div>
-            <el-button link type="primary" @click="addSection">+ 添加章节</el-button>
+            <el-button
+              link
+              type="primary"
+              @click="addSection"
+            >
+              + 添加章节
+            </el-button>
           </div>
         </el-form-item>
       </el-form>
@@ -118,8 +159,16 @@
     <!-- 底部 -->
     <template #footer>
       <div class="tc-foot">
-        <el-button @click="cancel">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="submit">保存模板</el-button>
+        <el-button @click="cancel">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="saving"
+          @click="submit"
+        >
+          保存模板
+        </el-button>
       </div>
     </template>
   </el-dialog>
