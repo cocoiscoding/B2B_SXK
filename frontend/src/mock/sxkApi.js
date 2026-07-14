@@ -2037,15 +2037,41 @@ export const sxkApi = {
   /**
    * 导出历史内容（支持 docx / markdown / txt 三种格式）
    * GET /api/history/{id}/export?format=docx|markdown|txt
-   * - 真实链路：responseType: blob，由后端生成文件
+   * - 真实链路：responseType: blob，由后端生成文件，前端从 blob + Content-Disposition 触发下载
    * - Mock 阶段：按 format 生成本地 blob 触发下载
    */
   exportHistory: (generationId, format = 'docx') => {
     if (!USE_MOCK_BIZ) {
-      return real({
+      // 关键：不能用 real()（它只返回 res.data），需要拿到完整 response 以读取 Content-Disposition 文件名
+      return request({
         url: `/api/history/${generationId}/export?format=${format}`,
         method: 'get',
         responseType: 'blob'
+      }).then((res) => {
+        const blob = res.data
+        const cd = res.headers['content-disposition'] || ''
+        // 从 Content-Disposition 提取文件名（优先 filename*=UTF-8''，回退 filename=）
+        let filename = `export_${generationId}.${format === 'markdown' ? 'md' : format}`
+        const starMatch = cd.match(/filename\*=UTF-8''(.+?)(?:;|$)/i)
+        if (starMatch) {
+          try { filename = decodeURIComponent(starMatch[1]) } catch { /* ignore */ }
+        } else {
+          const plainMatch = cd.match(/filename="?([^";]+)"?/i)
+          if (plainMatch) filename = plainMatch[1]
+        }
+        // 触发浏览器下载（与 mock 路径一致的 <a> 点击方式）
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        setTimeout(() => {
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+        }, 100)
+        return ok({ filename, format })
       })
     }
     return delay(200).then(() => {

@@ -238,94 +238,205 @@ def _extract_with_llm(provider: LLMProvider, text: str) -> tuple[dict, str]:
 
 
 def _extract_heuristic(blocks: list[dict], text: str) -> tuple[dict, str]:
-    """Mock 模式：用标题层级 + 关键词规则启发式抽取。
+    """启发式抽取：按"标题 → 章节正文"的结构化方式解析。
 
-    规则：
-    - 产品名：第一个标题；没有则取第一段前 20 字
-    - 描述：前 2-3 个非标题段落拼起来
-    - 功能：每个标题 + 紧跟其后的段落 → 一个 feature
-    - 技术参数：含"："且值简短的行，或含 版本/部署/并发 等关键词的行
-    - 定价：含 ¥/元/价格/定价 的行
-    - 卖点：含 优势/卖点/亮点/特点 的行
-    - 竞品：含 竞品/对比 的行
+    核心思路：
+    1. 把 blocks 按 heading 切分成多个 section（标题 + 其后段落列表）
+    2. 根据每个 section 的标题关键词，映射到对应产品字段：
+       - 名称/产品名 → product.name
+       - 分类/类别 → category
+       - 描述/简介 → description
+       - 功能/特性 → features（章节正文每行 = 一个功能）
+       - 目标客户/适用客户 → target_customers
+       - 价格/定价 → pricing
+       - 卖点/优势 → selling_points
+       - 竞品/对比 → competitors
+       - 技术参数/规格 → tech_params
+    3. 无 heading 结构时回退到关键词逐行扫描（仅扫描段落，不含标题本身）
     """
     product = _empty_product()
     found: list[str] = []
 
-    # 产品名
-    headings = [b for b in blocks if b["type"] == "heading"]
-    paragraphs = [b for b in blocks if b["type"] == "paragraph"]
-    if headings:
-        product["name"] = headings[0]["text"][:50]
-        found.append("名称")
-    elif paragraphs:
-        product["name"] = paragraphs[0]["text"][:20]
-        found.append("名称")
+    # ===== 章节标题正则 =====
+    _RE_NAME = re.compile(r"产品名称|产品名|^名称$")
+    _RE_CATEGORY = re.compile(r"产品分类|^分类$|类别|类目|所属分类")
+    _RE_DESC = re.compile(r"产品描述|^描述$|产品简介|^简介$|产品介绍|产品概述|^概述$")
+    _RE_FEATURE = re.compile(r"功能特性|核心功能|^功能$|功能列表|主要功能|功能介绍|产品功能|特性")
+    _RE_TARGET = re.compile(r"目标客户|适用客户|客户群体|目标人群|适用行业|目标对象|^客户$")
+    _RE_PRICING = re.compile(r"^价格$|价格信息|定价|费用|报价|收费|套餐")
+    _RE_SELLING = re.compile(r"^卖点$|产品卖点|核心优势|^优势$|亮点|特点|价值主张")
+    _RE_COMPETITOR = re.compile(r"竞品|竞争分析|竞品对比|^对比$|竞对")
+    _RE_TECH = re.compile(r"技术参数|技术规格|^参数$|^规格$|技术指标")
 
-    # 描述：前 3 个段落
-    if paragraphs:
-        product["description"] = " ".join(p["text"] for p in paragraphs[:3])[:300]
+    # ===== 1. 切分章节 =====
+    sections: list[tuple[str, list[str]]] = []
+    cur_heading = ""
+    cur_lines: list[str] = []
+    for b in blocks:
+        if b["type"] == "heading":
+            if cur_heading or cur_lines:
+                sections.append((cur_heading, cur_lines))
+            cur_heading = b["text"].strip()
+            cur_lines = []
+        elif b["type"] == "paragraph":
+            cur_lines.append(b["text"].strip())
+        elif b["type"] == "table":
+            cur_lines.append(b["text"].strip())
+    if cur_heading or cur_lines:
+        sections.append((cur_heading, cur_lines))
+
+    # ===== 2. 从第一个章节确定产品名 =====
+    if sections:
+        first_h, first_lines = sections[0]
+        if _RE_NAME.search(first_h) and first_lines:
+            # 标题是"产品名称"，实际名称在后面的段落
+            product["name"] = first_lines[0][:50]
+            found.append("名称")
+            sections = sections[1:]   # 已消费，后续不再处理
+        elif first_h and not _RE_NAME.search(first_h):
+            # 第一个标题本身就是产品名
+            product["name"] = first_h[:50]
+            found.append("名称")
+        elif first_lines:
+            product["name"] = first_lines[0][:20]
+            found.append("名称")
+
+    # ===== 3. 按章节标题映射到字段 =====
+    description_parts: list[str] = []
+    features: list[dict] = []
+    target_customers: list[str] = []
+    selling_points: list[str] = []
+    competitors: list[str] = []
+    tech_params: list[dict] = []
+    pricing_lines: list[str] = []
+    category_vals: list[str] = []
+
+    for heading, lines in sections:
+        section_text = " ".join(l for l in lines if l).strip()
+
+        # 产品分类
+        if _RE_CATEGORY.search(heading):
+            content = _strip_label_prefix(section_text)
+            if content:
+                for c in re.split(r"[，,、；;\n]", content):
+                    c = c.strip()
+                    if c and c not in category_vals:
+                        category_vals.append(c)
+            continue
+
+        # 产品描述
+        if _RE_DESC.search(heading):
+            if section_text:
+                description_parts.append(section_text)
+            continue
+
+        # 功能特性：每行 = 一个功能
+        if _RE_FEATURE.search(heading):
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                name, desc = _split_feature_line(line)
+                if name:
+                    features.append({"name": name[:30], "description": desc[:120]})
+            continue
+
+        # 目标客户
+        if _RE_TARGET.search(heading):
+            content = _strip_label_prefix(section_text)
+            if content:
+                for tc in re.split(r"[，,、；;\n]", content):
+                    tc = tc.strip()
+                    if 2 <= len(tc) <= 30 and tc not in target_customers:
+                        target_customers.append(tc)
+            continue
+
+        # 价格
+        if _RE_PRICING.search(heading):
+            if section_text:
+                pricing_lines.append(section_text[:200])
+            continue
+
+        # 卖点
+        if _RE_SELLING.search(heading):
+            content = _strip_label_prefix(section_text)
+            if content:
+                for sp in re.split(r"[，,、；;\n]", content):
+                    sp = sp.strip()
+                    if 2 <= len(sp) <= 30 and sp not in selling_points:
+                        selling_points.append(sp)
+            continue
+
+        # 竞品
+        if _RE_COMPETITOR.search(heading):
+            content = _strip_label_prefix(section_text)
+            if content:
+                for c in re.split(r"[，,、和与；;\n]", content):
+                    c = c.strip()
+                    if 2 <= len(c) <= 20 and c not in competitors:
+                        competitors.append(c)
+            continue
+
+        # 技术参数
+        if _RE_TECH.search(heading):
+            for line in lines:
+                line = line.strip()
+                if ("：" in line or ":" in line) and len(line) < 80:
+                    sep = "：" if "：" in line else ":"
+                    k, _, v = line.partition(sep)
+                    if k.strip() and v.strip():
+                        tech_params.append({"name": k.strip()[:20], "value": v.strip()[:40]})
+            continue
+
+    # ===== 4. 回退：无章节命中时，对段落逐行关键词扫描 =====
+    para_lines = [b["text"].strip() for b in blocks if b["type"] == "paragraph"]
+    if not description_parts and para_lines:
+        description_parts.append(" ".join(para_lines[:3])[:300])
+    for line in para_lines:
+        # 定价回退
+        if not pricing_lines and re.search(r"[¥￥]|\d+元|定价|价格|报价|/年|/月", line) and len(line) < 200:
+            pricing_lines.append(line[:200])
+        # 卖点回退
+        if not selling_points and re.search(r"优势|卖点|亮点|特点", line) and len(line) < 100:
+            content = _strip_label_prefix(line)
+            for sp in re.split(r"[，,、；;]", content):
+                sp = sp.strip()
+                if 2 <= len(sp) <= 30 and sp not in selling_points:
+                    selling_points.append(sp)
+        # 目标客户回退
+        if not target_customers and re.search(r"目标客户|适用客户|客户群体|适用行业", line) and len(line) < 100:
+            content = _strip_label_prefix(line)
+            for tc in re.split(r"[，,、；;\n]", content):
+                tc = tc.strip()
+                if 2 <= len(tc) <= 30 and tc not in target_customers:
+                    target_customers.append(tc)
+        # 竞品回退
+        if not competitors and re.search(r"竞品|对比|竞对", line):
+            content = _strip_label_prefix(line)
+            for c in re.split(r"[，,、和与]", content):
+                c = c.strip()
+                if 2 <= len(c) <= 20 and c not in competitors:
+                    competitors.append(c)
+
+    # ===== 5. 赋值到 product =====
+    if description_parts:
+        product["description"] = " ".join(description_parts)[:500]
         found.append("描述")
-
-    # 功能：标题 + 紧邻段落
-    features = []
-    for i, b in enumerate(blocks):
-        if b["type"] == "heading" and i > 0:
-            # 找标题后的第一个段落作为功能说明
-            desc = ""
-            for j in range(i + 1, len(blocks)):
-                if blocks[j]["type"] == "paragraph":
-                    desc = blocks[j]["text"][:120]
-                    break
-                if blocks[j]["type"] == "heading":
-                    break
-            features.append({"name": b["text"][:30], "description": desc})
+    if category_vals:
+        product["category"] = category_vals[:5]
+        found.append("分类")
     if features:
         product["features"] = features[:8]
         found.append("功能")
-
-    # 技术参数 / 定价 / 卖点 / 竞品：按关键词在所有文本行里找
-    all_lines = [b["text"] for b in blocks]
-    tech_params = []
-    selling_points = []
-    competitors: list[str] = []
-    pricing = ""
-
-    for line in all_lines:
-        # 定价
-        if not pricing and re.search(r"[¥￥]|\d+元|定价|价格|订阅", line):
-            pricing = line[:60]
-            found.append("定价")
-        # 卖点：含 优势/卖点/亮点 等关键词的行（优先于技术参数判断）
-        is_selling_line = bool(re.search(r"优势|卖点|亮点|特点|核心优势", line)) and len(line) < 50
-        if is_selling_line:
-            # 去掉"核心优势："之类的前缀，取冒号后的内容再拆分
-            content = line.split("：", 1)[1] if "：" in line else line
-            content = content.split(":", 1)[1] if ":" in content else content
-            for sp in re.split(r"[，,、；;]", content):
-                sp = sp.strip()
-                if 2 <= len(sp) <= 12 and sp not in selling_points:
-                    selling_points.append(sp)
-            continue   # 卖点行不再当技术参数
-        # 技术参数：形如"键：值"且值不太长，且不是定价/竞品行
-        if ("：" in line or ":" in line) and len(line) < 40 \
-                and not re.search(r"[¥￥]|\d+元|定价|价格|订阅|竞品|对比|竞对", line):
-            sep = "：" if "：" in line else ":"
-            k, _, v = line.partition(sep)
-            if k.strip() and v.strip():
-                tech_params.append({"name": k.strip()[:20], "value": v.strip()[:40]})
-        # 竞品
-        if re.search(r"竞品|对比|竞对", line):
-            for c in re.split(r"[，,、和与]", line):
-                c = re.sub(r"竞品|对比|竞对|：|:", "", c).strip()
-                if 2 <= len(c) <= 12 and c not in competitors:
-                    competitors.append(c)
-
     if tech_params:
         product["tech_params"] = tech_params[:10]
         found.append("技术参数")
-    if pricing:
-        product["pricing"] = pricing
+    if pricing_lines:
+        product["pricing"] = "；".join(pricing_lines)[:300]
+        found.append("定价")
+    if target_customers:
+        product["target_customers"] = target_customers[:8]
+        found.append("目标客户")
     if selling_points:
         product["selling_points"] = selling_points[:6]
         found.append("卖点")
@@ -335,6 +446,38 @@ def _extract_heuristic(blocks: list[dict], text: str) -> tuple[dict, str]:
 
     note = f"规则提取完成，识别到：{ '、'.join(found) if found else '未识别到关键字段' }。请核对补全后保存。"
     return product, note
+
+
+def _strip_label_prefix(text: str) -> str:
+    """去掉"标签："或"标签:"前缀，返回纯内容。"""
+    for sep in ("：", ":"):
+        if sep in text:
+            parts = text.split(sep, 1)
+            # 仅当前缀较短（像标签而非正文中的冒号）时才去掉
+            if len(parts[0]) <= 10:
+                return parts[1].strip()
+    return text.strip()
+
+
+def _split_feature_line(line: str) -> tuple[str, str]:
+    """把一行功能描述拆成 (功能名, 描述)。
+
+    支持格式：
+    - "功能名：描述"
+    - "功能名: 描述"
+    - "功能名 - 描述"
+    - "- 功能名：描述"（列表项）
+    - "功能名"（无描述）
+    """
+    line = re.sub(r"^[\s•·\-\*]+", "", line).strip()    # 去掉列表符号
+    for sep in ("：", ":", " - ", " – ", " — "):
+        if sep in line:
+            name, _, desc = line.partition(sep)
+            name = name.strip()
+            desc = desc.strip()
+            if name and len(name) <= 30:
+                return name, desc
+    return line[:30], ""
 
 
 # ===== 工具函数 =====

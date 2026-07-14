@@ -421,6 +421,8 @@ const resetSearch = () => {
 const onAdd = () => {
   editTargetId.value = null
   editReadonly.value = false
+  // 关键：清空 Word/PDF 建库预填数据，避免上次上传的草稿残留到新增表单
+  importPrefill.value = null
   editVisible.value = true
 }
 
@@ -434,6 +436,7 @@ const onEdit = (item) => {
   editTargetId.value = item.product_id
   editReadonly.value = false
   editCanEdit.value = true
+  importPrefill.value = null
   editVisible.value = true
 }
 
@@ -445,6 +448,7 @@ const onDetail = (item) => {
   editTargetId.value = item.product_id
   editReadonly.value = true
   editCanEdit.value = canEditProduct(item)
+  importPrefill.value = null
   editVisible.value = true
 }
 
