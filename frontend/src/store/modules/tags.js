@@ -93,6 +93,14 @@ export const useTagsStore = defineStore('tags', {
         this.tag = found
         setStore({ name: 'tag', content: this.tag })
       }
+    },
+    // 通过 tabId 更新副标题（业务上下文摘要，如"产品名 · 场景名"）
+    setTabSublabel(tabId, sublabel) {
+      const index = this.tagList.findIndex((t) => t.tabId === tabId)
+      if (index !== -1) {
+        this.tagList[index].sublabel = sublabel || ''
+        setStore({ name: 'tagList', content: this.tagList })
+      }
     }
   }
 })

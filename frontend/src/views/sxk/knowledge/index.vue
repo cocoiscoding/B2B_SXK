@@ -303,11 +303,13 @@
 </template>
 
 <script setup>
-import { computed, markRaw, onMounted, reactive, ref } from 'vue'
+import { computed, markRaw, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Upload, Search, Loading, Box, TrendCharts, Connection, Promotion, MoreFilled, Refresh } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
 import { useUserStore } from '@/store/modules/user'
+import { useTagsStore } from '@/store/modules/tags'
 import ProductEditModal from './components/product-edit-modal.vue'
 
 // ========== 状态 ==========
@@ -329,9 +331,28 @@ const importing = ref(false)
 const searchMode = ref('keyword')
 // 管理员判断：用于显示"重建向量索引"按钮
 const userStore = useUserStore()
+const route = useRoute()
+const tagsStore = useTagsStore()
 const isAdmin = computed(() => !!userStore.userInfo?.is_admin)
 // 当前用户 ID：用于判定是否是某产品卡片的创建者
 const currentUserId = computed(() => userStore.userInfo?.user_id || '')
+
+// ---------- Tab 副标题：编辑/查看产品时显示产品名 ----------
+watch(editVisible, (visible) => {
+  const tabId = route.query.tabId
+  if (!tabId) return
+  if (!visible) {
+    tagsStore.setTabSublabel(tabId, '')
+    return
+  }
+  if (editTargetId.value) {
+    const item = list.value.find((p) => p.product_id === editTargetId.value)
+    const name = item?.name || ''
+    tagsStore.setTabSublabel(tabId, `${editReadonly.value ? '查看' : '编辑'}${name ? ' · ' + name : ''}`)
+  } else {
+    tagsStore.setTabSublabel(tabId, '新建产品')
+  }
+})
 
 /**
  * 关键：判断当前用户能否编辑某产品

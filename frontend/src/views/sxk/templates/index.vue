@@ -296,11 +296,13 @@ import {
   ChatDotRound    // 社交媒体
 } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
+import { useTagsStore } from '@/store/modules/tags'
 import TemplateDetailModal from './components/template-detail-modal.vue'
 import SceneCreateModal from './components/scene-create-modal.vue'
 
 const router = useRouter()
 const route = useRoute()
+const tagsStore = useTagsStore()
 
 // ========== 状态 ==========
 const allTemplates = ref([])     // 全部模板（扁平列表）
@@ -316,6 +318,19 @@ const sceneSaving = ref(false)
 const sceneManageVisible = ref(false)
 const sceneSchemasList = ref([])
 const sceneEditData = ref(null)  // null=新增模式，对象=编辑模式
+
+// ---------- Tab 副标题：查看场景模板时显示场景名 ----------
+watch(detailVisible, (visible) => {
+  const tabId = route.query.tabId
+  if (!tabId) return
+  if (!visible) {
+    tagsStore.setTabSublabel(tabId, '')
+    return
+  }
+  const scene = sceneSchemasList.value.find((s) => s.scene_code === detailTargetSceneCode.value)
+  const name = scene?.label || scene?.name || ''
+  if (name) tagsStore.setTabSublabel(tabId, name.replace(/\*/g, '').trim())
+})
 
 // ========== 工具 ==========
 const formatDate = (iso) => {

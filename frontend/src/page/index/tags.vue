@@ -2,15 +2,24 @@
   <div class="avue-tags">
     <el-scrollbar>
       <div class="tags-wrapper">
-        <div
+        <el-tooltip
           v-for="tag in tagsStore.tagList"
           :key="tag.tabId || tag.value"
+          :content="tag.sublabel ? `${tag.label} · ${tag.sublabel}` : tag.label"
+          placement="bottom"
+          :show-after="500"
+          effect="dark"
+        >
+        <div
           class="tag-item"
           :class="{ active: isActive(tag) }"
           @click="goTag(tag)"
           @contextmenu.prevent="closeTag(tag)"
         >
-          <span>{{ tag.label }}</span>
+          <div class="tag-text">
+            <span class="tag-label">{{ tag.label }}</span>
+            <span v-if="tag.sublabel" class="tag-sublabel">{{ tag.sublabel }}</span>
+          </div>
           <el-icon
             v-if="tag.close !== false"
             class="close-icon"
@@ -19,6 +28,7 @@
             <Close />
           </el-icon>
         </div>
+        </el-tooltip>
       </div>
     </el-scrollbar>
   </div>
@@ -93,11 +103,35 @@ const closeTag = (tag) => {
       background-color: $primary-color;
       color: #fff;
       border-color: $primary-color;
+
+      .tag-sublabel {
+        color: rgba(255, 255, 255, 0.75);
+      }
+    }
+
+    .tag-text {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      max-width: 220px;
+    }
+
+    .tag-label {
+      flex-shrink: 0;
+    }
+
+    .tag-sublabel {
+      font-size: $font-size-xs;
+      color: $text-secondary;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .close-icon {
       font-size: $font-size-xs;
       border-radius: $radius-round;
+      flex-shrink: 0;
       &:hover {
         background-color: rgba(255, 255, 255, 0.3);
       }

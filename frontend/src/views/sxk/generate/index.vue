@@ -1830,10 +1830,12 @@ import {
 import BasicBlock from '@/components/basic-block/main.vue'
 import { sxkApi } from '@/mock/sxkApi'
 import { renderMarkdown, renderArticle as renderArticleUtil } from './md'
+import { useTagsStore } from '@/store/modules/tags'
 
 // ---------- 路由与基础状态 ----------
 const route = useRoute()
 const router = useRouter()
+const tagsStore = useTagsStore()
 
 // 触发状态
 const triggering = ref(false)
@@ -2492,11 +2494,14 @@ onMounted(async () => {
       if (tid) await onTemplateChange(String(tid))
     }
   }
+  // 4) 数据加载完毕后更新一次副标题
+  updateTabSublabel()
 })
 
 // keep-alive 重新激活时，刷新场景 schema（用户可能在其他 Tab 修改了动态参数名称）
 onActivated(async () => {
   await loadSceneSchemas()
+  updateTabSublabel()
 })
 
 onBeforeUnmount(() => {
@@ -2520,6 +2525,24 @@ watch(
     loadSceneTemplates()
   }
 )
+
+// ---------- Tab 副标题：根据产品/场景选择动态更新 ----------
+function updateTabSublabel() {
+  const tabId = route.query.tabId
+  if (!tabId) return
+  const parts = []
+  if (form.product_id) {
+    const p = productOptions.value.find((item) => item.product_id === form.product_id)
+    if (p?.name) parts.push(p.name)
+  }
+  if (form.scene_code && currentScene.value) {
+    const label = currentScene.value.label || currentScene.value.name || ''
+    if (label) parts.push(label.replace(/\*/g, '').trim())
+  }
+  tagsStore.setTabSublabel(tabId, parts.join(' · '))
+}
+watch(() => form.product_id, updateTabSublabel)
+watch(() => form.scene_code, updateTabSublabel)
 
 // ---------- 业务方法：基础数据加载 ----------
 async function loadProductOptions() {
