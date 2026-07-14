@@ -1,7 +1,6 @@
 """初始示例数据：3 个产品 + 6 个场景模板。
 
 首次启动时若表为空则自动灌入，确保用户开箱即用。
-如果用户已通过 SQL 脚本初始化了数据，则为缺少 embedding 的产品补上向量。
 
 设计目的：
 - 让用户启动后立即有数据可看、可测试
@@ -9,9 +8,9 @@
 """
 from psycopg2.extras import Json
 from app.database import query_one, transaction
-from app.vector_search import embed_product
-from config import DEFAULT_USER_PASSWORD, EMBEDDING_DIM
+from config import DEFAULT_USER_PASSWORD
 from app.auth import hash_password
+from app.agents.channel_agent import default_format_instruction
 
 
 # SEED_PRODUCTS 是预置的 3 个示例产品
@@ -276,14 +275,7 @@ SEED_MEMBERS: list[dict] = [
 
 
 def seed_if_empty() -> None:
-    """若产品/场景表为空则灌入种子数据。
-
-    两种情况会执行灌入：
-    1. 表为空（用户没有执行 SQL 脚本）→ 插入完整种子数据 + embedding
-    2. 表有数据但 embedding 为空（用户执行了 SQL 但没有 embedding）→ 只补 embedding
-
-    这确保无论用户用哪种方式初始化数据库，向量检索都能正常工作。
-    """
+    """若产品/场景表为空则灌入种子数据。"""
     # 延迟导入避免循环依赖
     from app.database import query
 
@@ -292,40 +284,20 @@ def seed_if_empty() -> None:
         # 情况 1：表为空，插入完整种子数据
         with transaction() as cur:
             for p in SEED_PRODUCTS:
-                # 为每个产品生成向量嵌入
-                embedding = embed_product(p)
                 cur.execute(
                     """INSERT INTO products
                     (id,created_by,name,category,description,features,
-                     target_customers,pricing,selling_points,images,documents,embedding)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                     target_customers,pricing,selling_points,images,documents)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                     (
                         p["id"], p.get("created_by"), p["name"], Json(p["category"]), p["description"],
                         Json(p["features"]),
                         Json(p["target_customers"]), p["pricing"],
                         Json(p["selling_points"]),
                         Json(p.get("images", [])), Json(p.get("documents", [])),
-                        Json(embedding),
                     ),
                 )
     else:
-        # 情况 2：表有数据。检查"缺向量"或"向量维度与当前 EMBEDDING_DIM 不符"的产品
-        # 维度不符发生在切换 embedding 模型时（如 Mock 128 → 通义千问 1024），需重建
-        need_embed = query(
-            "SELECT * FROM products WHERE embedding IS NULL "
-            "OR jsonb_array_length(embedding) <> %s",
-            (EMBEDDING_DIM,),
-        )
-        if need_embed:
-            # 重新生成向量（真实 embedding 不可用时 embed_product 会自动降级 Mock）
-            with transaction() as cur:
-                for row in need_embed:
-                    embedding = embed_product(row)
-                    cur.execute(
-                        "UPDATE products SET embedding=%s, updated_at=NOW() WHERE id=%s",
-                        (Json(embedding), row["id"]),
-                    )
-            print(f"[seed] 已为 {len(need_embed)} 个产品（重新）生成向量嵌入")
         # 老库回填：种子产品在新增 created_by 列前已插入，此处补上创建人
         seed_cb = {p["id"]: p.get("created_by") for p in SEED_PRODUCTS if p.get("created_by")}
         if seed_cb:
@@ -428,9 +400,18 @@ def seed_if_empty() -> None:
             for ch in DEFAULT_CHANNELS:
                 cur.execute(
                     """INSERT INTO channels
-                       (name, display_name, tone, emoji, format, description, is_builtin)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                       (name, display_name, tone, emoji, format, format_instruction, description, is_builtin)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
                     (ch["name"], ch["display_name"], ch["tone"],
-                     ch["emoji"], ch["format"], ch["description"], True),
+                     ch["emoji"], ch["format"],
+                     default_format_instruction(ch["format"]), ch["description"], True),
                 )
         print(f"[seed] 已灌入 {len(DEFAULT_CHANNELS)} 个预置渠道配置")
+    # 兼容老库：channels 已存在但 format_instruction 为 NULL（列由 ALTER 补、值未灌），
+    # 按 builtin 渠道名幂等回填。自定义渠道留 NULL，由 channel_agent 读时默认兜底。
+    with transaction() as cur:
+        for ch in DEFAULT_CHANNELS:
+            cur.execute(
+                "UPDATE channels SET format_instruction = %s WHERE name = %s AND format_instruction IS NULL",
+                (default_format_instruction(ch["format"]), ch["name"]),
+            )

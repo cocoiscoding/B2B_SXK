@@ -25,11 +25,29 @@ _FALLBACK_CHANNEL = {
     "format": "markdown",
 }
 
+# 渠道 format -> 排版结构指令：让 LLM 适配时按渠道明确重构长度/结构，而非只改语气。
+# 与 _adapt_rule 的 format 分支语义保持一致（LLM 失败回退规则时行为不割裂）。
+_FORMAT_INSTRUCTIONS = {
+    "short": "短内容平台（微博/短视频脚本）：全文压缩到 140 字以内，只留最核心的卖点与结论，可加话题标签，去掉一切铺陈。",
+    "CTA导向": "邮件营销：开头直切读者利益，正文精简为 3-5 个要点，结尾必须有明确行动号召（如「立即申请试用 / 回复本邮件 / 访问官网」）。",
+    "bullet": "PPT 要点：转为分页要点结构，每个主题一个标题 + 3-5 条短要点（用 - 或 ·），去掉大段叙述。",
+    "短段落": "移动端阅读（公众号/小红书/B站）：拆成 2-3 句一段的短段落，段落间空行，适合手机滑屏；标题可点缀 emoji。",
+    "markdown": "长文渠道（官网/知乎/LinkedIn）：保持 markdown 结构，但必须按渠道语气调整行文深度与视角--官网偏产品正式表述、知乎偏深度分析可补背景与观点、LinkedIn 偏国际专业视角（可中英混排）；与原稿不得逐段雷同。",
+}
+
+
+def default_format_instruction(fmt: str) -> str:
+    """渠道 format -> 默认排版结构指令（代码侧真值源 + DB 缺省时的读时兜底）。
+
+    DB 的 channels.format_instruction 优先；为空（如自定义渠道未配）时回退本默认。
+    """
+    return _FORMAT_INSTRUCTIONS.get(fmt, _FORMAT_INSTRUCTIONS["markdown"])
+
 
 def get_channel_config(channel_name: str) -> dict | None:
     """从数据库查询渠道配置，返回 None 表示渠道不存在。"""
     row = query_one(
-        "SELECT name, tone, emoji, format, description FROM channels WHERE name = %s",
+        "SELECT name, tone, emoji, format, format_instruction, description FROM channels WHERE name = %s",
         (channel_name,),
     )
     return dict(row) if row else None
@@ -66,9 +84,9 @@ class ChannelAgent(BaseAgent):
         warn_note = ""
         if applicable and channel not in applicable:
             status = "warning"
-            warn_note = f"；⚠ 渠道「{channel}」不在模板适用渠道 {applicable} 内，产出可能不理想"
+            warn_note = f"；⚠ 渠道「{channel}」非模板推荐渠道（推荐：{applicable}），将按渠道规范适配，效果可能偏离模板原生风格"
 
-        use_llm = bool(self._llm) and self._llm.name != "mock-engine"
+        use_llm = self._use_llm
         if use_llm:
             adapted = [
                 self._adapt_with_llm(v, channel, cfg) for v in ctx.draft_versions
@@ -111,7 +129,7 @@ class ChannelAgent(BaseAgent):
             if cfg is None:
                 skipped.append(ch)
                 continue
-            use_llm = bool(self._llm) and self._llm.name != "mock-engine"
+            use_llm = self._use_llm
             if use_llm:
                 adapted = self._adapt_with_llm(version, ch, cfg)
             else:
@@ -119,10 +137,10 @@ class ChannelAgent(BaseAgent):
             # 标识渠道归属 + 重新编号
             adapted["channel"] = ch
             adapted["index"] = i
-            # 渠道不在模板适用范围 -> 在 tags 里告警（前端可见，不阻断适配）
+            # 渠道非模板推荐渠道 -> 在 tags 里告警（前端可见，不阻断适配）
             if applicable and ch not in applicable:
                 tags = list(adapted.get("tags") or [])
-                warn = f"⚠{ch}非模板适用渠道"
+                warn = f"⚠{ch}非模板推荐渠道"
                 if warn not in tags:
                     tags.append(warn)
                 adapted["tags"] = tags
@@ -132,22 +150,39 @@ class ChannelAgent(BaseAgent):
     # ----- LLM 改写 -----
 
     def _adapt_with_llm(self, version: dict, channel: str, cfg: dict) -> dict:
-        """用 LLM 按渠道语气改写单个版本。
+        """用 LLM 把单个版本改写为适合目标渠道发布的形态。
 
-        严格要求保持产品名/定价/参数/卖点等事实不变。
-        LLM 返回 JSON {title, body}；解析失败或异常则回退规则适配。
+        综合渠道的 tone(语气) / format(排版结构) / emoji / description 做皮肤化：按渠道
+        重构长度与排版结构、调整语气、点缀视觉元素，严格保持产品名/定价/参数/卖点等事实不变。
+        旧实现只把 tone 喂给 LLM，tone 一致的渠道（官网/知乎/LinkedIn）产出几乎雷同；现把
+        format 的明确结构指令也注入，让长度/排版真正按渠道分化。LLM 返回 JSON {title, body}；
+        解析失败或异常则回退规则适配。
         """
-        tone = cfg["tone"]
+        tone = cfg.get("tone", "")
+        fmt = cfg.get("format", "markdown")
+        emoji = bool(cfg.get("emoji", False))
+        desc = cfg.get("description", "")
+        fmt_instr = cfg.get("format_instruction") or default_format_instruction(fmt)
+        emoji_hint = (
+            "适度使用 emoji 点缀标题与要点，契合该平台氛围"
+            if emoji else "不使用 emoji，保持克制专业"
+        )
         sys_prompt = (
-            "你是渠道文案适配专家。把营销文案改写为适合目标渠道发布的风格，"
-            "严格保持产品名、定价、参数、卖点等事实不变，只调整语气与排版。输出 JSON。"
+            "你是渠道文案适配专家。把营销文案改写为适合目标渠道发布的形态："
+            "按渠道重构长度与排版结构、调整语气、点缀视觉元素，"
+            "但严格保持产品名、定价、参数、卖点等事实不变。输出 JSON。"
         )
         user_prompt = (
-            f"目标渠道：{channel}（风格要求：{tone}）\n"
+            f"目标渠道：{channel}\n"
+            f"渠道定位：{desc}\n"
+            f"语气风格：{tone}\n"
+            f"排版要求（{fmt}）：{fmt_instr}\n"
+            f"emoji：{emoji_hint}\n\n"
             f"原标题：{version.get('title', '')}\n"
             f"原正文：\n{version.get('body', '')}\n\n"
-            f"请按「{channel}」渠道的阅读习惯改写语气与排版（{tone}），"
-            "保留核心事实与 markdown 结构。只输出 JSON："
+            f"请把以上内容改写为适合「{channel}」发布的版本：严格按「排版要求」重构结构与长度，"
+            "按「语气风格」调整措辞，按「emoji」要求点缀。产品名/定价/参数/卖点等事实必须原样保留。"
+            "只输出 JSON："
             '{"title":"...","body":"..."}'
         )
         try:

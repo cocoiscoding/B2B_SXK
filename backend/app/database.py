@@ -347,10 +347,15 @@ def init_db() -> None:
                     tone           VARCHAR(100) NOT NULL DEFAULT '专业正式',
                     emoji          BOOLEAN      NOT NULL DEFAULT FALSE,
                     format         VARCHAR(50)  NOT NULL DEFAULT 'markdown',
+                    format_instruction TEXT,                       -- 渠道排版结构指令（LLM 适配时注入 prompt），由 seed 按 format 灌默认值
                     description    TEXT,
                     is_builtin     BOOLEAN      NOT NULL DEFAULT FALSE
                 );
                 """
+            )
+            # 兼容老库：channels 已建表但无 format_instruction 列，幂等补列
+            cur.execute(
+                "ALTER TABLE channels ADD COLUMN IF NOT EXISTS format_instruction TEXT"
             )
             # Token 黑名单表：用于退出登录时撤销 Token
             cur.execute(

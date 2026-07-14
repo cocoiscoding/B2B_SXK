@@ -6,6 +6,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from app.database import query, query_one, transaction
 from app.auth import get_current_user, is_owner_or_admin
+from config import COMPETITOR_CACHE_DAYS
 
 router = APIRouter(prefix="/api/products", tags=["竞品分析"])
 
@@ -14,15 +15,17 @@ router = APIRouter(prefix="/api/products", tags=["竞品分析"])
 def list_competitor_analyses(product_id: str, user: dict = Depends(get_current_user)):
     """列出某产品的所有已入库竞品分析（按更新时间倒序）。任何登录用户可看。
 
-    返回字段：id / competitor_name / analysis(完整分析 JSON) / source / updated_at
+    返回字段：id / competitor_name / analysis(完整分析 JSON) / source / updated_at / expires_at
+    expires_at = updated_at + COMPETITOR_CACHE_DAYS，据此判断缓存是否仍新鲜。
     """
     if not query_one("SELECT id FROM products WHERE id = %s", (product_id,)):
         raise HTTPException(404, f"产品 {product_id} 不存在")
     return query(
-        """SELECT id, competitor_name, analysis, source, updated_at
+        """SELECT id, competitor_name, analysis, source, updated_at,
+                  updated_at + %s * interval '1 day' AS expires_at
            FROM competitor_analyses WHERE product_id = %s
            ORDER BY updated_at DESC""",
-        (product_id,),
+        (COMPETITOR_CACHE_DAYS, product_id),
     )
 
 

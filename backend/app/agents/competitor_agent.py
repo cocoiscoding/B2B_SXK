@@ -17,10 +17,7 @@ from app.agents.base import BaseAgent, AgentContext
 from app.agents.llm_provider import LLMProvider
 from app.database import query_one, execute
 from psycopg2.extras import Json
-from config import TAVILY_API_KEY
-
-# 竞品分析缓存新鲜期（天）：未过期则复用已入库分析，跳过 Tavily 搜索 + LLM 调用
-COMPETITOR_CACHE_DAYS = 7
+from config import TAVILY_API_KEY, COMPETITOR_CACHE_DAYS
 
 
 class CompetitorAgent(BaseAgent):
@@ -80,17 +77,20 @@ class CompetitorAgent(BaseAgent):
         """分析来源 -> 展示标签。"""
         return {
             "tavily": "Tavily 搜索 + LLM 分析",
-            "llm": "LLM 分析（未联网）",
+            "llm_common_sense": "LLM 分析（联网未果，基于常识）",
+            "llm": "LLM 分析（未联网）",   # 兼容旧存量行
             "mock": "规则分析",
         }.get(source, "规则分析")
 
     def _analyze(self, info: dict, competitor_name: str, focus: str) -> tuple[dict, str]:
-        """执行竞品分析，返回 (analysis, source)。source: tavily / llm / mock。"""
-        use_llm = bool(self._llm) and self._llm.name != "mock-engine"
-        if use_llm and TAVILY_API_KEY:
-            return self._analyze_with_llm(info, competitor_name, focus), "tavily"
-        if use_llm:  # 有 LLM 但未配置 Tavily
-            return self._analyze_with_llm(info, competitor_name, focus), "llm"
+        """执行竞品分析，返回 (analysis, source)。source: tavily / llm_common_sense / mock。
+
+        source 由 _analyze_with_llm 按实际是否用到联网数据 / 是否降级 mock 如实回传，
+        不在此处凭 TAVILY_API_KEY 是否配置来猜（否则 Tavily 失败/空时仍误标 tavily）。
+        """
+        use_llm = self._use_llm
+        if use_llm:
+            return self._analyze_with_llm(info, competitor_name, focus)   # (analysis, actual_source)
         return self._mock_analyze(info, competitor_name, focus), "mock"
 
     @staticmethod
@@ -169,16 +169,20 @@ class CompetitorAgent(BaseAgent):
             print(f"[competitor] Tavily 搜索失败: {e}")
             return []
 
-    def _analyze_with_llm(self, info: dict, competitor_name: str, focus: str) -> dict:
-        """用 LLM 分析搜索到的竞品信息，输出结构化对比框架。
+    def _analyze_with_llm(self, info: dict, competitor_name: str, focus: str) -> tuple[dict, str]:
+        """用 LLM 分析搜索到的竞品信息，输出 (结构化对比框架, source)。
 
+        source 如实反映本次分析的实际来源：
+        - "tavily"：Tavily 搜到结果且 LLM 解析成功（用到了联网数据）
+        - "llm_common_sense"：Tavily 未配 / 失败 / 空，LLM 基于行业常识解析成功
+        - "mock"：LLM 解析失败，降级到规则分析
         Tavily 有 Key 时先搜索再分析；无 Key 时纯靠 LLM 行业知识。
-        搜索/LLM 分析失败时降级到 mock 分析，不阻断流程。
         """
         if TAVILY_API_KEY:
             search_results = self._search_competitor(competitor_name, focus)
         else:
             search_results = []
+        used_web = bool(search_results)   # 是否真正用到联网数据，决定 source
 
         # 构建搜索结果文本
         if search_results:
@@ -243,12 +247,12 @@ class CompetitorAgent(BaseAgent):
             )
             parsed = self._parse_llm_json(raw)
             if parsed and isinstance(parsed, dict) and "competitor_name" in parsed:
-                return parsed
+                return parsed, ("tavily" if used_web else "llm_common_sense")
         except Exception as e:
             print(f"[competitor] LLM 分析失败: {e}")
 
         # 降级：mock 分析
-        return self._mock_analyze(info, competitor_name, focus)
+        return self._mock_analyze(info, competitor_name, focus), "mock"
 
     @staticmethod
     def _parse_llm_json(raw: str) -> dict | None:
