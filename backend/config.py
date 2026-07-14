@@ -24,13 +24,13 @@ load_dotenv(BASE_DIR / ".env")
 FRONTEND_DIR = BASE_DIR / "frontend"
 
 # ===== PostgreSQL 数据库配置 =====
-# 默认连接本地 PostgreSQL，可通过环境变量覆盖
+# 通过 .env 配置（.env 已 gitignore）；以下默认值仅作本地开发兜底，密码须在 .env 设置
 # int(os.getenv(...)) 表示把读到的字符串环境变量转成整数
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")          # 数据库主机地址
 DB_PORT = int(os.getenv("DB_PORT", "5432"))           # 数据库端口
 DB_NAME = os.getenv("DB_NAME", "shenxingdb")          # 数据库名
 DB_USER = os.getenv("DB_USER", "postgres")            # 数据库用户名
-DB_PASSWORD = os.getenv("DB_PASSWORD", "18928807116")      # 数据库密码
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")            # 数据库密码（须在 .env 配置，勿提交源码）
 DB_CLIENT_ENCODING = os.getenv("DB_CLIENT_ENCODING", "UTF8")  # 数据库客户端编码，避免中文错误信息解码失败
 
 # 数据库连接池大小
