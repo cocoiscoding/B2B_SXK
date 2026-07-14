@@ -1,0 +1,487 @@
+@use './normalize.scss';
+
+// ============================================================
+// 全局基础样式 + Element Plus 主题色覆盖 + 公共工具类
+// ============================================================
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: $font-family-base;
+  font-size: $font-size-base;
+  color: $text-primary;
+  background-color: $bg-page;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  text-decoration: none;
+  color: $primary-color;
+  transition: $transition-fast;
+
+  &:hover {
+    color: $primary-color-hover;
+  }
+}
+
+// ---------- 滚动条美化（统一纤细风格） ----------
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.15);
+  border-radius: $radius-round;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.25);
+  }
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+// ---------- Element Plus 主题色覆盖 ----------
+// 让 el-button type="primary"、el-tag、el-radio-button 等全部使用神行库品牌色
+:root {
+  --el-color-primary: #{$primary-color};
+  --el-color-primary-light-3: #{$primary-color-hover};
+  --el-color-primary-light-5: #60a5fa;
+  --el-color-primary-light-7: #{$primary-color-lighter};
+  --el-color-primary-light-8: #{$primary-color-light};
+  --el-color-primary-light-9: #{$primary-color-light};
+  --el-color-primary-dark-2: #{$primary-color-hover};
+
+  --el-color-success: #{$success-color};
+  --el-color-warning: #{$warning-color};
+  --el-color-danger: #{$danger-color};
+  --el-color-info: #{$info-color};
+
+  --el-text-color-primary: #{$text-primary};
+  --el-text-color-regular: #{$text-regular};
+  --el-text-color-secondary: #{$text-secondary};
+  --el-text-color-placeholder: #{$text-placeholder};
+
+  --el-border-color: #{$border-base};
+  --el-border-color-light: #{$border-base};
+  --el-border-color-lighter: #{$border-light};
+
+  --el-bg-color: #{$bg-card};
+  --el-bg-color-page: #{$bg-page};
+  --el-fill-color-blank: #{$bg-card};
+
+  --el-border-radius-base: #{$radius-md};
+  --el-font-size-base: #{$font-size-base};
+}
+
+// el-button 主色按钮悬浮加深
+.el-button--primary {
+  --el-button-bg-color: #{$primary-color};
+  --el-button-border-color: #{$primary-color};
+  --el-button-hover-bg-color: #{$primary-color-hover};
+  --el-button-hover-border-color: #{$primary-color-hover};
+  --el-button-active-bg-color: #{$primary-color-hover};
+  --el-button-active-border-color: #{$primary-color-hover};
+}
+
+// el-card 圆角阴影统一
+.el-card {
+  border-radius: $radius-lg;
+  border-color: $border-base;
+  box-shadow: $shadow-sm;
+}
+
+// el-dialog 圆角加大 + 内边距对齐原型 modal-box padding:32px
+// 关键：所有弹窗高度固定为视口的 80vh，内容超出时滚动条展示
+.el-dialog {
+  border-radius: $radius-xl;
+  overflow: hidden;
+  // 固定高度上限 + 居中 + flex 布局让 body 滚动
+  max-height: 80vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+
+  .el-dialog__header {
+    padding: 24px 32px 12px;
+    flex-shrink: 0;          // 头部固定不滚动
+  }
+  .el-dialog__body {
+    padding: 8px 32px;
+    flex: 1;                 // 占满中间空间
+    overflow-y: auto;        // 内容超出时滚动
+    min-height: 0;           // 允许 flex 子项收缩
+    -webkit-overflow-scrolling: touch;
+  }
+  .el-dialog__footer {
+    padding: 12px 32px 24px;
+    flex-shrink: 0;          // 底部固定不滚动
+  }
+}
+
+// el-tabs 底部线条加粗 + 主色
+.el-tabs__active-bar {
+  height: 2px !important;
+  border-radius: 1px;
+}
+
+// el-table 表头背景
+.el-table {
+  --el-table-border-color: #{$border-base};
+  --el-table-header-bg-color: #{$gray-50};
+  --el-table-row-hover-bg-color: #{$bg-emphasis};
+
+  th.el-table__cell {
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+// el-input/el-select focus 光圈颜色用主色（Element Plus 默认已用 --el-color-primary）
+// el-tag 圆角统一
+.el-tag {
+  border-radius: $radius-md;
+}
+
+// ============================================================
+// 公共工具类（供所有业务页面复用，避免重复定义）
+// ============================================================
+
+// 通用容器
+.avue-contail {
+  width: 100%;
+  height: 100%;
+}
+
+// ---------- 页面容器（5 个业务页面统一用） ----------
+.sxk-page {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+// ---------- 页面头（标题 + 副标题 + 操作按钮） ----------
+// 用法：<basic-block><div class="sxk-page-header">...</div></basic-block>
+// 升级：标题加渐变色（与首页一致），更精致
+.sxk-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-lg;
+
+  &__title {
+    h2 {
+      margin: 0 0 $spacing-xs;
+      font-size: $font-size-xl;
+      font-weight: 700;
+      color: $text-primary;
+      line-height: 1.4;
+      // 关键：标题渐变色（与首页 welcome 一致）
+      background: linear-gradient(135deg, #6366f1, #4f46e5, #3b82f6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    p {
+      margin: 0;
+      font-size: $font-size-sm;
+      color: $text-secondary;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    flex-shrink: 0;
+  }
+}
+
+// ---------- 搜索/筛选条 ----------
+.sxk-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  flex-wrap: wrap;
+
+  // 右侧统计 pill
+  &__stat {
+    margin-left: auto;
+    font-size: $font-size-sm;
+    color: $text-secondary;
+
+    b {
+      color: $primary-color;
+      font-size: $font-size-lg;
+      font-weight: 600;
+      margin: 0 $spacing-xs;
+    }
+  }
+}
+
+// ---------- 统计卡片网格（4 列） ----------
+.sxk-stat-grid {
+  // 单张统计卡片：纯数字 + 标签
+  .sxk-stat {
+    text-align: center;
+    padding: $spacing-md 0;
+
+    &__value {
+      font-size: $font-size-3xl;
+      font-weight: 700;
+      line-height: 1.2;
+      color: $text-primary;
+    }
+
+    &__label {
+      font-size: $font-size-sm;
+      color: $text-secondary;
+      margin-top: $spacing-xs;
+    }
+
+    // 主色变体（用于第一张卡片）
+    &--primary &__value {
+      color: $primary-color;
+    }
+  }
+}
+
+// ---------- 带图标的统计卡片（Dashboard 用） ----------
+.sxk-stat-icon-card {
+  display: flex;
+  align-items: center;
+  gap: $spacing-lg;
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: $radius-xl;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  &__value {
+    font-size: $font-size-3xl;
+    font-weight: 700;
+    color: $text-primary;
+    line-height: 1.2;
+  }
+
+  &__label {
+    font-size: $font-size-sm;
+    color: $text-secondary;
+    margin-top: $spacing-xs;
+  }
+}
+
+// ---------- 通用悬浮卡片（产品卡 / 模板卡 / 版本卡 共用） ----------
+.sxk-hover-card {
+  background: $bg-card;
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  transition: $transition-base;
+  cursor: pointer;
+
+  &:hover {
+    border-color: $primary-color;
+    box-shadow: $shadow-hover;
+    transform: translateY(-2px);
+  }
+
+  // 禁用态（如软删除的产品）
+  &--disabled {
+    opacity: 0.55;
+    background: $bg-hover;
+    cursor: not-allowed;
+
+    &:hover {
+      border-color: $border-base;
+      box-shadow: none;
+      transform: none;
+    }
+  }
+}
+
+// ---------- 空状态 / 加载态 ----------
+.sxk-empty {
+  padding: $spacing-2xl 0;
+  text-align: center;
+  color: $text-placeholder;
+  font-size: $font-size-sm;
+
+  .rotating {
+    animation: sxkRotating 1s linear infinite;
+    margin-right: $spacing-sm;
+  }
+}
+
+@keyframes sxkRotating {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// ---------- 分页统一 ----------
+.sxk-pagination {
+  margin-top: $spacing-lg;
+  justify-content: flex-end;
+}
+
+// ---------- 文本辅助类 ----------
+.text-primary { color: $text-primary !important; }
+.text-regular { color: $text-regular !important; }
+.text-secondary { color: $text-secondary !important; }
+.text-placeholder { color: $text-placeholder !important; }
+.text-danger { color: $danger-color !important; }
+.text-success { color: $success-color !important; }
+.text-warning { color: $warning-color !important; }
+
+.font-bold { font-weight: 600; }
+.font-mono { font-family: $font-family-mono; }
+
+// ---------- 过渡动画 ----------
+.fade-scale-enter-active,
+.fade-scale-leave-active {
+  transition: $transition-slow;
+}
+
+.fade-scale-enter-from,
+.fade-scale-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+// 关键词高亮（搜索命中）—— 全局选择器，供所有页面 v-html 注入的 <mark> 统一渲染
+// 注意：此处不能使用 :deep()，:deep 仅在 <style scoped> 中有效
+mark,
+.sxk-highlight {
+  background: #fef9c3;   // yellow-200
+  color: #854d0e;        // yellow-900
+  padding: 0 2px;
+  border-radius: $radius-sm;
+  font-weight: 500;
+}
+
+// ============================================================
+// 首页风格统一组件（v1.0.3+ 全部业务页面复用）
+// ============================================================
+
+// ---------- section 头部（紫色装饰条 + 标题 + 右侧"查看全部"） ----------
+// 关键：所有业务页面的 section 标题都使用此样式，与首页保持一致
+.sxk-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+  padding: 0;
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $text-primary;
+
+    // 关键：左侧紫色渐变装饰条（与首页一致）
+    &::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 18px;
+      background: linear-gradient(180deg, #6366f1, #4f46e5);
+      border-radius: $radius-sm;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+}
+
+// ---------- section 区块（带背景 + 边距） ----------
+// 关键：所有页面的内容区块都使用此样式
+.sxk-section-block {
+  background: $bg-card;
+  border: 1px solid $border-base;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-sm;
+  margin-bottom: $spacing-md;
+  transition: $transition-base;
+
+  &:hover {
+    box-shadow: $shadow-md;
+  }
+}
+
+// ---------- 页面欢迎条（替代简单标题） ----------
+// 关键：业务页面顶部可用欢迎条组件，提升与首页一致感
+.sxk-page-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  background: linear-gradient(135deg, #eef2ff 0%, #eff6ff 50%, #f0fdf4 100%);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: $radius-lg;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.04);
+  margin-bottom: $spacing-md;
+  position: relative;
+  overflow: hidden;
+
+  // 关键：右侧装饰圆
+  &::after {
+    content: '';
+    position: absolute;
+    right: -40px;
+    top: -40px;
+    width: 160px;
+    height: 160px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(79, 70, 229, 0.06));
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  &__left {
+    position: relative;
+    z-index: 1;
+  }
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    background: linear-gradient(135deg, #1e293b, #4338ca);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  &__desc {
+    font-size: 13px;
+    color: $text-secondary;
+    margin: 0;
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-sm;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+  }
+}
