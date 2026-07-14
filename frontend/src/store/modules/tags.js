@@ -83,6 +83,15 @@ export const useTagsStore = defineStore('tags', {
       setStore({ name: 'tagList', content: this.tagList })
       setStore({ name: 'tag', content: this.tag })
     },
+    // 关闭其他：仅保留首页和当前 tag
+    delOtherTag(tag) {
+      this.tagList = this.tagList.filter(
+        (item) => item.tabId === WELCOME_TAB_ID || item.tabId === tag.tabId
+      )
+      this.tag = tag
+      setStore({ name: 'tagList', content: this.tagList })
+      setStore({ name: 'tag', content: this.tag })
+    },
     closeTag(tag) {
       return this.delTag(tag)
     },

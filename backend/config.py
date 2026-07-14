@@ -30,7 +30,7 @@ DB_HOST = os.getenv("DB_HOST", "127.0.0.1")          # 数据库主机地址
 DB_PORT = int(os.getenv("DB_PORT", "5432"))           # 数据库端口
 DB_NAME = os.getenv("DB_NAME", "shenxingdb")          # 数据库名
 DB_USER = os.getenv("DB_USER", "postgres")            # 数据库用户名
-DB_PASSWORD = os.getenv("DB_PASSWORD", "18928807116")      # 数据库密码
+DB_PASSWORD = os.getenv("DB_PASSWORD", "123456")      # 数据库密码
 DB_CLIENT_ENCODING = os.getenv("DB_CLIENT_ENCODING", "UTF8")  # 数据库客户端编码，避免中文错误信息解码失败
 
 # 数据库连接池大小
@@ -41,9 +41,24 @@ DB_MAX_CONN = int(os.getenv("DB_MAX_CONN", "10"))     # 最大连接数（上限
 # ===== LLM 配置 =====
 # 不配置 API_KEY 时自动使用 Mock 模板引擎（开箱即用，无需联网）
 # LLM = Large Language Model，大语言模型（如通义千问、DeepSeek、GPT 等）
-LLM_API_KEY = os.getenv("LLM_API_KEY", "")             # API 密钥，空字符串表示未配置
-LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")  # 通义千问 API 地址
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen-plus")        # 使用的模型名称
+# LLM_API_KEY = os.getenv("LLM_API_KEY", "")             # API 密钥，空字符串表示未配置
+# LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")  # 通义千问 API 地址
+# LLM_MODEL = os.getenv("LLM_MODEL", "qwen-plus")        # 使用的模型名称
+
+'''
+# ===== 真实 LLM 配置（此文件已 gitignore，不会进代码仓库）=====
+# 把你的 DeepSeek API Key 填到下面这行（等号右边，不要加引号）
+LLM_API_KEY=sk-913be7fd8a884e0f9dfd40f4dbc5997d
+# DeepSeek 官方平台：https://platform.deepseek.com
+LLM_BASE_URL=https://api.deepseek.com/v1
+# 模型名：DeepSeek 官方对话模型为 deepseek-chat（对应最新 V3）。
+LLM_MODEL=deepseek-chat
+'''
+
+LLM_API_KEY = os.getenv("LLM_API_KEY", "sk-913be7fd8a884e0f9dfd40f4dbc5997d")             # API 密钥，空字符串表示未配置
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1")  # deepseek API 地址
+LLM_MODEL = os.getenv("LLM_MODEL", "deepseek-chat")        # 使用的模型名称
+
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30"))    # 请求超时时间（秒）
 # bool("") = False，bool("任何非空字符串") = True
 # 所以只有配置了 API_KEY，LLM_ENABLED 才为 True
@@ -53,7 +68,7 @@ LLM_ENABLED = bool(LLM_API_KEY)
 # Tavily 是专为 AI Agent 设计的搜索引擎，中文搜索效果好。
 # 不配置 API_KEY 时自动降级为 Mock 规则分析（不联网）。
 # 注册获取 API Key：https://app.tavily.com
-TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
+TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "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")
 TAVILY_ENABLED = bool(TAVILY_API_KEY)
 
 # ===== Embedding 模型配置（可与对话模型用不同供应商）=====
@@ -89,7 +104,7 @@ if JWT_SECRET == "shenxing-dev-secret-change-me":
 # 双令牌机制：access token（短期）+ refresh token（长期）
 # access token：每次 API 请求携带，有效期短，泄露风险小
 # refresh token：仅用于刷新 access token，有效期长，存 localStorage
-JWT_ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "30"))   # access token 有效期（分钟），默认 30
+JWT_ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "300"))   # access token 有效期（分钟），默认 300（5小时）
 JWT_REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "7"))        # refresh token 有效期（天），默认 7
 # 种子演示账号的默认密码（仅用于 4 个预置用户）
 DEFAULT_USER_PASSWORD = os.getenv("DEFAULT_USER_PASSWORD", "123456")
