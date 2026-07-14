@@ -36,10 +36,18 @@ _FORMAT_INSTRUCTIONS = {
 }
 
 
+def default_format_instruction(fmt: str) -> str:
+    """渠道 format -> 默认排版结构指令（代码侧真值源 + DB 缺省时的读时兜底）。
+
+    DB 的 channels.format_instruction 优先；为空（如自定义渠道未配）时回退本默认。
+    """
+    return _FORMAT_INSTRUCTIONS.get(fmt, _FORMAT_INSTRUCTIONS["markdown"])
+
+
 def get_channel_config(channel_name: str) -> dict | None:
     """从数据库查询渠道配置，返回 None 表示渠道不存在。"""
     row = query_one(
-        "SELECT name, tone, emoji, format, description FROM channels WHERE name = %s",
+        "SELECT name, tone, emoji, format, format_instruction, description FROM channels WHERE name = %s",
         (channel_name,),
     )
     return dict(row) if row else None
@@ -78,7 +86,7 @@ class ChannelAgent(BaseAgent):
             status = "warning"
             warn_note = f"；⚠ 渠道「{channel}」非模板推荐渠道（推荐：{applicable}），将按渠道规范适配，效果可能偏离模板原生风格"
 
-        use_llm = bool(self._llm) and self._llm.name != "mock-engine"
+        use_llm = self._use_llm
         if use_llm:
             adapted = [
                 self._adapt_with_llm(v, channel, cfg) for v in ctx.draft_versions
@@ -121,7 +129,7 @@ class ChannelAgent(BaseAgent):
             if cfg is None:
                 skipped.append(ch)
                 continue
-            use_llm = bool(self._llm) and self._llm.name != "mock-engine"
+            use_llm = self._use_llm
             if use_llm:
                 adapted = self._adapt_with_llm(version, ch, cfg)
             else:
@@ -154,7 +162,7 @@ class ChannelAgent(BaseAgent):
         fmt = cfg.get("format", "markdown")
         emoji = bool(cfg.get("emoji", False))
         desc = cfg.get("description", "")
-        fmt_instr = _FORMAT_INSTRUCTIONS.get(fmt, _FORMAT_INSTRUCTIONS["markdown"])
+        fmt_instr = cfg.get("format_instruction") or default_format_instruction(fmt)
         emoji_hint = (
             "适度使用 emoji 点缀标题与要点，契合该平台氛围"
             if emoji else "不使用 emoji，保持克制专业"

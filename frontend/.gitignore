@@ -4,6 +4,7 @@ node_modules
 .trae/
 
 # local env files
+.env
 .env.local
 .env.*.local
 

@@ -61,47 +61,12 @@ class Orchestrator:
 
         返回：GenerateResponse 对象
         """
-        # ===== 第 1 步：从数据库加载产品、场景和模板 =====
-        prod_row = query_one("SELECT * FROM products WHERE id = %s", (product_id,))
-        if not prod_row:
-            raise ValueError(f"产品 {product_id} 不存在")
-        # _parse_json_fields 处理 JSONB 字段的空值
-        product = _parse_json_fields(prod_row, ["features", "target_customers", "selling_points", "competitors"])
-
-        sce_row = query_one("SELECT * FROM scenarios WHERE id = %s", (scenario_id,))
-        if not sce_row:
-            raise ValueError(f"场景 {scenario_id} 不存在")
-        scenario = _parse_json_fields(sce_row, ["parameters"])
-
-        # 加载模板（如果有）
-        if template_id:
-            tmpl_row = query_one(
-                "SELECT * FROM templates WHERE id = %s AND scenario_id = %s",
-                (template_id, scenario_id),
-            )
-            if tmpl_row and tmpl_row.get("status") == "approved":
-                # 将模板的 prompt 注入到 scenario 中，供后续 Agent 使用
-                scenario["template"] = tmpl_row["prompt"]
-                scenario["template_name"] = tmpl_row["name"]
-                # 模板结构化约束：供 ValidationAgent 机械校验（字数/必含参数/卖点覆盖等）
-                scenario["template_constraints"] = tmpl_row.get("constraints") or {}
-                # 产出骨架 + 参考范例：供 GenerationAgent 注入 prompt，稳定产出结构
-                scenario["template_structure"] = tmpl_row.get("structure") or ""
-                scenario["template_examples"] = tmpl_row.get("examples") or []
-                # 多版本差异化维度：供 GenerationAgent 驱动各版本差异方向（留空用默认风格锚点）
-                scenario["template_diff_dims"] = tmpl_row.get("differentiation_dims") or []
-                # 适用渠道：供 ChannelAgent 做适配性告警（留空表示不限渠道）
-                scenario["template_applicable_channels"] = tmpl_row.get("applicable_channels") or []
-            elif tmpl_row:
-                print(f"[orchestrator] 模板 {template_id} 未通过审核（{tmpl_row.get('status')}），使用场景默认逻辑")
-            else:
-                print(f"[orchestrator] 模板 {template_id} 不存在，使用场景默认逻辑")
+        # ===== 第 1 步：从数据库加载产品、场景和模板（复用 helper，与新流程一致）=====
+        product = self._load_product(product_id)
+        scenario = self._load_scenario(scenario_id, template_id)
         # 模板被采用 -> 使用次数 +1（仅 approved 模板会加载成功，scenario 带 template_name）
         if template_id and scenario.get("template_name"):
             self._bump_template_use(template_id)
-        # 兼容旧数据：如果 scenario 本身没有 template 字段，提供一个默认值
-        if "template" not in scenario or not scenario.get("template"):
-            scenario["template"] = f"根据场景「{scenario['name']}」生成内容，用户参数：{params}"
 
         # ===== 第 2 步：构建共享上下文 =====
         ctx = AgentContext(
@@ -366,18 +331,23 @@ class Orchestrator:
         }
 
     def _generate_versions_with_retry(self, ctx: AgentContext, trace: list, emit) -> dict:
-        """逐版本生成：每版独立 生成->校验->重试(最多2次)，结果累加到 ctx.draft_versions。
+        """批量生成 + 逐版本校验 + 失败单版重试，结果累加到 ctx.draft_versions。
 
-        每版开始/完成各 emit 一次版本事件，供前端流式展示"版本N·特色 已生成"。
+        生成首遍用 generate_batch（LLM 模式 1 次调用产出全部，替代逐版串行），
+        再逐版本校验；未通过者带 feedback 单版重试（最多 3 次）。
+        每版开始/完成各 emit 一次版本事件（前端忽略，仅作内部进度信号）。
         返回汇总 {"issues","validated"} 并把校验步骤写入 trace。
         """
         version_count = ctx.version_count or 1
+        ctx.feedback_issues = []   # 批量首遍无反馈
+        versions = self.generation.generate_batch(ctx, version_count)
+
         all_issues: list[str] = []
         all_validated = True
-        for i in range(version_count):
+        for i, v in enumerate(versions):
             dim = self.generation.dim_for_version(ctx.scenario, i)
             emit({"kind": "version_start", "index": i + 1, "dim": dim})
-            version, attempts, issues = self._gen_one_with_retry(ctx, i, emit)
+            version, attempts, issues = self._validate_and_retry(ctx, v, i, emit)
             ctx.draft_versions.append(version)
             if issues:
                 all_validated = False
@@ -395,23 +365,23 @@ class Orchestrator:
         })
         return {"issues": all_issues, "validated": all_validated}
 
-    def _gen_one_with_retry(self, ctx: AgentContext, version_index: int, emit) -> tuple[dict, int, list[str]]:
-        """单个版本：生成->校验，失败带 feedback 重试，最多 3 次尝试（1 初试 + 2 重试）。
+    def _validate_and_retry(self, ctx: AgentContext, version: dict, version_index: int, emit) -> tuple[dict, int, list[str]]:
+        """校验已生成版本；失败带 feedback 单版重试，最多 3 次尝试。
 
+        首次只校验（版本已由 generate_batch 产出）；失败才用 generate_one 单版重生成。
         返回 (version, attempts, issues)；issues 为空表示该版本校验通过。
         """
         max_attempts = 3
         last_issues: list[str] = []
-        version: dict = {}
         for attempt in range(1, max_attempts + 1):
-            ctx.feedback_issues = list(last_issues) if attempt > 1 else []
-            if attempt > 1:
-                emit({"kind": "version_attempt", "index": version_index + 1, "attempt": attempt})
-            version = self.generation.generate_one(ctx, version_index)
             result = self.validation.validate_single(version, ctx)
             if result["validated"]:
                 return version, attempt, []
             last_issues = result["issues"]
+            if attempt < max_attempts:
+                ctx.feedback_issues = list(last_issues)
+                emit({"kind": "version_attempt", "index": version_index + 1, "attempt": attempt + 1})
+                version = self.generation.generate_one(ctx, version_index)
         return version, max_attempts, last_issues
 
     def run_adapt(self, selected_version: dict, channels: list[str],

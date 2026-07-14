@@ -62,6 +62,15 @@ class BaseAgent:
         # LLM Provider 实例，用于调用大模型
         self._llm = llm
 
+    @property
+    def _use_llm(self) -> bool:
+        """是否可用真实 LLM（注入了 provider 且非 mock）。
+
+        集中收口"真 LLM vs 模板/规则兜底"的判定，替代各 agent 里散落的
+        `self._llm and self._llm.name != "mock-engine"` 字符串比较。
+        """
+        return bool(self._llm) and not self._llm.is_mock
+
     def _execute(self, ctx: AgentContext) -> tuple[str, str, Any]:
         """子类实现：执行具体逻辑，返回 (status, message, output)。
 

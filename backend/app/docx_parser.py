@@ -161,7 +161,7 @@ def _parse_blocks(
         }
 
     # 真实 LLM：让大模型抽取
-    if provider.name != "mock-engine":
+    if not provider.is_mock:
         product, note = _extract_with_llm(provider, text)
         return {
             "product": product,

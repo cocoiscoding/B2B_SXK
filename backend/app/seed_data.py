@@ -10,6 +10,7 @@ from psycopg2.extras import Json
 from app.database import query_one, transaction
 from config import DEFAULT_USER_PASSWORD
 from app.auth import hash_password
+from app.agents.channel_agent import default_format_instruction
 
 
 # SEED_PRODUCTS 是预置的 3 个示例产品
@@ -399,9 +400,18 @@ def seed_if_empty() -> None:
             for ch in DEFAULT_CHANNELS:
                 cur.execute(
                     """INSERT INTO channels
-                       (name, display_name, tone, emoji, format, description, is_builtin)
-                       VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                       (name, display_name, tone, emoji, format, format_instruction, description, is_builtin)
+                       VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
                     (ch["name"], ch["display_name"], ch["tone"],
-                     ch["emoji"], ch["format"], ch["description"], True),
+                     ch["emoji"], ch["format"],
+                     default_format_instruction(ch["format"]), ch["description"], True),
                 )
         print(f"[seed] 已灌入 {len(DEFAULT_CHANNELS)} 个预置渠道配置")
+    # 兼容老库：channels 已存在但 format_instruction 为 NULL（列由 ALTER 补、值未灌），
+    # 按 builtin 渠道名幂等回填。自定义渠道留 NULL，由 channel_agent 读时默认兜底。
+    with transaction() as cur:
+        for ch in DEFAULT_CHANNELS:
+            cur.execute(
+                "UPDATE channels SET format_instruction = %s WHERE name = %s AND format_instruction IS NULL",
+                (default_format_instruction(ch["format"]), ch["name"]),
+            )

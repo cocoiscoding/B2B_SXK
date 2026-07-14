@@ -40,7 +40,7 @@ class GenerationAgent(BaseAgent):
         version_count = ctx.version_count or 1
 
         versions = []
-        if self._llm and self._llm.name != "mock-engine":
+        if self._use_llm:
             # LLM 模式：一次生成多个版本
             versions = self._generate_with_llm_multi(ctx, version_count)
         else:
@@ -370,12 +370,27 @@ class GenerationAgent(BaseAgent):
         根据是否启用 LLM 选择真实生成或 Mock，并把该版本的差异化特色（dim）
         写入返回结果的 feature 字段，供前端展示。
         """
-        if self._llm and self._llm.name != "mock-engine":
+        if self._use_llm:
             version = self._generate_with_llm(ctx, version_index)
         else:
             version = self._generate_mock(ctx, version_index)
         version["feature"] = self.dim_for_version(ctx.scenario, version_index)
         return version
+
+    def generate_batch(self, ctx: AgentContext, version_count: int) -> list[dict]:
+        """批量生成 version_count 个版本，供 orchestrator 替代逐版串行（降低延迟）。
+
+        LLM 模式且多版本：1 次 chat 产出全部（_generate_with_llm_multi，已含不足并发补齐），
+        把 N 次串行 LLM 调用压到 1 次；mock 模式或单版本：逐版 generate_one
+        （mock 无 LLM 延迟，单版本无需批量）。统一补 index/feature 与 generate_one 一致。
+        """
+        if self._use_llm and version_count > 1:
+            versions = self._generate_with_llm_multi(ctx, version_count)
+            # batch 路径不设 feature，补齐（与 generate_one 一致，供前端展示差异化特色）
+            for i, v in enumerate(versions):
+                v.setdefault("feature", self.dim_for_version(ctx.scenario, i))
+            return versions
+        return [self.generate_one(ctx, i) for i in range(version_count)]
 
     def rewrite_one(self, version: dict, instruction: str, ctx: AgentContext) -> dict:
         """按用户指令重写单个已有版本（局部 AI 微调）。
@@ -384,7 +399,7 @@ class GenerationAgent(BaseAgent):
         只按 instruction 调整标题/正文/语气。供 orchestrator.run_rewrite 调用。
         Mock 模板引擎无法语义重写，抛 ValueError 由路由层转 400。
         """
-        if not (self._llm and self._llm.name != "mock-engine"):
+        if not self._use_llm:
             raise ValueError("微调需配置 LLM（当前为 Mock 模板引擎，无法重写）")
         sys_prompt = (
             "你是资深产品营销文案专家。按用户指令对现有营销文案做局部改写，"

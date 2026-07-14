@@ -208,7 +208,7 @@ class ImageAgent(BaseAgent):
         paragraphs = self._extract_paragraphs(body)
 
         # 用 LLM 或规则识别文案结构
-        if self._llm and self._llm.name != "mock-engine":
+        if self._use_llm:
             structure = self._analyze_structure_with_llm(title, body, paragraphs, sp)
         else:
             structure = self._analyze_structure_with_rules(title, paragraphs, sp, tags)
@@ -318,7 +318,7 @@ class ImageAgent(BaseAgent):
         )
 
         # 优先 LLM
-        if self._llm and self._llm.name != "mock-engine":
+        if self._use_llm:
             plan = self._plan_with_enhanced_llm(
                 title, body, content_analysis, scene_style, visual_strategy, target_count
             )

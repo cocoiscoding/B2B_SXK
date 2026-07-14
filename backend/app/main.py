@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 # 从 config.py 导入配置项
-from config import APP_NAME, APP_VERSION, FRONTEND_DIR, LLM_ENABLED, DB_HOST, DB_PORT, DB_NAME
+from config import APP_NAME, APP_VERSION, FRONTEND_DIR, LLM_ENABLED, TAVILY_ENABLED, DB_HOST, DB_PORT, DB_NAME, APP_ENV, CORS_ALLOW_ORIGINS
 # 从 database.py 导入数据库初始化和关闭函数
 from app.database import init_db, close_pool
 # 从 seed_data.py 导入种子数据初始化函数
@@ -45,9 +45,15 @@ app = FastAPI(title=APP_NAME, version=APP_VERSION, lifespan=lifespan)
 # 添加 CORS 中间件：允许跨域请求
 # CORS = Cross-Origin Resource Sharing，跨域资源共享
 # 前端和后端不在同一域名/端口时，浏览器会拦截请求，CORS 中间件用于放行
+# 生产环境（APP_ENV=production）必须显式配置 ALLOWED_ORIGINS，禁止默认放行所有来源
+if APP_ENV == "production" and not CORS_ALLOW_ORIGINS:
+    raise RuntimeError(
+        "生产环境（APP_ENV=production）必须配置环境变量 ALLOWED_ORIGINS"
+        "（逗号分隔的合法前端域名），禁止默认放行所有来源。"
+    )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],       # 允许所有来源（生产环境应限制为具体域名）
+    allow_origins=CORS_ALLOW_ORIGINS,   # 开发默认 ["*"]；生产由 ALLOWED_ORIGINS 控制
     allow_methods=["*"],       # 允许所有 HTTP 方法（GET/POST/PUT/DELETE 等）
     allow_headers=["*"],       # 允许所有请求头
 )
@@ -75,9 +81,9 @@ app.include_router(templates._batch_router)  # 模板批量查询
 
 @app.get("/api/health")
 def health():
-    """健康检查接口：用于监测服务是否正常运行。
+    """健康检查 + 系统能力状态：监测服务运行与各能力可用性（杜绝无声降级）。
 
-    访问 GET /api/health 返回应用状态信息。
+    访问 GET /api/health 返回应用状态信息与能力模式，供前端/后台常驻展示。
     """
     return {
         "app": APP_NAME,
@@ -85,6 +91,12 @@ def health():
         "llm_enabled": LLM_ENABLED,
         "database": f"postgresql://{DB_HOST}:{DB_PORT}/{DB_NAME}",
         "status": "running",
+        "capabilities": {
+            "llm": "real" if LLM_ENABLED else "mock",                  # 内容生成 / 文生图共用同一 provider
+            "search": "keyword",                                       # 语义/向量检索已移除，产品搜索为 SQL LIKE
+            "web_search": "tavily" if TAVILY_ENABLED else "disabled",  # 竞品分析联网搜索
+            "image_generation": "real" if LLM_ENABLED else "mock",
+        },
     }
 
 

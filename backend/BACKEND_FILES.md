@@ -2,13 +2,15 @@
 
 > 本文档面向 Python 初学者，按目录层级列出每个后端文件的作用、核心概念与对应需求。
 > 前端代码不在本文档分析范围内。
+>
+> ⚠ 本文档早于 drafts/competitors/channels/templates/seo/members 等路由与向量检索移除，部分内容（文件树、向量检索、llm_provider embed 接口等）已过时，待后续整体重写；以下仅就 vector/embedding 相关做了定向修正。
 
 ## 目录结构总览
 
 ```
 shenxing/
 ├── main.py                      # 启动入口（uvicorn 加载 ASGI 应用）
-├── config.py                    # 全局配置（数据库、LLM、向量维度等）
+├── config.py                    # 全局配置（数据库、LLM、JWT 等）
 ├── requirements.txt             # Python 依赖清单
 ├── BACKEND_FILES.md             # 本文档
 ├── database/
@@ -18,11 +20,10 @@ shenxing/
     ├── main.py                  # FastAPI 应用创建、CORS、生命周期事件
     ├── database.py              # 数据库连接池 + query/transaction 工具函数
     ├── models.py                # Pydantic 数据模型（请求/响应结构）
-    ├── vector_search.py         # 向量检索核心模块（语义搜索）
     ├── seed_data.py             # 启动时自动灌入样例数据
     ├── routers/                 # API 路由层
     │   ├── __init__.py          # 包标识（空文件）
-    │   ├── products.py          # 产品知识库 CRUD + 语义搜索
+    │   ├── products.py          # 产品知识库 CRUD + 关键词搜索
     │   ├── scenarios.py         # 场景模板 CRUD
     │   ├── generate.py          # 内容生成入口（5 个 Agent 编排）
     │   └── history.py           # 历史记录管理 + 文件导出
@@ -55,7 +56,7 @@ shenxing/
 - **作用**：集中管理所有配置项（数据库连接、LLM 接口、向量维度等），通过环境变量可覆盖默认值。
 - **核心概念**：
   - `os.getenv("KEY", "default")`：读取环境变量，不存在时用默认值
-  - 配置项包括：`DB_HOST/PORT/NAME/USER/PASSWORD`、`LLM_API_KEY/BASE_URL/MODEL`、`EMBEDDING_DIM`
+  - 配置项包括：`DB_HOST/PORT/NAME/USER/PASSWORD`、`LLM_API_KEY/BASE_URL/MODEL`、`JWT_SECRET` 等
 - **设计意图**：把"会变的东西"（密码、API Key）与"代码逻辑"分离，方便部署到不同环境。
 
 ### `requirements.txt` —— 依赖清单
@@ -130,20 +131,11 @@ shenxing/
 - **设计意图**：类型安全 + 自动文档，避免手写参数校验代码。
 - **重要教训**：`created_at` 字段用纯 `datetime` 而非 `datetime | str`，否则 Pydantic v2 会优先按字符串验证导致 500 错误。
 
-### `app/vector_search.py` —— 向量检索核心模块
+### `app/vector_search.py` —— 已移除
 
-- **作用**：实现产品语义搜索的核心算法，让"适合金融行业的安全防护产品"这样的自然语言查询能匹配到相关产品。
-- **核心函数**：
-  - `cosine_similarity(a, b)`：计算两个向量的余弦相似度（越接近 1 越相似）
-  - `build_product_text(product)`：把产品的名称/描述/功能/卖点等结构化信息拼接成一段文本
-  - `embed_product(product)`：调用 LLM Provider 把产品文本转为向量
-  - `search_products_by_vector(query_vector, top_k, threshold)`：在数据库中找最相似的产品
-  - `search_products_by_text(query_text, top_k, threshold)`：文本 → 向量 → 检索
-- **核心概念**：
-  - **Embedding 向量**：把文本转为一串数字（如 128 维数组），语义相近的文本向量也相近
-  - **余弦相似度**：衡量两个向量方向的夹角，忽略长度，值域 [-1, 1]
-  - **语义搜索 vs 关键词搜索**：关键词搜索只匹配字面，语义搜索能理解"金融行业"和"银行/证券/保险"的关联
-- **对应需求**：F1-3 知识库检索（增强版）
+- **状态**：向量检索模块已整体删除（生成主链路本就不用，仅产品搜索 UI 用过）。
+- **现状**：产品搜索改为 `app/routers/products.py` 内的 SQL `LIKE` 关键词匹配；`llm_provider.py` 不再提供 `embed()` 接口。
+- **数据库**：`products.embedding` 列按约定保留为死列（不读不写，新行 NULL），未做 schema 迁移。
 
 ### `app/seed_data.py` —— 种子数据初始化
 
@@ -163,17 +155,15 @@ shenxing/
 
 - **作用**：空文件，标记 `routers/` 为 Python 包。
 
-### `app/routers/products.py` —— 产品知识库 CRUD + 语义搜索
+### `app/routers/products.py` —— 产品知识库 CRUD + 关键词搜索
 
-- **作用**：处理产品知识库的所有 HTTP 请求，包括增删改查和语义搜索。
+- **作用**：处理产品知识库的所有 HTTP 请求，包括增删改查和关键词搜索。
 - **API 端点**：
   - `GET /api/products`：产品列表（支持关键词搜索）
-  - `POST /api/products`：新建产品（自动生成 embedding 向量）
+  - `POST /api/products`：新建产品
   - `GET /api/products/{id}`：产品详情
-  - `PUT /api/products/{id}`：更新产品（重新生成 embedding）
+  - `PUT /api/products/{id}`：更新产品
   - `DELETE /api/products/{id}`：删除产品
-  - `POST /api/products/search`：语义搜索（向量检索）
-  - `POST /api/products/reindex`：重建所有产品的向量
 - **Python 知识点**：
   - `@router.get("/path")` 装饰器：定义路由
   - `response_model=list[Product]`：自动序列化响应
@@ -250,19 +240,16 @@ shenxing/
 
 - **作用**：封装大语言模型（LLM）的调用，支持两种模式无缝切换——不配 API Key 时用 Mock 模板引擎（离线可用），配置后用真实大模型。
 - **核心类**：
-  - `LLMProvider`（抽象基类）：定义 `chat()` 和 `embed()` 接口
+  - `LLMProvider`（抽象基类）：定义 `chat()` 接口（向量 `embed()` 已随向量检索移除；另有 `generate_image()` 文生图）
   - `MockLLMProvider`：离线模式
     - `chat()`：返回固定占位文本
-    - `embed()`：基于 MD5 哈希的 2-gram 伪向量 + L2 归一化（让无 API Key 时语义搜索也能跑）
   - `OpenAICompatibleProvider`：真实 LLM 模式
     - `chat()`：调用 `/chat/completions` 端点
-    - `embed()`：调用 `/embeddings` 端点
   - `get_llm_provider()`：工厂函数，根据环境变量自动选择
 - **Python 知识点**：
   - `urllib.request`：标准库 HTTP 请求（不依赖 requests）
   - `json.loads()`：解析 JSON 响应
   - `hashlib.md5()`：生成哈希
-  - `numpy`（可选）：向量运算
 - **对应需求**：F3 系统的 LLM 接入层
 
 ### `app/agents/retrieval_agent.py` —— ① 产品信息检索 Agent
@@ -368,7 +355,7 @@ routers/generate.py (POST /api/generate)
    ↓
 agents/orchestrator.py (编排)
    ↓
-   ├─→ retrieval_agent.py   ← vector_search.py ← llm_provider.py
+   ├─→ retrieval_agent.py   ← llm_provider.py
    ├─→ competitor_agent.py
    ├─→ generation_agent.py  ← llm_provider.py
    ├─→ channel_agent.py
@@ -409,7 +396,7 @@ database.py (保存到 history 表)
 |---------|---------|---------|
 | F1-1 | 产品信息录入 | `routers/products.py` (POST) |
 | F1-2 | 产品信息管理 | `routers/products.py` (GET/PUT/DELETE) |
-| F1-3 | 知识库检索 | `routers/products.py` (search) + `vector_search.py` + `retrieval_agent.py` |
+| F1-3 | 知识库检索 | `routers/products.py`（关键词搜索）+ `retrieval_agent.py` |
 | F1-4 | 初始数据 | `seed_data.py` + `database/init_postgresql.sql` |
 | F2-1~F2-3 | 场景模板管理 | `routers/scenarios.py` |
 | F3-1 | 产品信息检索 Agent | `agents/retrieval_agent.py` |

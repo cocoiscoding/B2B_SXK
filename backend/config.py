@@ -55,6 +55,9 @@ LLM_ENABLED = bool(LLM_API_KEY)
 # 注册获取 API Key：https://app.tavily.com
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 TAVILY_ENABLED = bool(TAVILY_API_KEY)
+# 竞品分析缓存新鲜期（天）：未过期则复用已入库分析，跳过 Tavily 搜索 + LLM 调用。
+# 原硬编码 7 天，现改为可配置；competitors API 的 expires_at 也据此计算。
+COMPETITOR_CACHE_DAYS = int(os.getenv("COMPETITOR_CACHE_DAYS", "7"))   # 默认 7 天
 
 # ===== JWT 鉴权配置（用户登录/注册）=====
 # JWT = JSON Web Token：登录成功后签发的令牌，前端每次请求在 Authorization 头带上
@@ -74,8 +77,27 @@ if JWT_SECRET == "shenxing-dev-secret-change-me":
 # refresh token：仅用于刷新 access token，有效期长，存 localStorage
 JWT_ACCESS_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_EXPIRE_MINUTES", "30"))   # access token 有效期（分钟），默认 30
 JWT_REFRESH_EXPIRE_DAYS = int(os.getenv("JWT_REFRESH_EXPIRE_DAYS", "7"))        # refresh token 有效期（天），默认 7
+# token 黑名单查询的进程内缓存 TTL（秒）。
+# 每次鉴权都要查 token_blacklist 表，高频接口（如生成轮询）会产生 DB 热点。
+# 无 Redis 时用进程内短 TTL 缓存"该 jti 是否已拉黑"的判定，未命中再查 DB。
+# 多 worker 下，刚登出的 token 在其他 worker 最多 TTL 秒内仍可用（已知权衡，可调小）。
+JWT_BLACKLIST_CACHE_TTL = int(os.getenv("JWT_BLACKLIST_CACHE_TTL", "5"))         # 默认 5 秒
 # 种子演示账号的默认密码（仅用于 4 个预置用户）
 DEFAULT_USER_PASSWORD = os.getenv("DEFAULT_USER_PASSWORD", "123456")
+
+# ===== 运行环境与 CORS 跨域配置 =====
+# APP_ENV 区分开发/生产：development（默认）/ production
+# 生产环境绝不允许 CORS 放行所有来源（allow_origins=["*"]），否则任意恶意站点可跨域调用本接口。
+APP_ENV = os.getenv("APP_ENV", "development")
+# ALLOWED_ORIGINS：逗号分隔的合法前端域名列表，如 "https://a.com,https://b.com"
+# 不配时：development 放行 ["*"]（本地开发方便）；production 留空（由 app/main.py 启动时拒绝）
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _raw_origins:
+    CORS_ALLOW_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+elif APP_ENV == "production":
+    CORS_ALLOW_ORIGINS = []          # 生产未配 -> 留空，app/main.py 启动时 raise
+else:
+    CORS_ALLOW_ORIGINS = ["*"]       # 开发默认放行所有来源
 
 # ===== 应用元信息 =====
 APP_NAME = "神行库 · Product Marketing AI"

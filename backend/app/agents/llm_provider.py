@@ -1,4 +1,4 @@
-"""LLM Provider：双模式切换 + Embedding 向量生成。
+"""LLM Provider：双模式切换（对话 + 文生图）。
 
 本模块封装了大语言模型（LLM）的调用，提供两种模式：
 1. MockLLMProvider：本地模拟，无需 API Key，开箱即用
@@ -10,9 +10,9 @@
 - 开发/测试环境：不想花钱调 API，用 Mock 模式快速验证
 - 生产环境：配置 API_KEY 获得真正的 AI 生成能力
 
-两个核心方法：
+核心方法：
 - chat()：对话生成（用于内容生成 Agent）
-- embed()：文本向量化（用于语义检索 Agent）
+- generate_image() / generate_qwen_image()：文生图（用于配图 Agent）
 """
 import hashlib
 import base64
@@ -27,9 +27,9 @@ from config import (
 class LLMProvider:
     """LLM 统一接口（抽象基类）。
 
-    所有 Provider 都要实现这两个方法：
+    所有 Provider 都要实现：
     - chat()：对话生成
-    - embed()：文本向量化
+    - generate_image() / generate_qwen_image()：文生图
     """
 
     def chat(self, system_prompt: str, user_prompt: str, temperature: float = 0.8) -> str:
@@ -83,6 +83,15 @@ class LLMProvider:
         """Provider 名称（用于日志和展示）。"""
         raise NotImplementedError
 
+    @property
+    def is_mock(self) -> bool:
+        """是否 mock/占位 provider（非真实 LLM）。
+
+        Agent 据此选择"调 LLM"还是"走模板/规则兜底"，替代原先字符串比较
+        provider.name。真实 provider 走默认 False，MockLLMProvider 覆盖为 True。
+        """
+        return False
+
 
 class MockLLMProvider(LLMProvider):
     """本地 Mock：不调用真实 API，用模板/哈希模拟。
@@ -96,6 +105,10 @@ class MockLLMProvider(LLMProvider):
     @property
     def name(self) -> str:
         return "mock-engine"
+
+    @property
+    def is_mock(self) -> bool:
+        return True
 
     def chat(self, system_prompt: str, user_prompt: str, temperature: float = 0.8) -> str:
         """Mock 对话：返回占位响应。
@@ -371,7 +384,7 @@ def _draw_centered(draw, text: str, cx: int, y: int, font, fill) -> None:
     draw.text((max(0, cx - tw // 2), y), text, font=font, fill=fill)
 
 
-# Provider 单例：整个应用共享一个实例，避免每次 embed/chat 新建 httpx.Client
+# Provider 单例：整个应用共享一个实例，避免每次 chat 新建 httpx.Client
 _provider_instance: LLMProvider | None = None
 
 
