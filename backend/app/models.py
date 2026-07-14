@@ -471,6 +471,11 @@ class AdaptRequest(BaseModel):
     channels: list[str]                   # 用户多选的渠道名列表
 
 
+class FinalizeRequest(BaseModel):
+    """阶段4：配图并保存。可选指定只处理部分渠道（多选框勾选的），None/空=全部。"""
+    channels: list[str] | None = None     # 仅对这些渠道配图+写 history；None=全部适配版本
+
+
 class Draft(BaseModel):
     """草稿完整状态（GET /api/drafts/{id} 及各阶段响应共用）。"""
     id: str

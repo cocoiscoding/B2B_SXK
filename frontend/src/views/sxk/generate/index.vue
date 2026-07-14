@@ -1175,9 +1175,16 @@
               <div class="sxk-generate__card-head">
                 <div class="sxk-generate__card-head-left">
                   <b>配图与保存</b>
+                  <el-checkbox
+                    v-if="(currentDraft.versions || []).some((v) => v.channel)"
+                    :model-value="allOpSelected"
+                    @change="toggleAllOp"
+                    class="sxk-generate__op-checkbox"
+                  >全选</el-checkbox>
                   <span class="sxk-generate__card-tip">
                     共 {{ currentDraft.versions?.length || 0 }} 个渠道 · 已配图
                     {{ adaptedCount }} / {{ currentDraft.versions?.length || 0 }}
+                    · 已选 {{ selectedOpChannels.length }}
                   </span>
                 </div>
                 <!-- 阶段 2 顶部操作组（按状态动态展示） -->
@@ -1196,6 +1203,7 @@
                     size="small"
                     :icon="Download"
                     :loading="exportingDraft"
+                    :disabled="!selectedOpChannels.length"
                     @click="onExport"
                   >
                     {{ exportingDraft ? '导出中' : '导出' }}
@@ -1217,6 +1225,7 @@
                     size="default"
                     type="primary"
                     :loading="finalizingDraft"
+                    :disabled="!selectedOpChannels.length"
                     @click="onFinalize"
                   >
                     <el-icon v-if="!finalizingDraft">
@@ -1250,6 +1259,12 @@
                 @click="adaptVersionIndex = String(v.index)"
               >
                 <div class="sxk-generate__version-card-head">
+                  <el-checkbox
+                    :model-value="selectedOpChannels.includes(v.channel)"
+                    @change="(val) => toggleOpChannel(v.channel, val)"
+                    @click.stop
+                    class="sxk-generate__op-checkbox"
+                  />
                   <span class="sxk-generate__version-card-radio">
                     <span
                       class="sxk-generate__radio-dot"
@@ -2182,6 +2197,29 @@ watch(
 const draftEditingVersion = ref(null)
 // 阶段 1：选中的渠道数组
 const selectedChannels = ref([])
+// 阶段 2：操作（生图/导出）多选的渠道名；进阶段2 时默认全选
+const selectedOpChannels = ref([])
+const allOpSelected = computed(() => {
+  const withCh = (currentDraft.value?.versions || []).filter((v) => v.channel)
+  return withCh.length > 0 && selectedOpChannels.value.length === withCh.length
+})
+function syncOpChannelsAll() {
+  selectedOpChannels.value = (currentDraft.value?.versions || [])
+    .map((v) => v.channel)
+    .filter(Boolean)
+}
+function toggleOpChannel(channel, checked) {
+  if (!channel) return
+  if (checked) {
+    if (!selectedOpChannels.value.includes(channel)) selectedOpChannels.value.push(channel)
+  } else {
+    selectedOpChannels.value = selectedOpChannels.value.filter((c) => c !== channel)
+  }
+}
+function toggleAllOp(checked) {
+  if (checked) syncOpChannelsAll()
+  else selectedOpChannels.value = []
+}
 
 // 表单引用
 const formRef = ref(null)
@@ -2951,6 +2989,7 @@ async function onAdapt() {
     }
     currentDraft.value = resp.data
     adaptVersionIndex.value = '1'
+    syncOpChannelsAll()   // 阶段2 操作多选默认全选
     ElMessage.success('已适配 ' + selectedChannels.value.length + ' 个渠道')
   } catch (e) {
     ElMessage.error('适配失败：' + (e?.message || '未知错误'))
@@ -2961,14 +3000,19 @@ async function onAdapt() {
 
 async function onFinalize() {
   if (!currentDraft.value) return
+  if (!selectedOpChannels.value.length) {
+    ElMessage.warning('请至少勾选一个渠道')
+    return
+  }
   finalizingDraft.value = true
   try {
-    const resp = await sxkApi.finalizeDraft(currentDraft.value.id)
+    const resp = await sxkApi.finalizeDraft(currentDraft.value.id, selectedOpChannels.value)
     if (resp.code !== 0) {
       ElMessage.error(resp.msg || '保存失败')
       return
     }
     currentDraft.value = resp.data
+    syncOpChannelsAll()   // 生图后 versions 已收窄为勾选子集，同步操作多选
     // 标记阶段 2 已完成（让步骤条"配图与保存"显示为"完成"）
     stage2Completed.value = true
     ElMessage.success('配图完成，已保存到历史记录')
@@ -3055,6 +3099,7 @@ async function loadDraft(draftId) {
     draftEditingVersion.value = JSON.parse(JSON.stringify(resp.data.selected_version))
   }
   selectedChannels.value = [...(resp.data.channels || [])]
+  syncOpChannelsAll()   // 恢复草稿时，阶段2 操作多选默认全选
 }
 
 // ---------- 业务方法：辅助功能 ----------
@@ -3102,10 +3147,14 @@ async function onExport() {
     ElMessage.warning('当前内容尚未保存到历史，无法导出')
     return
   }
+  if (!selectedOpChannels.value.length) {
+    ElMessage.warning('请至少勾选一个渠道')
+    return
+  }
   if (exportingDraft.value) return
   exportingDraft.value = true
   try {
-    await sxkApi.exportDocx(currentDraft.value.history_id)
+    await sxkApi.exportHistory(currentDraft.value.history_id, 'docx', selectedOpChannels.value)
     ElMessage.success('已开始导出，可在浏览器下载目录查看')
   } catch (e) {
     ElMessage.error('导出失败：' + (e?.message || '未知错误'))

@@ -20,7 +20,7 @@ import uuid
 from app.database import query_one, transaction
 from app.models import (
     Draft, CreateDraftRequest, RegenerateRequest, RewriteRequest, SelectVersionRequest, AdaptRequest,
-    VersionContent,
+    FinalizeRequest, VersionContent,
 )
 from app.agents.orchestrator import get_orchestrator
 from app.auth import get_current_user, is_owner_or_admin
@@ -403,7 +403,7 @@ def adapt_draft(draft_id: str, body: AdaptRequest, user: dict = Depends(get_curr
 
 
 @router.post("/{draft_id}/finalize", response_model=Draft)
-def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
+def finalize_draft(draft_id: str, body: FinalizeRequest | None = None, user: dict = Depends(get_current_user)):
     """阶段4：对多渠道版本配图 -> 写 history -> 回填 history_id。
 
     并发安全：用 stage='adapted' -> 'imaged' 的 CAS 占位，确保同一草稿的并发
@@ -418,6 +418,12 @@ def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
     versions = d.get("versions") or []
     if not versions:
         raise HTTPException(400, "尚无渠道版本，请先完成阶段3适配")
+    # 多选框：仅对勾选渠道配图+写 history；未指定 channels=全部（向后兼容）
+    if body and body.channels:
+        wanted = set(body.channels)
+        versions = [v for v in versions if v.get("channel") in wanted]
+        if not versions:
+            raise HTTPException(400, "所选渠道无匹配版本，请重新选择")
 
     # CAS 占位：仅 stage='adapted' 的草稿进入配图，并发的第二个请求 rowcount=0。
     # run_images 很慢（可能数十秒），不能放进事务锁内，故用 stage 做轻量互斥。
@@ -463,8 +469,8 @@ def finalize_draft(draft_id: str, user: dict = Depends(get_current_user)):
     validation = d.get("validation") or {}
     issues = validation.get("issues", []) if isinstance(validation, dict) else []
     validated = validation.get("validated", False) if isinstance(validation, dict) else False
-    channels = d.get("channels") or []
-    channel_str = ",".join(channels) if channels else "多渠道"
+    # history.channel 标注实际保存的渠道（多选框子集），而非全部适配渠道
+    channel_str = ",".join(dict.fromkeys(v.get("channel", "") for v in versions if v.get("channel"))) or "多渠道"
 
     version_objs = [_to_version_content(v, i) for i, v in enumerate(versions)]
     history_id = f"H{uuid.uuid4().hex[:8]}"

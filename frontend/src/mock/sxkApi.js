@@ -1878,15 +1878,19 @@ export const sxkApi = {
   },
 
   /** 步骤 2：文生图 + 落 history */
-  finalizeDraft: (draftId) => {
+  finalizeDraft: (draftId, channels) => {
+    const sel = channels && channels.length ? new Set(channels) : null
     if (!USE_MOCK_BIZ) {
-      return real({ url: `/api/drafts/${draftId}/finalize`, method: 'post', data: {} }).then((d) => ok(d))
+      return real({ url: `/api/drafts/${draftId}/finalize`, method: 'post', data: sel ? { channels } : {} }).then((d) => ok(d))
     }
     return delay(1200).then(() => {
       const draft = sxkApi._drafts.find((d) => d.id === draftId)
       if (!draft) return { code: 4041, msg: '草稿不存在', data: null }
-      // 为每个渠道版本生成 1 张占位配图（用 SVG data URL 避免外部依赖）
-      draft.versions.forEach((v, i) => {
+      // 多选框：仅对勾选渠道配图（未传 channels=全部）；未勾选版本不进 done 结果
+      const targets = (draft.versions || []).filter((v) => !sel || sel.has(v.channel))
+      if (!targets.length) return { code: 4007, msg: '所选渠道无匹配版本', data: null }
+      // 为每个勾选渠道版本生成 1 张占位配图（用 SVG data URL 避免外部依赖）
+      targets.forEach((v, i) => {
         v.images = [
           {
             url: `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -1896,6 +1900,7 @@ export const sxkApi = {
           }
         ]
       })
+      draft.versions = targets   // 多选框：只保留勾选并配图的版本（与后端一致）
       draft.stage = 'done'
       // 同步到历史列表（用 sxkApi 的 mockGenerations）
       const historyId = 'g_' + Date.now()
@@ -1911,6 +1916,7 @@ export const sxkApi = {
         versions: draft.versions.map((v) => ({
           version_key: 'A',
           name: v.title,
+          channel: v.channel,
           content_html: v.body,
           word_count: (v.body || '').length,
           is_recommended: v.index === 1,
@@ -1990,11 +1996,12 @@ export const sxkApi = {
    * - 真实链路：responseType: blob，由后端生成文件，前端从 blob + Content-Disposition 触发下载
    * - Mock 阶段：按 format 生成本地 blob 触发下载
    */
-  exportHistory: (generationId, format = 'docx') => {
+  exportHistory: (generationId, format = 'docx', channels) => {
+    const chanQuery = channels && channels.length ? `&channels=${encodeURIComponent(channels.join(','))}` : ''
     if (!USE_MOCK_BIZ) {
       // 关键：不能用 real()（它只返回 res.data），需要拿到完整 response 以读取 Content-Disposition 文件名
       return request({
-        url: `/api/history/${generationId}/export?format=${format}`,
+        url: `/api/history/${generationId}/export?format=${format}${chanQuery}`,
         method: 'get',
         responseType: 'blob'
       }).then((res) => {
@@ -2027,8 +2034,11 @@ export const sxkApi = {
     return delay(200).then(() => {
       const gen = mockGenerations.find((g) => g.generation_id === generationId)
       const baseName = gen?.product?.name || 'content'
+      // 多选框：仅导出勾选渠道的版本（未传 channels=全部）
+      const sel = channels && channels.length ? new Set(channels) : null
+      const vers = sel ? (gen?.versions || []).filter((v) => !v.channel || sel.has(v.channel)) : (gen?.versions || [])
       const mdText = gen
-        ? gen.versions
+        ? vers
             .map((v) => `# ${v.name}\n\n${v.content_html || v.content_markdown || v.body || ''}`)
             .join('\n\n---\n\n')
         : ''

@@ -292,7 +292,7 @@ def _insert_docx_image(doc, url: str, caption: str = "") -> None:
 
 
 @router.get("/{history_id}/export")
-def export_history(history_id: str, format: str = "markdown", user: dict = Depends(get_current_user)):
+def export_history(history_id: str, format: str = "markdown", channels: str | None = None, user: dict = Depends(get_current_user)):
     """导出历史记录为文件。
 
     GET /api/history/H001/export?format=markdown → 下载 .md 文件
@@ -306,6 +306,12 @@ def export_history(history_id: str, format: str = "markdown", user: dict = Depen
         raise HTTPException(404, f"历史记录 {history_id} 不存在")
     data = _parse_json_fields(row, JSON_FIELDS)
     versions = data.get("versions", [])
+    # 多选框：仅导出勾选渠道的版本；未指定 channels=全部（向后兼容）
+    if channels:
+        wanted = {c.strip() for c in channels.split(",") if c.strip()}
+        if wanted:
+            versions = [v for v in versions if v.get("channel") in wanted]
+            data["versions"] = versions   # _build_docx(data) 读 data["versions"]
 
     # docx 导出（含配图，二进制，单独返回）
     if format == "docx":
