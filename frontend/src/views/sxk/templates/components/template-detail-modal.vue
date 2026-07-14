@@ -323,12 +323,10 @@ const relativeTime = (iso) => {
 // ========== 加载 ==========
 const load = async () => {
   loading.value = true
-  // 并行加载场景 schema（如果尚未加载）
-  if (sceneSchemasList.value.length === 0) {
-    const sceneRes = await sxkApi.getSceneSchemas()
-    if (sceneRes.code === 0 && sceneRes.data) {
-      sceneSchemasList.value = sceneRes.data.scenes || []
-    }
+  // 每次打开都重新加载场景 schema，确保新创建的场景在列表中
+  const sceneRes = await sxkApi.getSceneSchemas()
+  if (sceneRes.code === 0 && sceneRes.data) {
+    sceneSchemasList.value = sceneRes.data.scenes || []
   }
   // 无模板 ID：仅加载场景信息（空模板列表）
   if (!props.templateId) {
