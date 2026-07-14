@@ -21,8 +21,6 @@ import time
 import httpx   # HTTP 客户端库，类似 requests 但支持异步
 from config import (
     LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, LLM_TIMEOUT, LLM_ENABLED,
-    EMBEDDING_API_KEY, EMBEDDING_BASE_URL, EMBEDDING_MODEL, EMBEDDING_ENABLED,
-    EMBEDDING_DIM,
 )
 
 
@@ -46,12 +44,6 @@ class LLMProvider:
         """
         raise NotImplementedError
 
-    def embed(self, text: str) -> list[float]:
-        """文本向量化。
-
-        把一段文本转成浮点数向量，用于计算文本相似度。
-        """
-        raise NotImplementedError
 
     def generate_image(self, prompt: str, theme: str = "", scene_style: dict = None) -> str:
         """文生图（加分项）：根据提示词生成配图，返回图片 URL 或 data URL。
@@ -112,38 +104,6 @@ class MockLLMProvider(LLMProvider):
         """
         return f"[mock-llm] 已收到生成请求，将由模板引擎处理。"
 
-    def embed(self, text: str) -> list[float]:
-        """Mock 向量：基于关键词哈希的伪向量。
-
-        原理：
-        1. 把文本切成 2-gram（两个字的组合）或单词
-        2. 每个词用 MD5 哈希映射到一个向量维度
-        3. 该维度 +1
-        4. L2 归一化（让向量长度为 1）
-
-        这样相同/相似的关键词会产生相近的向量，模拟语义相似度。
-        """
-        vec = [0.0] * EMBEDDING_DIM    # 初始化为零向量
-        if not text:
-            return vec
-        # 分词：中文按 2-gram，英文按空格
-        tokens = []
-        for i in range(len(text) - 1):
-            ch = text[i:i + 2]
-            if not ch[0].isspace() and not ch[1].isspace():
-                tokens.append(ch)
-        for word in text.lower().split():
-            tokens.append(word)
-        # 每个词哈希到一个维度
-        for token in tokens:
-            # md5 哈希 → 取模映射到 [0, EMBEDDING_DIM) 范围
-            idx = int(hashlib.md5(token.encode()).hexdigest(), 16) % EMBEDDING_DIM
-            vec[idx] += 1.0
-        # L2 归一化：让向量长度为 1，便于计算余弦相似度
-        norm = sum(v * v for v in vec) ** 0.5
-        if norm > 0:
-            vec = [v / norm for v in vec]
-        return vec
 
     def generate_image(self, prompt: str, theme: str = "", scene_style: dict = None) -> str:
         """Mock 文生图：生成主题化 SVG 占位图（即时、无需联网）。"""
@@ -161,22 +121,18 @@ class MockLLMProvider(LLMProvider):
 
 
 class OpenAICompatibleProvider(LLMProvider):
-    """OpenAI 兼容 Chat Completions + Embeddings 客户端。
+    """OpenAI 兼容 Chat Completions 客户端。
 
     兼容所有 OpenAI 格式的 API：通义千问、DeepSeek、智谱 GLM、Moonshot 等。
 
     使用 httpx.Client 发送 HTTP 请求：
     - POST /chat/completions：对话生成
-    - POST /embeddings：文本向量化
     """
 
     def __init__(self) -> None:
         # 对话客户端（DeepSeek 等）与向量客户端（通义千问等）独立：
         # 它们可能是不同供应商，base_url / key / model 各不相同
         self._client = httpx.Client(timeout=LLM_TIMEOUT)
-        self._embed_client = httpx.Client(timeout=LLM_TIMEOUT)
-        # 向量降级用：embedding 不可用时回退到 Mock 关键词哈希向量
-        self._mock = MockLLMProvider()
 
     @property
     def name(self) -> str:
@@ -218,33 +174,6 @@ class OpenAICompatibleProvider(LLMProvider):
                 time.sleep(1.5 * (attempt + 1))   # 退避：1.5s、3s
         raise last_exc    # 理论上不可达
 
-    def embed(self, text: str) -> list[float]:
-        """调用 Embeddings API 生成向量。
-
-        向量供应商可与对话供应商不同（对话用 DeepSeek、向量用通义千问）。
-        - 未配置 EMBEDDING_API_KEY / EMBEDDING_MODEL → 直接 Mock 向量降级
-        - 调用失败（供应商无此接口 / 网络 / 限流）→ 回退 Mock 向量
-        保证应用永远能启动、语义检索永远可用（质量可能降级，但绝不崩）。
-        """
-        # 未配置真实 embedding → Mock 降级（DeepSeek 用户若没配千问就走这里）
-        if not EMBEDDING_ENABLED:
-            return self._mock.embed(text)
-        url = f"{EMBEDDING_BASE_URL.rstrip('/')}/embeddings"
-        headers = {
-            "Authorization": f"Bearer {EMBEDDING_API_KEY}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": EMBEDDING_MODEL,    # 如通义千问 text-embedding-v3
-            "input": text,
-        }
-        try:
-            resp = self._embed_client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            return resp.json()["data"][0]["embedding"]
-        except Exception:
-            # 失败回退 Mock（Mock 用 EMBEDDING_DIM，与真实向量维度保持一致，避免维度错配）
-            return self._mock.embed(text)
 
     def generate_image(self, prompt: str, theme: str = "", scene_style: dict = None) -> str:
         """真实文生图：调用图像生成 API，失败则回退到 SVG 占位图。

@@ -56,23 +56,6 @@ LLM_ENABLED = bool(LLM_API_KEY)
 TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 TAVILY_ENABLED = bool(TAVILY_API_KEY)
 
-# ===== Embedding 模型配置（可与对话模型用不同供应商）=====
-# 典型场景：对话用 DeepSeek（无 embedding 接口），向量用通义千问。
-# 不配置 EMBEDDING_API_KEY / EMBEDDING_MODEL 时，向量自动降级为 Mock 关键词哈希
-# （语义检索变弱，但应用不会崩——DeepSeek 用户必备这个兜底）。
-EMBEDDING_API_KEY = os.getenv("EMBEDDING_API_KEY", "")
-EMBEDDING_BASE_URL = os.getenv(
-    "EMBEDDING_BASE_URL",
-    "https://dashscope.aliyuncs.com/compatible-mode/v1",   # 通义千问默认
-)
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "")     # 如 text-embedding-v3；空 → 降级 Mock
-EMBEDDING_ENABLED = bool(EMBEDDING_API_KEY and EMBEDDING_MODEL)
-
-# 向量维度：必须与所选 embedding 模型实际输出维度一致（Mock 降级也用它，保证维度统一）。
-# 通义 text-embedding-v3 = 1024；OpenAI text-embedding-3-small = 1536；纯 Mock = 128
-# 切换 embedding 模型时改这里，seed_data 会自动按新维度重建旧产品向量。
-EMBEDDING_DIM = int(os.getenv("EMBEDDING_DIM", "128"))
-
 # ===== JWT 鉴权配置（用户登录/注册）=====
 # JWT = JSON Web Token：登录成功后签发的令牌，前端每次请求在 Authorization 头带上
 # 密钥务必通过环境变量 JWT_SECRET 覆盖默认值（默认值仅供本地开发，不可用于生产）

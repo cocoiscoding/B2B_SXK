@@ -656,61 +656,6 @@ export const sxkApi = {
     return delay(150).then(() => ok(mockProductStats))
   },
 
-  /**
-   * 语义搜索（真实后端链路）
-   * POST /api/products/search
-   * 请求体：{ query: string, top_k?: number, threshold?: number }
-   * 响应：{ items: [{product_id, product_name, category, score, description}], total }
-   *
-   * Mock 阶段：按名称/描述包含 query 简单模拟
-   */
-  searchProducts: ({ query, top_k = 10, threshold = 0.5 } = {}) => {
-    if (USE_MOCK_BIZ) {
-      return delay(200).then(() => {
-        const q = (query || '').trim().toLowerCase()
-        if (!q) return ok({ items: [], total: 0 })
-        const items = mockProducts
-          .filter((p) => !p.is_deleted)
-          .filter((p) => {
-            const name = (p.name || '').toLowerCase()
-            const desc = (p.description || '').toLowerCase()
-            const cats = Array.isArray(p.category) ? p.category.join(',') : (p.category || '')
-            return name.includes(q) || desc.includes(q) || cats.toLowerCase().includes(q)
-          })
-          .slice(0, top_k)
-          .map((p) => ({
-            product_id: p.product_id,
-            product_name: p.name,
-            category: p.category || [],
-            score: 0.9,
-            description: (p.description || '').slice(0, 200)
-          }))
-        return ok({ items, total: items.length })
-      })
-    }
-    return real({
-      url: '/api/products/search',
-      method: 'post',
-      data: { query, top_k, threshold }
-    }).then((raw) => ok(raw))
-  },
-
-  /**
-   * 重建产品向量索引（真实后端链路，仅管理员）
-   * POST /api/products/reindex
-   * 响应：{ message, count }
-   *
-   * Mock 阶段不实现
-   */
-  reindexProducts: () => {
-    if (USE_MOCK_BIZ) {
-      return delay().then(() => ok({ message: 'Mock 阶段不重建向量', count: 0 }))
-    }
-    return real({
-      url: '/api/products/reindex',
-      method: 'post'
-    }).then((raw) => ok(raw))
-  },
 
   /**
    * 产品资源上传（真实后端链路）

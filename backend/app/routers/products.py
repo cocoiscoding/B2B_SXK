@@ -1,9 +1,9 @@
-"""产品知识库管理 API：CRUD + 关键词检索 + 语义搜索 + 自动向量嵌入。
+"""产品知识库管理 API：CRUD + 关键词检索。
 
 本模块提供产品知识库的所有 HTTP 接口，包括：
 - F1-1 产品信息录入：POST /api/products
 - F1-2 产品信息管理：GET/PUT/DELETE /api/products/{id}
-- F1-3 知识库检索：GET /api/products?keyword=xxx + POST /api/products/search
+- F1-3 知识库检索：GET /api/products?keyword=xxx
 - F1-4 初始数据：见 seed_data.py
 
 FastAPI 路由概念：
@@ -25,7 +25,6 @@ from PIL import Image, UnidentifiedImageError
 from config import BASE_DIR
 from app.database import query, query_one, transaction, _parse_json_fields
 from app.models import ProductCreate, Product, ImportDocxResponse
-from app.vector_search import embed_product, search_products_by_text
 from app.docx_parser import parse_product_from_manual
 from app.auth import get_current_user, is_owner_or_admin, require_admin
 
@@ -133,7 +132,6 @@ def create_product(body: ProductCreate, user: dict = Depends(get_current_user)):
     """创建新产品。
 
     请求体是 ProductCreate 模型（自动校验字段类型）。
-    创建时自动生成向量嵌入，用于后续的语义检索。
     created_by 由后端从登录令牌取，不信任前端传入。
     """
     # 如果前端传了 id 就用前端的，否则自动生成（P + 6位随机大写字母数字）
@@ -142,26 +140,13 @@ def create_product(body: ProductCreate, user: dict = Depends(get_current_user)):
     if query_one("SELECT id FROM products WHERE id = %s", (pid,)):
         raise HTTPException(409, f"产品 ID {pid} 已存在")
 
-    # 先构建产品字典，用于生成 embedding 向量
-    # model_dump() 是 Pydantic 方法，把模型转成字典
-    product_dict = {
-        "id": pid, "name": body.name, "category": body.category,
-        "description": body.description,
-        "features": [f.model_dump() for f in body.features],
-        "target_customers": body.target_customers,
-        "pricing": body.pricing,
-        "selling_points": body.selling_points,
-    }
-    # 生成向量嵌入（用于语义搜索）
-    embedding = embed_product(product_dict)
-
     # 写入数据库
     with transaction() as cur:
         cur.execute(
             """INSERT INTO products
             (id, name, category, description, features, target_customers,
-             pricing, selling_points, competitors, images, documents, embedding, created_by)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+             pricing, selling_points, competitors, images, documents, created_by)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (
                 pid, body.name,
                 Json(body.category),
@@ -173,7 +158,6 @@ def create_product(body: ProductCreate, user: dict = Depends(get_current_user)):
                 Json(body.competitors),
                 Json([img.model_dump() for img in body.images]),
                 Json([doc.model_dump() for doc in body.documents]),
-                Json(embedding),
                 created_by,
             ),
         )
@@ -188,7 +172,7 @@ def update_product(product_id: str, body: ProductCreate, user: dict = Depends(ge
     """更新产品信息。仅创建者或管理员可改。
 
     PUT /api/products/P001 → 更新 P001 产品的信息
-    更新时自动重新生成向量嵌入。created_by 不可改（保留原归属）。
+    created_by 不可改（保留原归属）。
     """
     # 先检查产品是否存在，并取 created_by 做归属校验
     existing = query_one("SELECT id, created_by FROM products WHERE id = %s", (product_id,))
@@ -197,23 +181,12 @@ def update_product(product_id: str, body: ProductCreate, user: dict = Depends(ge
     if not is_owner_or_admin(user, existing.get("created_by")):
         raise HTTPException(403, "无权修改他人的产品")
 
-    # 重新生成 embedding(因为产品信息变了,向量也要更新)
-    product_dict = {
-        "id": product_id, "name": body.name, "category": body.category,
-        "description": body.description,
-        "features": [f.model_dump() for f in body.features],
-        "target_customers": body.target_customers,
-        "pricing": body.pricing,
-        "selling_points": body.selling_points,
-    }
-    embedding = embed_product(product_dict)
-
     with transaction() as cur:
         cur.execute(
             """UPDATE products SET
             name=%s, category=%s, description=%s, features=%s,
             target_customers=%s, pricing=%s, selling_points=%s, competitors=%s,
-            images=%s, documents=%s, embedding=%s, updated_at=NOW()
+            images=%s, documents=%s, updated_at=NOW()
             WHERE id=%s""",
             (
                 body.name, Json(body.category), body.description,
@@ -224,7 +197,6 @@ def update_product(product_id: str, body: ProductCreate, user: dict = Depends(ge
                 Json(body.competitors),
                 Json([img.model_dump() for img in body.images]),
                 Json([doc.model_dump() for doc in body.documents]),
-                Json(embedding),
                 product_id,
             ),
         )
@@ -275,66 +247,6 @@ def delete_product(product_id: str, user: dict = Depends(get_current_user)):
 
 
 # ===== F1-3: 语义搜索（向量检索）=====
-
-class SemanticSearchRequest(BaseModel):
-    """语义搜索请求体。"""
-    query: str = Field(..., description="自然语言查询，如「适合金融行业的数据分析产品」")
-    top_k: int = Field(default=5, ge=1, le=20, description="返回结果数量")
-    threshold: float = Field(default=0.0, ge=0.0, le=1.0, description="相似度阈值")
-
-
-class SemanticSearchResult(BaseModel):
-    """语义搜索单个结果。"""
-    product_id: str
-    product_name: str
-    category: list[str] = Field(default_factory=list)
-    score: float           # 相似度分数（0-1，越高越相似）
-    description: str = ""
-
-
-@router.post("/search", response_model=list[SemanticSearchResult])
-def semantic_search(req: SemanticSearchRequest, user: dict = Depends(get_current_user)):
-    """语义搜索：用自然语言查询产品。
-
-    示例：
-        POST /api/products/search
-        {"query": "适合金融行业的安全防护产品"}
-
-    与 GET /api/products?keyword=xxx 的区别：
-    - keyword 是字符级模糊匹配（LIKE）
-    - 语义搜索理解"意思"，能找到关键词不完全匹配但语义相近的产品
-    """
-    results = search_products_by_text(req.query, top_k=req.top_k, threshold=req.threshold)
-    return [
-        SemanticSearchResult(
-            product_id=r.get("id", ""),
-            product_name=r.get("name", ""),
-            category=r.get("category", []) if isinstance(r.get("category"), list) else [],
-            score=round(r.get("_score", 0), 4),
-            description=(r.get("description", "") or "")[:200],
-        )
-        for r in results
-    ]
-
-
-@router.post("/reindex")
-def reindex_products(user: dict = Depends(require_admin)):
-    """重建所有产品的向量嵌入。仅管理员可调用。
-
-    用途：数据库迁移或 Embedding 模型切换后，重新生成所有产品的向量。
-    """
-    rows = query("SELECT * FROM products")
-    count = 0
-    for row in rows:
-        embedding = embed_product(row)
-        with transaction() as cur:
-            cur.execute(
-                "UPDATE products SET embedding=%s, updated_at=NOW() WHERE id=%s",
-                (Json(embedding), row["id"]),
-            )
-        count += 1
-    return {"message": f"已重建 {count} 个产品的向量嵌入", "count": count}
-
 
 # ===== 加分项：上传产品手册（PDF/Word）自动解析建库 =====
 
