@@ -1,28 +1,25 @@
 <template>
   <div class="sxk-userinfo">
-    <!-- 页面标题（与其他业务页统一：h2 24/700/gray-900 + 副标题） -->
+    <!-- 页面标题 -->
     <div class="sxk-userinfo__head">
       <h2>个人信息</h2>
       <p>查看和管理你的账号信息与安全设置</p>
     </div>
 
-    <!-- 用户横幅卡片：左侧头像 + 姓名/角色，右侧注册/最近登录 -->
+    <!-- 用户横幅卡片：左侧头像 + 姓名/角色，右侧注册时间 -->
     <section class="sxk-userinfo__banner">
       <div class="banner-left">
-        <!-- 文字头像（avatar 为空时 fallback 为姓名首字，品牌蓝底白字） -->
-        <div class="banner-avatar">{{ avatarText }}</div>
+        <div class="banner-avatar" :style="{ background: avatarBg }">{{ avatarText }}</div>
         <div class="banner-meta">
           <div class="banner-name">
-            <span class="name-text">{{ info.real_name || info.nick_name || info.user_name || '用户' }}</span>
-            <el-tag v-if="roleText" :type="info.role_id === 'r_admin' ? 'danger' : 'primary'" effect="light" round>
-              {{ roleText }}
+            <span class="name-text">{{ displayName }}</span>
+            <el-tag :type="info.is_admin ? 'danger' : 'primary'" effect="light" round>
+              {{ info.is_admin ? '管理员' : '普通用户' }}
             </el-tag>
           </div>
           <div class="banner-sub">
             <el-icon><User /></el-icon>
-            <span>{{ info.user_name || '-' }}</span>
-            <el-icon class="ml"><OfficeBuilding /></el-icon>
-            <span>{{ info.dept_name || '-' }}</span>
+            <span>{{ info.username || '-' }}</span>
             <el-icon class="ml"><Message /></el-icon>
             <span>{{ info.email || '-' }}</span>
           </div>
@@ -33,11 +30,6 @@
           <div class="stat-label">注册时间</div>
           <div class="stat-value">{{ formatDate(info.created_at) || '—' }}</div>
         </div>
-        <div class="stat-divider"></div>
-        <div class="stat-item">
-          <div class="stat-label">最近登录</div>
-          <div class="stat-value">{{ formatDate(info.last_login_at) || '—' }}</div>
-        </div>
       </div>
     </section>
 
@@ -46,16 +38,15 @@
       <div class="card-title">
         <el-icon><Document /></el-icon>
         <span>账号信息</span>
+        <el-button type="primary" text class="card-edit-btn" @click="openProfileDialog">编辑</el-button>
       </div>
       <el-descriptions :column="2" border class="sxk-userinfo__desc">
-        <el-descriptions-item label="用户名">{{ info.user_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="昵称">{{ info.nick_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="真实姓名">{{ info.real_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="角色">{{ roleText || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="所属部门">{{ info.dept_name || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="租户编号">{{ info.tenant_id || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="用户名">{{ info.username || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="姓名">{{ info.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="角色">{{ info.is_admin ? '管理员' : '普通用户' }}</el-descriptions-item>
         <el-descriptions-item label="邮箱">{{ info.email || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="手机号">{{ info.phone || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="用户ID">{{ info.id || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="注册时间">{{ formatDate(info.created_at) || '-' }}</el-descriptions-item>
       </el-descriptions>
     </section>
 
@@ -75,29 +66,44 @@
         </div>
         <div class="security-item">
           <div class="security-info">
-            <div class="security-name">绑定手机</div>
-            <div class="security-desc">{{ info.phone ? `已绑定 ${info.phone}` : '未绑定' }}</div>
-          </div>
-          <el-button type="primary" text>{{ info.phone ? '更换' : '去绑定' }}</el-button>
-        </div>
-        <div class="security-item">
-          <div class="security-info">
             <div class="security-name">绑定邮箱</div>
             <div class="security-desc">{{ info.email ? `已绑定 ${info.email}` : '未绑定' }}</div>
           </div>
-          <el-button type="primary" text>{{ info.email ? '更换' : '去绑定' }}</el-button>
+          <el-button type="primary" text @click="openProfileDialog">{{ info.email ? '更换' : '去绑定' }}</el-button>
         </div>
       </div>
     </section>
 
-    <!-- 修改密码弹窗（mock 阶段仅前端校验） -->
+    <!-- 编辑资料弹窗 -->
+    <el-dialog v-model="profileDialog" title="编辑个人资料" width="440px" append-to-body>
+      <el-form ref="profileFormRef" :model="profileForm" :rules="profileRules" label-width="80px">
+        <el-form-item label="用户名">
+          <el-input :model-value="info.username" disabled />
+        </el-form-item>
+        <el-form-item label="姓名" prop="name">
+          <el-input v-model="profileForm.name" placeholder="请输入姓名" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="profileForm.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="头像色">
+          <el-color-picker v-model="profileForm.color" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="profileDialog = false">取消</el-button>
+        <el-button type="primary" :loading="profileSaving" @click="submitProfile">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 修改密码弹窗 -->
     <el-dialog v-model="pwdDialog" title="修改密码" width="420px" append-to-body>
       <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-width="90px">
         <el-form-item label="原密码" prop="old">
           <el-input v-model="pwdForm.old" type="password" show-password placeholder="请输入原密码" />
         </el-form-item>
         <el-form-item label="新密码" prop="new">
-          <el-input v-model="pwdForm.new" type="password" show-password placeholder="6-20 位，需含字母与数字" />
+          <el-input v-model="pwdForm.new" type="password" show-password placeholder="6-20 位" />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirm">
           <el-input v-model="pwdForm.confirm" type="password" show-password placeholder="请再次输入新密码" />
@@ -105,7 +111,7 @@
       </el-form>
       <template #footer>
         <el-button @click="pwdDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitPwd">确认修改</el-button>
+        <el-button type="primary" :loading="pwdSaving" @click="submitPwd">确认修改</el-button>
       </template>
     </el-dialog>
   </div>
@@ -114,28 +120,30 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { User, OfficeBuilding, Message, Document, Lock } from '@element-plus/icons-vue'
+import { User, Message, Document, Lock } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/modules/user'
+import { updateUserInfo } from '@/api/user'
 
 const userStore = useUserStore()
 const info = computed(() => userStore.userInfo || {})
 
-// 角色文本：兼容 roles 数组或 role_name 字段
-const roleText = computed(() => {
-  const roles = userStore.roles
-  if (roles && roles.length) {
-    return roles.map((r) => r.role_name || r.role_alias || r).join('、')
-  }
-  return info.value.role_name || ''
-})
+// 显示名：优先 name，其次 mock 遗留字段
+const displayName = computed(() => info.value.name || info.value.nick_name || info.value.username || '用户')
 
-// 头像首字（取真实姓名/昵称/用户名第一个字符）
+// 头像首字
 const avatarText = computed(() => {
-  const name = info.value.real_name || info.value.nick_name || info.value.user_name || ''
+  const name = info.value.name || info.value.username || ''
   return name ? name.charAt(0).toUpperCase() : 'U'
 })
 
-// 简单日期格式化：兼容 ISO 字符串 / 'YYYY-MM-DD HH:mm:ss'
+// 头像背景色：用用户 color 字段或品牌蓝渐变
+const avatarBg = computed(() => {
+  const c = info.value.color
+  if (c) return c
+  return `linear-gradient(135deg, #1a56db 0%, #3b82f6 100%)`
+})
+
+// 日期格式化
 const formatDate = (val) => {
   if (!val) return ''
   const d = new Date(val)
@@ -144,9 +152,55 @@ const formatDate = (val) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-// ========== 修改密码（mock 阶段仅前端交互） ==========
+// ========== 编辑资料 ==========
+const profileDialog = ref(false)
+const profileFormRef = ref(null)
+const profileSaving = ref(false)
+const profileForm = reactive({ name: '', email: '', color: '' })
+
+const profileRules = {
+  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ]
+}
+
+const openProfileDialog = () => {
+  profileForm.name = info.value.name || ''
+  profileForm.email = info.value.email || ''
+  profileForm.color = info.value.color || '#409eff'
+  profileDialog.value = true
+}
+
+const submitProfile = async () => {
+  try {
+    await profileFormRef.value.validate()
+    profileSaving.value = true
+    const res = await updateUserInfo({
+      name: profileForm.name,
+      email: profileForm.email,
+      color: profileForm.color
+    })
+    // 后端裸格式：直接返回 User 对象
+    const updatedUser = res.data || {}
+    // 同步到 store
+    userStore.setUserInfo({ ...info.value, ...updatedUser })
+    ElMessage.success('资料更新成功')
+    profileDialog.value = false
+  } catch (err) {
+    if (err?.response?.data?.detail) {
+      ElMessage.error(err.response.data.detail)
+    }
+  } finally {
+    profileSaving.value = false
+  }
+}
+
+// ========== 修改密码 ==========
 const pwdDialog = ref(false)
 const pwdFormRef = ref(null)
+const pwdSaving = ref(false)
 const pwdForm = reactive({ old: '', new: '', confirm: '' })
 
 const validateConfirm = (rule, value, callback) => {
@@ -158,15 +212,7 @@ const pwdRules = {
   old: [{ required: true, message: '请输入原密码', trigger: 'blur' }],
   new: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '密码长度 6-20 位', trigger: 'blur' },
-    {
-      validator: (rule, value, callback) => {
-        if (value && !/(?=.*[a-zA-Z])(?=.*\d)/.test(value)) {
-          callback(new Error('需同时包含字母与数字'))
-        } else callback()
-      },
-      trigger: 'blur'
-    }
+    { min: 6, max: 20, message: '密码长度 6-20 位', trigger: 'blur' }
   ],
   confirm: [
     { required: true, message: '请再次输入新密码', trigger: 'blur' },
@@ -184,11 +230,19 @@ const handleEditPassword = () => {
 const submitPwd = async () => {
   try {
     await pwdFormRef.value.validate()
-    // Mock 阶段：不真实修改，仅提示成功
-    ElMessage.success('密码修改成功（Mock 演示，未真实提交）')
+    pwdSaving.value = true
+    await updateUserInfo({
+      old_password: pwdForm.old,
+      new_password: pwdForm.new
+    })
+    ElMessage.success('密码修改成功')
     pwdDialog.value = false
-  } catch {
-    // 校验失败
+  } catch (err) {
+    if (err?.response?.data?.detail) {
+      ElMessage.error(err.response.data.detail)
+    }
+  } finally {
+    pwdSaving.value = false
   }
 }
 </script>
@@ -200,7 +254,7 @@ const submitPwd = async () => {
   flex-direction: column;
   gap: $spacing-md;
 
-  // 页面标题（统一：h2 700/gray-900 + 副标题 sm/gray-500）
+  // 页面标题
   &__head {
     h2 {
       margin: 0 0 $spacing-xs;
@@ -215,7 +269,7 @@ const submitPwd = async () => {
     }
   }
 
-  // 用户横幅卡片：品牌色浅底 + 左头像/右统计
+  // 用户横幅卡片
   &__banner {
     display: flex;
     align-items: center;
@@ -231,12 +285,10 @@ const submitPwd = async () => {
       align-items: center;
       gap: $spacing-lg;
 
-      // 文字头像：64px 圆形，品牌蓝渐变底 + 白字
       .banner-avatar {
         width: 64px;
         height: 64px;
         border-radius: $radius-round;
-        background: linear-gradient(135deg, #{$primary-color} 0%, #{$primary-color-hover} 100%);
         color: #fff;
         font-size: 28px;
         font-weight: 700;
@@ -299,16 +351,10 @@ const submitPwd = async () => {
           color: $gray-900;
         }
       }
-
-      .stat-divider {
-        width: 1px;
-        height: 32px;
-        background-color: rgba(26, 86, 219, 0.2);
-      }
     }
   }
 
-  // 信息卡片（白底 + 边框 + 圆角，对齐 basic-block 视觉）
+  // 信息卡片
   &__card {
     padding: $spacing-lg;
     background: $bg-card;
@@ -328,6 +374,11 @@ const submitPwd = async () => {
       .el-icon {
         color: $primary-color;
         font-size: 18px;
+      }
+
+      .card-edit-btn {
+        margin-left: auto;
+        font-size: $font-size-sm;
       }
     }
   }

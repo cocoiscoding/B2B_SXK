@@ -94,7 +94,7 @@ B2B-SXK-ManageGF/
     └── views/               # 业务视图
         ├── sxk/             # 神行库 7 大业务页面
         │   ├── dashboard/       # 首页：欢迎区 + 统计卡 + 常用模板 + 最近生成
-        │   ├── knowledge/       # 产品知识库：CRUD + 关键词高亮 + Word 建库
+        │   ├── knowledge/       # 产品知识库：CRUD + 关键词高亮 + Word/PDF 建库
         │   ├── generate/        # 内容生成：3 阶段草稿流程（draft→editing→adapted→done）
         │   ├── history/         # 生成历史：表格 + 详情/A/B 投票/反馈/导出
         │   ├── templates/       # 场景模板管理：场景 + 子模板 CRUD
@@ -211,7 +211,7 @@ B2B-SXK-ManageGF/
 |----|------------|
 | 鉴权 | `POST /api/auth/login`、`POST /api/auth/register`、`POST /api/auth/refresh`、`POST /api/auth/logout`、`GET /api/auth/me` |
 | 用户名查重 | `GET /api/sxk/auth/check-username` |
-| 产品 | `GET /api/products`、`POST /api/products`、`GET/PUT/DELETE /api/products/{id}`、`POST /api/products/{id}/upload-image`、`POST /api/products/{id}/upload-document`、`POST /api/products/import-docx`（Word 建库）、`POST /api/products/search`（语义搜索）、`POST /api/products/reindex`（管理员） |
+| 产品 | `GET /api/products`、`POST /api/products`、`GET/PUT/DELETE /api/products/{id}`、`POST /api/products/{id}/upload-image`、`POST /api/products/{id}/upload-document`、`POST /api/products/import-docx`（Word/PDF 建库）、`POST /api/products/search`（语义搜索）、`POST /api/products/reindex`（管理员） |
 | 场景 | `GET /api/scenarios`、`POST /api/scenarios`、`PUT/DELETE /api/scenarios/{id}` |
 | 模板 | `GET /api/templates/all`、`GET /api/scenarios/{sid}/templates`、`POST /api/scenarios/{sid}/templates`、`GET/PUT/DELETE /api/scenarios/{sid}/templates/{tid}` |
 | 生成 | `POST /api/generate` |
@@ -323,7 +323,7 @@ Vite 环境变量必须以 `VITE_` 为前缀才能注入前端。文件分布（
 17. **SSE Mock 阶段抛错**：[mock/sxkApi.js](file:///d:/Postgraduate/e-resource/CDC/B2B-SXK-ManageGF/src/mock/sxkApi.js#L1796-L1824) `createDraftStream` / `regenerateDraftStream` 在 `USE_MOCK_BIZ=true` 时抛 `MOCK_UNSUPPORTED` 错误，调用方需 try/catch 后回退到同步 `createDraft`。
 18. **后端字段适配层在 sxkApi 内**：[mock/sxkApi.js](file:///d:/Postgraduate/e-resource/CDC/B2B-SXK-ManageGF/src/mock/sxkApi.js) 内置 `adaptProduct`/`adaptTemplate`/`adaptScene`/`adaptHistory`/`adaptVersion` 函数，所有真实链路返回都经过适配。**业务页面 import 的字段是前端格式（`product_id`/`template_id`/`scene_code`），不要直接使用后端字段（`id`/`scenario_id`/`parameters`）**。
 19. **模板/场景预置判定靠 ID 正则**：[mock/sxkApi.js](file:///d:/Postgraduate/e-resource/CDC/B2B-SXK-ManageGF/src/mock/sxkApi.js#L112) `isPresetTemplate(id)` 用 `/^T\d{3}$/.test(id)` 检测（后端预置模板 ID 为 T001~T008）；场景则用 `!sceneCode.startsWith('custom_')` 判定预置。预置项不可删除（返回 `4030`）。
-20. **Word 建库（importDocx）在 Mock 阶段返回 `mock_unavailable: true`**：[mock/sxkApi.js](file:///d:/Postgraduate/e-resource/CDC/B2B-SXK-ManageGF/src/mock/sxkApi.js#L758-L780) 让前端用 `ElMessage.warning` 区别对待，**不要把它当普通错误处理**。
+20. **Word/PDF 建库（importDocx）在 Mock 阶段返回 `mock_unavailable: true`**：[mock/sxkApi.js](file:///d:/Postgraduate/e-resource/CDC/B2B-SXK-ManageGF/src/mock/sxkApi.js#L758-L780) 让前端用 `ElMessage.warning` 区别对待，**不要把它当普通错误处理**。
 21. **文件上传禁用 serialize**：[mock/sxkApi.js](file:///d:/Postgraduate/e-resource/CDC/B2B-SXK-ManageGF/src/mock/sxkApi.js#L730) `uploadProductImage` / `uploadProductDocument` / `importDocx` 必须传 `meta: { isSerialize: false }`，否则 multipart FormData 会被错误序列化。
 22. **端口冲突 → 自动落到 53201+**：开发期 `localhost:53200` 出现 404 时，**优先检查端口是否被占用**（Vite 启动日志 `Port 53200 is in use, trying another one...` 会自动落到 53201+）。需 `netstat -ano | findstr 53200` + `taskkill /PID <pid> /F` 后重启 `npm run dev`，或直接运行 `./kill-dev-servers.ps1`。
 23. **项目独立性约束**：神行库独立部署，使用 `sxk` 前缀（`clientId='sxk'`、`TokenKey='sxk-access-token'`、sessionStorage 前缀 `sxk-`、`website.key='sxk'`）。**严禁再把其他同源业务系统的 clientId / tokenKey / 注释直接复制进来**；新增 `.env.*` 时只保留 `dev / test / prod` 三套。

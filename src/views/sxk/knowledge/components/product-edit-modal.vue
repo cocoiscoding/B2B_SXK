@@ -425,7 +425,7 @@ const props = defineProps({
   // 关键：当前用户是否有编辑权限（产品创建者或管理员）
   // false → 即使是查看模式也只读，底部不显示"编辑"按钮
   canEdit: { type: Boolean, default: true },
-  // Word 建库预填数据（真实后端 import-docx 返回的 product 草稿）
+  // Word/PDF 建库预填数据（真实后端 import-docx 返回的 product 草稿）
   prefillData: { type: Object, default: null }
 })
 const emit = defineEmits(['update:modelValue', 'saved'])
@@ -507,7 +507,7 @@ const initForm = async () => {
   resetUploadBuffer()
   // readonly 模式 → 初始不可编辑；否则 → 可编辑
   editing.value = !props.readonly
-  // Word 建库预填：真实后端 import-docx 返回 product 草稿，直接预填
+  // Word/PDF 建库预填：真实后端 import-docx 返回 product 草稿，直接预填
   if (props.prefillData) {
     Object.assign(form, {
       ...props.prefillData,

@@ -126,7 +126,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Message, Picture, MagicStick, DataAnalysis, Promotion } from '@element-plus/icons-vue'
-import { getCaptcha, registerByInfo, checkUsername } from '@/api/user'
+import { getCaptcha, registerByInfo } from '@/api/user'
 import website from '@/config/website'
 import { randomString } from '@/util/util'
 
@@ -179,28 +179,10 @@ const validateCode = (rule, value, callback) => {
   }
 }
 
-// BR-A-25：用户名异步查重
-const validateUsername = async (rule, value, callback) => {
-  if (!value || value.length < 3) return callback()
-  try {
-    const resp = await checkUsername(value)
-    const payload = resp.data || {}
-    const data = payload.data || {}
-    if (data.available === false) {
-      callback(new Error('该用户名已被占用'))
-    } else {
-      callback()
-    }
-  } catch {
-    callback()
-  }
-}
-
 const regRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度 3-20 个字符', trigger: 'blur' },
-    { validator: validateUsername, trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名长度 3-20 个字符', trigger: 'blur' }
   ],
   email: [
     { required: true, message: '请输入邮箱', trigger: 'blur' },

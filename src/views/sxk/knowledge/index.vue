@@ -18,7 +18,7 @@
       <div class="sxk-page-welcome__actions">
         <el-button @click="onImport">
           <el-icon><Upload /></el-icon>
-          <span>Word 建库</span>
+          <span>Word/PDF 建库</span>
         </el-button>
         <el-button type="primary" @click="onAdd">
           <el-icon><Plus /></el-icon>
@@ -208,7 +208,7 @@
       @saved="loadList"
     />
 
-    <!-- ========== 隐藏的 Word 建库 input ========== -->
+    <!-- ========== 隐藏的 Word/PDF 建库 input ========== -->
     <input
       ref="importFileInput"
       type="file"
@@ -239,7 +239,7 @@ const editVisible = ref(false)
 const editTargetId = ref(null)
 const editReadonly = ref(false)
 const editCanEdit = ref(true)  // 关键：当前用户是否能编辑该产品（创建者/管理员 → true）
-const importPrefill = ref(null)  // Word 建库：后端返回的 product 草稿
+const importPrefill = ref(null)  // Word/PDF 建库：后端返回的 product 草稿
 const importFileInput = ref(null)
 const importing = ref(false)
 // 搜索模式：keyword（默认关键词）/ semantic（语义搜索，调用 /api/products/search）
@@ -465,7 +465,7 @@ const onDelete = async (item) => {
 }
 
 const onImport = () => {
-  // US018 / Word 建库：触发隐藏的 file input
+  // US018 / Word/PDF 建库：触发隐藏的 file input
   importFileInput.value?.click()
 }
 
@@ -491,7 +491,7 @@ const onImportFileChange = async (e) => {
     } else if (res.data?.mock_unavailable) {
       // mock 链路：友好提示（不弹错误）
       ElMessage({
-        message: 'Word 建库需要真实后端支持。Mock 阶段请使用"添加产品"按钮手动录入产品信息。',
+        message: 'Word/PDF 建库需要真实后端支持。Mock 阶段请使用"添加产品"按钮手动录入产品信息。',
         type: 'warning',
         duration: 5000
       })

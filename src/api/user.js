@@ -176,3 +176,20 @@ export const getUserInfo = () => {
     method: 'get'
   })
 }
+
+/**
+ * 更新个人资料
+ * PUT /api/auth/me
+ *
+ * 后端请求体（UserUpdate）：{ name?, email?, color?, old_password?, new_password? }
+ * 后端响应体：更新后的 User { id, name, color, username, email, is_admin, created_at }
+ *
+ * @param {object} data  待更新字段
+ */
+export const updateUserInfo = (data) => {
+  return request({
+    url: '/api/auth/me',
+    method: 'put',
+    data
+  })
+}

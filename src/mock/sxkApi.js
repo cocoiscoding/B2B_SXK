@@ -755,7 +755,7 @@ export const sxkApi = {
   },
 
   /**
-   * Word 建库（真实后端链路）
+   * Word/PDF 建库（真实后端链路）
    * POST /api/products/import-docx（multipart/form-data）
    * 返回 { product: ProductCreate, char_count, extractor, note }
    *
@@ -771,7 +771,7 @@ export const sxkApi = {
           product: null,
           char_count: 0,
           extractor: 'mock',
-          note: 'Word 建库功能需要在真实后端环境（USE_MOCK_BIZ=false）下使用，mock 阶段请用"添加产品"按钮手动录入。',
+          note: 'Word/PDF 建库功能需要在真实后端环境（USE_MOCK_BIZ=false）下使用，mock 阶段请用"添加产品"按钮手动录入。',
           mock_unavailable: true  // 关键：让前端判断是 mock 不支持
         }
       }))
