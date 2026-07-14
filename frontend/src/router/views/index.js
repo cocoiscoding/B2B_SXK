@@ -94,19 +94,6 @@ export default [
       }
     ]
   },
-  {
-    path: '/competitors',
-    component: Layout,
-    redirect: '/competitors/index',
-    children: [
-      {
-        path: 'index',
-        name: '竞品分析',
-        meta: { keepAlive: true, isTab: true, title: '竞品分析' },
-        component: () => import('@/views/sxk/competitors/index.vue')
-      }
-    ]
-  },
 
   // ============ 旧业务页（保留） ============
   {

@@ -331,13 +331,24 @@ def _extract_heuristic(blocks: list[dict], text: str) -> tuple[dict, str]:
             continue
 
         # 功能特性：每行 = 一个功能
+        # 关键：当某行没有"名称：描述"分隔符时，视为上一个功能的描述续行，
+        #       追加到上一个 feature 的 description，而不是新建一个 feature
+        #       （避免长描述换行后被截断成下一栏的功能名）
         if _RE_FEATURE.search(heading):
             for line in lines:
                 line = line.strip()
                 if not line:
                     continue
                 name, desc = _split_feature_line(line)
-                if name:
+                # _split_feature_line 无分隔符时返回 (line[:30], "")
+                # 用 desc 是否为空 + 是否含分隔符 判断是否为续行
+                has_sep = any(sep in line for sep in ("：", ":", " - ", " – ", " — "))
+                if not has_sep and features:
+                    # 续行：追加到上一个 feature 的 description
+                    features[-1]["description"] = (
+                        (features[-1]["description"] + " " + line).strip()[:200]
+                    )
+                elif name:
                     features.append({"name": name[:30], "description": desc[:120]})
             continue
 

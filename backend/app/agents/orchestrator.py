@@ -22,7 +22,6 @@ from app.agents.competitor_agent import CompetitorAgent
 from app.agents.generation_agent import GenerationAgent
 from app.agents.channel_agent import ChannelAgent
 from app.agents.validation_agent import ValidationAgent
-from app.agents.image_agent import ImageAgent
 from app.agents.llm_provider import get_provider
 from app.database import query_one, transaction, _parse_json_fields, execute
 from app.models import GenerateResponse, VersionContent, AgentStep
@@ -41,9 +40,24 @@ class Orchestrator:
         self.generation = GenerationAgent(llm)      # ③ 内容生成
         self.channel = ChannelAgent(llm)            # ④ 渠道适配
         self.validation = ValidationAgent(llm)      # ⑤ 内容校验
-        self.image = ImageAgent(llm)                # ⑥ 文生图配图（加分项）
+        self.image = self._build_image_agent(llm)   # ⑥ 文生图配图（加分项，缺失时降级为 noop）
         # 保留 agents 列表便于外部遍历/展示
         self.agents = [self.retrieval, self.competitor, self.generation, self.channel, self.validation, self.image]
+
+    def _build_image_agent(self, llm):
+        """兼容旧版本代码：若 image agent 模块不存在，使用 no-op 退化实现。"""
+        try:
+            from app.agents.image_agent import ImageAgent  # type: ignore
+        except ModuleNotFoundError:
+            class ImageAgentFallback(BaseAgent):
+                name = "文生图配图 Agent"
+                description = "图片生成模块未启用时的降级实现"
+
+                def _execute(self, ctx: AgentContext) -> tuple[str, str, dict]:
+                    return "success", "图片生成模块未启用，跳过配图", {"image": None, "images": []}
+
+            return ImageAgentFallback(llm)
+        return ImageAgent(llm)
 
     def run(self, product_id: str, scenario_id: str, channel: str,
             style: str, params: dict, version_count: int = 3,

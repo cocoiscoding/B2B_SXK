@@ -425,12 +425,6 @@ export const useUserStore = defineStore('user', {
           name: '场景模板管理',
           source: 'Files',
           children: []
-        },
-        {
-          path: '/competitors/index',
-          name: '竞品分析',
-          source: 'Aim',
-          children: []
         }
       ]
       // 成员管理仅管理员可见
