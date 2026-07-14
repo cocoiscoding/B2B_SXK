@@ -17,7 +17,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from app.agents.base import BaseAgent, AgentContext
 from app.agents.llm_provider import LLMProvider
-from app.agents.validation_agent import SENSITIVE_WORDS_HINT
+from app.agents.validation_agent import SENSITIVE_WORDS_HINT, DIRECTIONAL_PARAMS
 
 
 class GenerationAgent(BaseAgent):
@@ -251,7 +251,13 @@ class GenerationAgent(BaseAgent):
         if must_params and params:
             for name in must_params:
                 val = params.get(name)
-                if val and len(str(val)) <= 50:
+                if not val or len(str(val)) > 50:
+                    continue
+                if name in DIRECTIONAL_PARAMS:
+                    # 方向类参数（如竞品对比的 focus 对比重点）：作为整体背景参考，各版围绕它展开，
+                    # 但不强制每版原样重复该词--否则与各版差异化维度(dim)打架，把版本差异抹平。
+                    lines.append(f"用户指定的「{name}」（{val}）作为本次对比的整体重点参考，各版本围绕它展开即可，不必每版都原样重复该词")
+                else:
                     lines.append(f"必须原样包含用户指定的「{name}」：{val}")
 
         if not lines:
@@ -407,6 +413,26 @@ class GenerationAgent(BaseAgent):
             dims = ["专业严谨", "活泼有趣", "情感共鸣", "创新独特"]
         return dims[version_index] if version_index < len(dims) else dims[-1]
 
+    @staticmethod
+    def _format_prior_versions(ctx: AgentContext, current_index: int) -> str:
+        """把同批次已生成版本（index < 当前版）的标题+正文首段格式化为对照文本。
+
+        逐版本独立调用 LLM 时，每次都看不到其他版本，"与前面版本形成差异"形同虚设，
+        导致多版套同一结构、只替换维度关键词（竞品场景尤为明显）。把前面版本的
+        标题+开头注入 prompt，让 LLM 真正有对照可避。只取首段以控制 prompt 体积；
+        无前面版本（第 1 版）时返回空串。
+        """
+        lines: list[str] = []
+        for v in ctx.draft_versions:
+            idx = v.get("index")
+            # 仅纳入当前版之前的版本（按 1-based 版本号过滤，防重试时混入同号草稿）
+            if not isinstance(idx, int) or idx >= current_index + 1:
+                continue
+            title = (v.get("title") or "").strip()
+            body = (v.get("body") or "").strip().replace("\n", " ")
+            lines.append(f"- 版本{idx} 标题：{title}\n  开头：{body[:80]}")
+        return "\n".join(lines)
+
     def _build_llm_prompt(self, ctx: AgentContext, version_index: int = 0) -> str:
         """构造发给 LLM 的提示词。"""
         info = ctx.retrieved_info
@@ -430,7 +456,17 @@ class GenerationAgent(BaseAgent):
 
         # 多版本差异化提示：优先用模板指定维度，否则回退默认风格
         dim = self.dim_for_version(scenario, version_index)
-        version_hint = f"这是第 {version_index + 1} 个版本，请侧重「{dim}」，与前面版本形成差异。"
+        prior_block = self._format_prior_versions(ctx, version_index)
+        version_hint = f"这是第 {version_index + 1} 个版本，请侧重「{dim}」方向。"
+        if prior_block:
+            # 逐版本独立调用 LLM 时它看不到其他版本，必须把前面版本喂给它做对照，
+            # 否则会套同一结构只换关键词（竞品场景实测三版句式雷同）。
+            version_hint += (
+                "\n【同批次已生成版本，仅供对照避雷——严禁复制其结构/句式/切入角度，"
+                "更不得只替换维度关键词就交差】\n" + prior_block + "\n"
+                "本版必须在标题切入角度、正文结构骨架、行文句式与语气上与上述版本明显不同，"
+                "让人一眼看出是不同写法，而非换词复述同一模板。"
+            )
 
         extras = self._format_prompt_extras(scenario)
         feedback = self._format_feedback(ctx)

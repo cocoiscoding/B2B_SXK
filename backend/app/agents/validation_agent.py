@@ -34,6 +34,13 @@ SENSITIVE_PATTERNS = [
 # 给生成 Agent 的可读提示（与 SENSITIVE_PATTERNS 表达同一组约束，同步维护）
 SENSITIVE_WORDS_HINT = "最好/最佳/最强/最优、行业第一/第一品牌、国家级、唯一、绝对、100%、包治、顶级/极品/万能"
 
+# 方向类参数名（如竞品对比的 focus「对比重点」）：这类参数的值是"整体方向/重点"，
+# 应作为各版本共同展开的背景，而非每版必须原样包含的词--否则会与各版差异化维度(dim)
+# 冲突、把版本差异抹平（focus 值常与某 dim 重叠，如"功能全面性"）。标识类参数
+# （如 competitor 竞品名）仍要求原样包含。生成端(_format_hard_requirements)与
+# 校验端(_check_constraints)共用此集合。
+DIRECTIONAL_PARAMS = {"focus"}
+
 
 class ValidationAgent(BaseAgent):
     """内容校验 Agent。"""
@@ -149,8 +156,12 @@ class ValidationAgent(BaseAgent):
 
         # 必含参数：用户填写的参数值必须出现在内容中
         # 只检查非空且较短的值（≤50 字），长描述性参数允许 LLM 改写
+        # 方向类参数（如 focus 对比重点）跳过--它与各版 dim 冲突，强制每版包含会把
+        # 版本差异抹平（见 DIRECTIONAL_PARAMS）；标识类参数（如 competitor）仍校验
         if must_params and params:
             for name in must_params:
+                if name in DIRECTIONAL_PARAMS:
+                    continue
                 val = params.get(name)
                 if val and len(str(val)) <= 50 and str(val) not in all_text:
                     issues.append(f"⚠ 内容未包含用户指定的「{name}」：{val}")
