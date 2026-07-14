@@ -835,8 +835,8 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   MagicStick,
@@ -880,6 +880,7 @@ import { getSceneStyle } from '@/util/scene-style'
 
 // ========== 响应式数据 ==========
 const router = useRouter()
+const route = useRoute()
 // 欢迎区用户名（来自 mock 用户；如已登录展示用户 store 数据）
 const welcomeName = ref('营销专家')
 const todayText = computed(() => {
@@ -1498,11 +1499,16 @@ const sceneCodeToName = ref({})           // 来自 getTemplateMeta 的 scene_co
  *   5. 不足 3 条时用 commonTemplates 补齐
  */
 const topScenesByUsage = computed(() => {
+  // 关键：白名单——已删除的场景不应出现在首页（即便历史记录里还引用着）
+  const validCodes = new Set(
+    (allScenesCache.value || []).map((s) => s.scene_code).filter(Boolean)
+  )
   // 聚合 history 中 scene_code 出现次数
   const counts = new Map()
   for (const item of (recentListForStats.value || [])) {
     const code = item.scene_code
     if (!code) continue
+    if (validCodes.size > 0 && !validCodes.has(code)) continue
     counts.set(code, (counts.get(code) || 0) + 1)
   }
 
@@ -1565,6 +1571,7 @@ const topScenesByUsage = computed(() => {
     for (const tpl of commonTemplates) {
       if (aggregated.length >= 3) break
       if (existingCodes.has(tpl.scene_code)) continue
+      if (validCodes.size > 0 && !validCodes.has(tpl.scene_code)) continue
       aggregated.push({
         ...tpl,
         use_count: 0,
@@ -1683,6 +1690,19 @@ const load = async () => {
 }
 
 onMounted(load)
+
+// 关键：tab 切换回首页（keep-alive 激活）时刷新数据，
+// 这样场景管理里删/新增的场景能立刻反映在「常用营销场景」中
+onActivated(load)
+
+// 关键：监听"首页刷新"自定义事件（由 sidebar 在菜单点击时广播），保证每次点首页都强制 reload
+const refreshTick = ref(0)
+watch(refreshTick, () => load())
+if (typeof window !== 'undefined') {
+  window.addEventListener('sxk:dashboard:reload', () => {
+    refreshTick.value++
+  })
+}
 </script>
 
 <style lang="scss" scoped>

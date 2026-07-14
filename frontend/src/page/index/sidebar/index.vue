@@ -111,7 +111,11 @@ const resolvePath = (basePath, childPath) => {
 // permission.js 路由守卫会自动拦截并生成新的 tabId，从而每次点击都创建新 Tab。
 // 草稿隔离由 generate/index.vue 内部按 tabId 隔离 localStorage，无需在此处理。
 const onMenuSelect = (index) => {
-  // 预留：未来可在此添加菜单点击的额外逻辑
+  // 关键：每次点击"首页"菜单时，强制 dashboard 重新加载数据
+  //（keep-alive 缓存导致同 tabId 复用组件实例，onActivated 不会重复触发）
+  if (index === '/dashboard' || index === '/dashboard/index') {
+    window.dispatchEvent(new CustomEvent('sxk:dashboard:reload'))
+  }
 }
 </script>
 
