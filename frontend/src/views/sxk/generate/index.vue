@@ -2534,10 +2534,9 @@ onMounted(async () => {
   await Promise.allSettled(tasks)
 
   // 2) 处理路由 query
-  const { gid, scene, template, product } = route.query
+  const { gid, scene, template } = route.query
   if (scene) form.scene_code = String(scene)
   if (template) form.template_id = String(template)
-  if (product) form.product_id = String(product)
 
   // 3) 恢复草稿（优先级最高：先看 gid，再看 localStorage）
   if (gid) {
@@ -2660,6 +2659,7 @@ async function loadSceneTemplates() {
 }
 
 async function onTemplateChange(templateId) {
+  form.template_id = templateId || ''
   if (!templateId) {
     form.params.prompt = ''
     return
