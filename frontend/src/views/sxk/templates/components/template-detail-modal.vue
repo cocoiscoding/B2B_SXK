@@ -157,6 +157,13 @@
                   <el-icon><EditPen /></el-icon>
                 </button>
                 <button
+                  class="tpl-card__delete-btn"
+                  title="删除此模板"
+                  @click.stop="onDeleteSub(tpl)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </button>
+                <button
                   class="tpl-card__use-btn"
                   @click.stop="onUseItem(tpl)"
                 >
@@ -207,7 +214,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Document,
   PieChart,
@@ -222,6 +229,7 @@ import {
   TrendCharts,
   EditPen,
   MagicStick,
+  Delete,
   Plus
 } from '@element-plus/icons-vue'
 import sxkApi from '@/mock/sxkApi'
@@ -368,8 +376,27 @@ const onEditSub = async (tpl) => {
 }
 
 const onUseItem = (tpl) => {
-  emit('use', tpl)
+  emit('use', { ...tpl, scene_code: tpl.scene_code || sceneCode.value })
   emit('update:modelValue', false)
+}
+
+const onDeleteSub = async (tpl) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除模板「${tpl.name}」吗？此操作不可撤销。`,
+      '删除模板',
+      { type: 'warning', confirmButtonText: '确定删除', cancelButtonText: '取消' }
+    )
+  } catch {
+    return
+  }
+  const res = await sxkApi.deleteTemplate(tpl.template_id, sceneCode.value)
+  if (res.code === 0) {
+    ElMessage.success('模板已删除')
+    await load()
+  } else {
+    ElMessage.error(res.msg || '删除失败')
+  }
 }
 
 const onManageSub = () => {
@@ -745,6 +772,25 @@ const onUse = () => {
     &:hover {
       color: $primary-color;
       background: $primary-color-light;
+    }
+  }
+
+  &__delete-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: $text-placeholder;
+    cursor: pointer;
+    border-radius: $radius-sm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+
+    &:hover {
+      color: #f56c6c;
+      background: #fef0f0;
     }
   }
 

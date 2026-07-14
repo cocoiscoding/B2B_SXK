@@ -2534,9 +2534,10 @@ onMounted(async () => {
   await Promise.allSettled(tasks)
 
   // 2) 处理路由 query
-  const { gid, scene, tid } = route.query
+  const { gid, scene, template, product } = route.query
   if (scene) form.scene_code = String(scene)
-  if (tid) form.template_id = String(tid)
+  if (template) form.template_id = String(template)
+  if (product) form.product_id = String(product)
 
   // 3) 恢复草稿（优先级最高：先看 gid，再看 localStorage）
   if (gid) {
@@ -2553,7 +2554,7 @@ onMounted(async () => {
     if (!currentDraft.value) {
       applySceneDefaults()
       await loadSceneTemplates()
-      if (tid) await onTemplateChange(String(tid))
+      if (template) await onTemplateChange(String(template))
     }
   }
   // 4) 数据加载完毕后更新一次副标题
