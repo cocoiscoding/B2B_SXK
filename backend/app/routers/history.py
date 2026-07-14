@@ -134,6 +134,38 @@ def _parse_data_url(data_url: str):
         return None, None
 
 
+def _apply_cjk_font(doc, font_name: str = "微软雅黑") -> None:
+    """为 docx 设置中文字体（含 w:eastAsia），避免 Word/WPS 中文显示为方框。
+
+    python-docx 默认模板的东亚主题字体（w:ea）为空，部分阅读器（WPS、Google Docs 等）
+    不做字体回退，会把中文渲染成 □□□。这里把 docDefaults 与所有已有 rFonts 的样式
+    （Normal、各级标题等）的 ascii/hAnsi/eastAsia/cs 显式设为同一中文字体，
+    让渲染器明确按 CJK 字体处理。即使该字体未安装，也会回退到其它 CJK 字体而非方框。
+    """
+    from docx.oxml.ns import qn
+
+    def _set(rfonts):
+        if rfonts is None:
+            return
+        for attr in ("w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"):
+            rfonts.set(qn(attr), font_name)
+
+    # 1. docDefaults：所有样式继承的基线
+    doc_defaults = doc.styles.element.find(qn("w:docDefaults"))
+    if doc_defaults is not None:
+        rpr_default = doc_defaults.find(qn("w:rPrDefault"))
+        if rpr_default is not None:
+            rpr = rpr_default.find(qn("w:rPr"))
+            if rpr is not None:
+                _set(rpr.find(qn("w:rFonts")))
+
+    # 2. Normal + 各级标题等已有 rFonts 的样式，逐个显式覆盖
+    for style in doc.styles:
+        rpr = style.element.find(qn("w:rPr"))
+        if rpr is not None:
+            _set(rpr.find(qn("w:rFonts")))
+
+
 def _build_docx(data: dict) -> bytes:
     """把历史记录导出为 docx（含配图），返回字节。
 
@@ -145,6 +177,7 @@ def _build_docx(data: dict) -> bytes:
     from docx import Document
 
     doc = Document()
+    _apply_cjk_font(doc)  # 设置中文字体，避免 WPS 等阅读器中文显示为方框
     doc.add_heading(f"{data['product_name']} - {data['scenario_name']}", level=0)
     doc.add_paragraph(f"渠道：{data['channel']} | 风格：{data['style']} | 生成时间：{data['created_at']}")
 
