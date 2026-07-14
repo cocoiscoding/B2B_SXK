@@ -1935,14 +1935,12 @@ export const sxkApi = {
     })
   },
 
-  /** A/B 投票：按版本投票，同方向再点 = 取消 */
+  /** A/B 投票：按版本投票，同方向再点 = 取消
+   * 关键：真实后端实现由文件末尾覆盖（避免构造期内自引用）；
+   *       此处保留 mock 分支以维护版本维度的 votes 计数。 */
   castVote: (generationId, versionIndex, vote) => {
     if (!USE_MOCK_BIZ) {
-      return real({
-        url: `/api/history/${generationId}/vote`,
-        method: 'put',
-        data: { version_index: versionIndex, vote }
-      }).then((d) => ok(d))
+      return sxkApi.setHistoryFeedback(generationId, vote || '')
     }
     return delay(120).then(() => {
       const gen = mockGenerations.find((g) => g.generation_id === generationId)
@@ -2213,6 +2211,14 @@ export const sxkApi = {
       return ok(null)
     })
   }
+}
+
+// 关键：castVote 在真实后端模式下需要复用 setHistoryFeedback，
+//       但 sxkApi 对象内部还未构造完成时无法自引用 sxkApi。
+//       因此在对象构造结束后统一覆盖该方法的实现。
+if (!USE_MOCK_BIZ) {
+  sxkApi.castVote = (generationId, _versionIndex, vote) =>
+    sxkApi.setHistoryFeedback(generationId, vote || '')
 }
 
 export default sxkApi
