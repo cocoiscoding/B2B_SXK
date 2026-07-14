@@ -1182,6 +1182,15 @@
                 </div>
                 <!-- 阶段 2 顶部操作组（按状态动态展示） -->
                 <div class="sxk-generate__stage2-actions">
+                  <!-- 回到最开始（清空所有数据） -->
+                  <el-button
+                    size="small"
+                    plain
+                    :icon="RefreshLeft"
+                    @click="onRestartBeginning"
+                  >
+                    重新开始
+                  </el-button>
                   <!-- 始终可用：仅导出（无需配图）-->
                   <el-button
                     size="small"
@@ -1825,7 +1834,8 @@ import {
   Reading,
   Close,
   Check,
-  Operation
+  Operation,
+  RefreshLeft
 } from '@element-plus/icons-vue'
 import BasicBlock from '@/components/basic-block/main.vue'
 import { sxkApi } from '@/mock/sxkApi'
@@ -2067,6 +2077,58 @@ const onStartNew = () => {
 const onStayHere = () => {
   // 关闭按钮：仅关闭弹窗，不弹提示（用户主动关闭不应被打断）
   doneDrawerVisible.value = false
+}
+
+// 回到页面最开始（清空所有数据，如同第一次进入）
+function resetToInitialState() {
+  currentDraft.value = null
+  draftEditingVersion.value = null
+  selectedChannels.value = []
+  stage2Completed.value = false
+  activeStep.value = -1
+  showAgentTrace.value = false
+  localStorage.removeItem(DRAFT_STORAGE_KEY)
+  configPanelVisible.value = true
+  form.product_id = ''
+  form.scene_code = 'product_intro'
+  form.template_id = ''
+  form.params = { prompt: '' }
+  if (formRef.value) formRef.value.clearValidate()
+  draftVersionIndex.value = ''
+  adaptVersionIndex.value = ''
+  seoResult.value = null
+  seoVisible.value = false
+  genEditMode.value = false
+  doneDrawerVisible.value = false
+}
+
+const onRestartBeginning = () => {
+  const saved = !!currentDraft.value?.history_id
+  if (!saved) {
+    // 未保存：警告草稿将丢失
+    ElMessageBox.confirm(
+      '当前任务尚未保存，回到最先后草稿将无法保存，确定继续？',
+      '草稿未保存',
+      { type: 'warning', confirmButtonText: '确定回到', cancelButtonText: '取消' }
+    )
+      .then(() => {
+        resetToInitialState()
+        ElMessage.success('已回到开始')
+      })
+      .catch(() => {})
+  } else {
+    // 已保存：确认是否回到最开始
+    ElMessageBox.confirm(
+      '回到最先后将清空当前所有数据，确定继续？',
+      '回到最开始',
+      { type: 'info', confirmButtonText: '确定回到', cancelButtonText: '取消' }
+    )
+      .then(() => {
+        resetToInitialState()
+        ElMessage.success('已回到开始')
+      })
+      .catch(() => {})
+  }
 }
 // 显式关闭（保留原 onStayHere 的语义以防别处调用）
 const onCloseDialog = () => {
