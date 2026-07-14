@@ -383,22 +383,16 @@
       <div v-if="recentList.length === 0" class="empty-tip">暂无生成记录</div>
 
       <template v-else>
-        <!-- 关键：合并为单行紧凑布局（统计 chips + 状态筛选 + 视图切换） -->
+        <!-- 关键：单行紧凑布局（状态筛选 + 视图切换） -->
         <div class="recent-toolbar">
-          <!-- 左侧：统计 chips（紧凑版） -->
+          <!-- 左侧：状态筛选 -->
           <div class="recent-stats">
-            <div class="stat-chip stat-chip--success">
-              <el-icon><CircleCheck /></el-icon>
-              <span class="stat-chip__count">{{ recentStats.success }}</span>
-            </div>
-            <div class="stat-chip stat-chip--running">
-              <el-icon class="rotating"><LoadingIcon /></el-icon>
-              <span class="stat-chip__count">{{ recentStats.running }}</span>
-            </div>
-            <div class="stat-chip stat-chip--failed">
-              <el-icon><CircleClose /></el-icon>
-              <span class="stat-chip__count">{{ recentStats.failed }}</span>
-            </div>
+            <el-radio-group v-model="recentFilter" size="small" class="recent-filter-row">
+              <el-radio-button label="all">全部</el-radio-button>
+              <el-radio-button label="success">已完成</el-radio-button>
+              <el-radio-button label="running">进行中</el-radio-button>
+              <el-radio-button label="failed">失败</el-radio-button>
+            </el-radio-group>
           </div>
 
           <!-- 右侧：视图切换（仅图标，更紧凑） -->
@@ -414,13 +408,6 @@
             </el-radio-button>
           </el-radio-group>
         </div>
-        <!-- 关键：状态筛选单独一行（可换行）-->
-        <el-radio-group v-model="recentFilter" size="small" class="recent-filter-row">
-          <el-radio-button label="all">全部</el-radio-button>
-          <el-radio-button label="success">已完成</el-radio-button>
-          <el-radio-button label="running">进行中</el-radio-button>
-          <el-radio-button label="failed">失败</el-radio-button>
-        </el-radio-group>
 
         <!-- 关键：3 种视图模式 -->
         <!-- ============ 时间线视图（默认） ============ -->
@@ -1042,15 +1029,6 @@ const displayedScenes = computed(() => {
     list = list.filter((s) => s.category === sceneCategory.value)
   }
   return list.slice(0, 3)  // 关键：严格取前 3 条
-})
-
-// 关键：按状态分组的统计（顶部 chips）
-const recentStats = computed(() => {
-  const stats = { success: 0, running: 0, failed: 0 }
-  recentList.value.forEach((item) => {
-    if (stats[item.status] !== undefined) stats[item.status]++
-  })
-  return stats
 })
 
 // 关键：先按状态筛选，再按时间分组（今天 / 昨天 / 本周 / 更早）
@@ -2276,60 +2254,16 @@ onMounted(load)
   border-radius: $radius-lg;
 }
 
-// 关键：状态筛选行（独立一行）
+// 关键：状态筛选组（嵌入工具栏内，无需独占一行）
 .recent-filter-row {
   display: flex;
-  margin-bottom: 10px;        // 关键：减少下边距
 }
 
-// 关键：状态统计 chips
+// 关键：状态筛选容器
 .recent-stats {
   display: flex;
   align-items: center;
-  gap: 8px;                   // 关键：减少 gap
-}
-
-.stat-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;            // 关键：减少 padding
-  border-radius: $radius-md;
-  font-size: 12px;
-  font-weight: 600;
-  transition: $transition-base;
-
-  &__count {
-    font-size: 13px;           // 关键：缩小字体
-    font-weight: 700;
-  }
-
-  &__label {
-    font-weight: 500;
-    opacity: 0.85;
-  }
-
-  &--success {
-    color: #16a34a;
-    background: rgba(22, 163, 74, 0.08);
-  }
-  &--running {
-    color: #f59e0b;
-    background: rgba(245, 158, 11, 0.08);
-  }
-  &--failed {
-    color: #dc2626;
-    background: rgba(220, 38, 38, 0.08);
-  }
-}
-
-// 旋转动画（用于进行中状态）
-.rotating {
-  animation: rotate 1.5s linear infinite;
-}
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  gap: 8px;
 }
 
 .recent-controls {
